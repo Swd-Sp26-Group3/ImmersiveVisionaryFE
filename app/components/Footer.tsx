@@ -1,77 +1,87 @@
-import styles from "./Footer.module.css";
+import { Box, Facebook, Linkedin, Twitter } from "lucide-react";
+import Link from "next/link";
 
-const footerLinks = {
-    Platform: ["3D Assets", "Pre-Order", "Custom Projects", "Pricing"],
-    Resources: ["Documentation", "AR Guides", "Blog", "Case Studies"],
-    Company: ["About", "Careers", "Partners", "Contact"],
-    Legal: ["Privacy Policy", "Terms", "Cookies"],
-};
-
-const socialIcons = [
-    {
-        name: "Twitter",
-        href: "#",
-        path: "M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z",
-    },
-    {
-        name: "LinkedIn",
-        href: "#",
-        path: "M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z M4 6a2 2 0 100-4 2 2 0 000 4z",
-    },
-    {
-        name: "Instagram",
-        href: "#",
-        path: "M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37zm1.5-4.87h.01M6.5 6.5h11a2.5 2.5 0 012.5 2.5v7a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 16V9a2.5 2.5 0 012.5-2.5z",
-    },
-];
-
-export default function Footer() {
-    return (
-        <footer className={styles.footer}>
-            <div className={styles.container}>
-                <div className={styles.top}>
-                    {/* Brand */}
-                    <div className={styles.brand}>
-                        <div className={styles.logoRow}>
-                            <div className={styles.logoIcon}>IV</div>
-                            <span className={styles.logoText}>Immersive Visionary</span>
-                        </div>
-                        <p className={styles.brandDesc}>
-                            Professional 3D/AR production studio helping brands create
-                            immersive digital experiences.
-                        </p>
-                        <div className={styles.social}>
-                            {socialIcons.map((icon) => (
-                                <a key={icon.name} href={icon.href} className={styles.socialLink} aria-label={icon.name}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d={icon.path} />
-                                    </svg>
-                                </a>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Links */}
-                    {Object.entries(footerLinks).map(([category, links]) => (
-                        <div key={category} className={styles.linkGroup}>
-                            <h4 className={styles.linkGroupTitle}>{category}</h4>
-                            <ul className={styles.linkList}>
-                                {links.map((link) => (
-                                    <li key={link}>
-                                        <a href="#" className={styles.link}>{link}</a>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    ))}
-                </div>
-
-                <div className={styles.bottom}>
-                    <p className={styles.copyright}>
-                        © 2025 Immersive Visionary. All rights reserved.
-                    </p>
-                </div>
+export function Footer() {
+  return (
+    <footer className="border-t border-purple-500/10 bg-[#0a0e1a]/50">
+      <div className="max-w-8xl mx-auto px-8 md:px-12 lg:px-20 pt-20 pb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="col-span-1 md:col-span-2">
+            <Link href="/" className="flex items-center gap-2 text-lg font-semibold mb-4">
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600">
+                <Box className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-white">Immersive Visionary</span>
+            </Link>
+            <p className="text-gray-400 text-sm mb-4 max-w-sm">
+              Transform your advertising with enterprise-grade 3D modeling and AR production. From concept to immersive reality.
+            </p>
+            <div className="flex gap-3">
+              <a href="#" className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <Twitter className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <Linkedin className="w-4 h-4" />
+              </a>
+              <a href="#" className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <Facebook className="w-4 h-4" />
+              </a>
             </div>
-        </footer>
-    );
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-white mb-4">Quick Links</h3>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link href="/" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                  Home
+                </Link>
+              </li>
+              <li>
+                <Link href="/catalog" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                  Marketplace
+                </Link>
+              </li>
+              <li>
+                <Link href="/login" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                  Login
+                </Link>
+              </li>
+              <li>
+                <Link href="/signup" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                  Sign Up
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-white mb-4">Contact</h3>
+            <ul className="space-y-2 text-sm text-gray-400">
+              <li>hello@immersivevisionary.com</li>
+              <li>+84 28 7300 1234</li>
+              <li>Ho Chi Minh City, Vietnam</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-purple-500/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-gray-400">
+            © 2026 Immersive Visionary. All rights reserved.
+          </p>
+          <div className="flex gap-6 text-sm">
+            <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
+              Privacy Policy
+            </a>
+            <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
+              Terms of Service
+            </a>
+            <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
+              Cookie Policy
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 }
