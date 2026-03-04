@@ -1,122 +1,175 @@
-'use client';
+"use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { Button } from "../components/ui/button";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import Link from "next/link";
+import styles from "./SignIn.module.css";
 
-export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const router = useRouter();
+export default function SignInPage() {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    router.push("/dashboard/customer");
-  };
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsLoading(true);
+        // TODO: connect to auth API
+        await new Promise((r) => setTimeout(r, 1500));
+        setIsLoading(false);
+    };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-[#0a0f1e]">
-      <div className="w-full max-w-[440px]">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Welcome Back</h1>
-          <p className="text-gray-400 text-base">Sign in to your Immersive Visionary account</p>
+    return (
+        <div className={styles.page}>
+            {/* Background glow blobs */}
+            <div className={styles.glowLeft} />
+            <div className={styles.glowRight} />
+
+            {/* Subtle grid overlay */}
+            <div className={styles.gridOverlay} />
+
+            <div className={styles.container}>
+                {/* Logo / Back link */}
+                <Link href="/" className={styles.logoLink}>
+                    <div className={styles.logoIcon}>IV</div>
+                    <span className={styles.logoText}>Immersive Visionary</span>
+                </Link>
+
+                {/* Card */}
+                <div className={styles.card}>
+                    {/* Card glow border accent */}
+                    <div className={styles.cardGlow} />
+
+                    <div className={styles.cardInner}>
+                        {/* Header */}
+                        <div className={styles.header}>
+                            <div className={styles.badge}>
+                                <span className={styles.badgeDot} />
+                                Welcome Back
+                            </div>
+                            <h1 className={styles.title}>Sign In</h1>
+                            <p className={styles.subtitle}>
+                                Enter your credentials to access your workspace
+                            </p>
+                        </div>
+
+                        {/* Social Sign-In */}
+                        <div className={styles.socialGroup}>
+                            <button className={styles.socialBtn} type="button">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05" />
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                </svg>
+                                Continue with Google
+                            </button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className={styles.divider}>
+                            <span className={styles.dividerLine} />
+                            <span className={styles.dividerText}>or sign in with email</span>
+                            <span className={styles.dividerLine} />
+                        </div>
+
+                        {/* Form */}
+                        <form onSubmit={handleSubmit} className={styles.form}>
+                            <div className={styles.field}>
+                                <label htmlFor="email" className={styles.label}>
+                                    Email Address
+                                </label>
+                                <div className={styles.inputWrapper}>
+                                    <span className={styles.inputIcon}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                                            <polyline points="22,6 12,13 2,6" />
+                                        </svg>
+                                    </span>
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        className={styles.input}
+                                        placeholder="you@company.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                        autoComplete="email"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className={styles.field}>
+                                <div className={styles.labelRow}>
+                                    <label htmlFor="password" className={styles.label}>
+                                        Password
+                                    </label>
+                                    <a href="#" className={styles.forgotLink}>Forgot password?</a>
+                                </div>
+                                <div className={styles.inputWrapper}>
+                                    <span className={styles.inputIcon}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                        </svg>
+                                    </span>
+                                    <input
+                                        id="password"
+                                        type={showPassword ? "text" : "password"}
+                                        className={styles.input}
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                        autoComplete="current-password"
+                                    />
+                                    <button
+                                        type="button"
+                                        className={styles.eyeBtn}
+                                        onClick={() => setShowPassword((p) => !p)}
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                    >
+                                        {showPassword ? (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                                                <line x1="1" y1="1" x2="23" y2="23" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                className={`${styles.submitBtn} ${isLoading ? styles.loading : ""}`}
+                                disabled={isLoading}
+                            >
+                                {isLoading ? (
+                                    <span className={styles.spinner} />
+                                ) : (
+                                    "Sign In"
+                                )}
+                            </button>
+                        </form>
+
+                        {/* Footer */}
+                        <p className={styles.footerText}>
+                            Don&apos;t have an account?{" "}
+                            <a href="#" className={styles.footerLink}>Create one free</a>
+                        </p>
+                    </div>
+                </div>
+
+                {/* Bottom note */}
+                <p className={styles.termsText}>
+                    By signing in, you agree to our{" "}
+                    <a href="#" className={styles.termsLink}>Terms of Service</a> and{" "}
+                    <a href="#" className={styles.termsLink}>Privacy Policy</a>
+                </p>
+            </div>
         </div>
-
-        {/* Login Card - Bỏ h-[380px] và m-8 */}
-        <div className="bg-[#161b33]/60 border border-purple-500/20 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
-          
-          {/* Sign In Header - Xóa margin m-8 */}
-          <div className="mb-8">
-            <h2 className="text-white text-2xl font-semibold mb-1">Sign In</h2>
-            <p className="text-gray-400 text-sm italic">Enter your credentials to access your account</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
-                Email Address
-              </Label>
-              <div className="relative">
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-300 text-sm font-medium">
-                Password
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between mt-1">
-              <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer hover:text-gray-300">
-                <input 
-                  type="checkbox" 
-                  className="w-4 h-4 rounded border-gray-700 bg-[#0d1225] text-indigo-600 focus:ring-0" 
-                />
-                <span>Remember me</span>
-              </label>
-              <a href="#" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
-                Forgot password?
-              </a>
-            </div>
-
-            {/* Submit Button */}
-            <Button 
-              type="submit" 
-              className="w-full bg-[#5145fa] hover:bg-[#4338ca] text-white h-11 text-base font-semibold rounded-lg mt-2 transition-all active:scale-[0.98]"
-            >
-              Sign In
-            </Button>
-
-            {/* Footer Sign up */}
-            <div className="text-center text-sm text-gray-400 mt-4">
-              Don't have an account?{" "}
-              <Link href="/signup" className="text-indigo-400 hover:text-indigo-300 font-semibold underline-offset-4 hover:underline">
-                Sign up now
-              </Link>
-            </div>
-          </form>
-        </div>
-
-        {/* Bottom Terms */}
-        <p className="text-center text-[12px] text-gray-500 mt-8 opacity-70">
-          By signing in, you agree to our <span className="underline cursor-pointer">Terms of Service</span> and <span className="underline cursor-pointer">Privacy Policy</span>
-        </p>
-      </div>
-    </div>
-  );
+    );
 }
