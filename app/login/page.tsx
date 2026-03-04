@@ -29,7 +29,7 @@ export default function SignInPage() {
             <div className={styles.container}>
                 {/* Logo / Back link */}
                 <Link href="/" className={styles.logoLink}>
-                    <div className={styles.logoIcon}>IV</div>
+                    <div className={styles.logoIcon}>✦</div>
                     <span className={styles.logoText}>Immersive Visionary</span>
                 </Link>
 

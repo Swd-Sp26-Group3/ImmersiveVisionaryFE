@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 
 const W = "max-w-8xl mx-auto w-full md:px-12 lg:px-20";
 
-export function HomePage() {
+export default function HomePage() {
   const stats = [
     { value: "500+", label: "Projects Completed" },
     { value: "98%", label: "Client Satisfaction" },
