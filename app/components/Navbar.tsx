@@ -22,7 +22,7 @@ export default function Navbar() {
 
                 <ul className={styles.navLinks}>
                     <li><a href="#services">Services</a></li>
-                    <li><a href="#marketplace">Marketplace</a></li>
+                    <li><a href="/marketplace">Marketplace</a></li>
                     <li><a href="#pricing">Pricing</a></li>
                     <li><a href="#case-studies">Case Studies</a></li>
                 </ul>

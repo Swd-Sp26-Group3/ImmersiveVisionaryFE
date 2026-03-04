@@ -15,7 +15,7 @@ export default function SignUpPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/dashboard/customer");
+    router.push("/login");
   };
 
   return (

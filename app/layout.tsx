@@ -24,7 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`} style={{ background: "#090d1f" }}>
         <Header />
-        <main>
+        <main className="pt-16">
           {children}
         </main>
         <Footer />

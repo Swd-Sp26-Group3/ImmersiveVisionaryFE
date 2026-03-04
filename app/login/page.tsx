@@ -2,19 +2,25 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "./SignIn.module.css";
+import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
+    const [errorMessage, setErrorMessage] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        // TODO: connect to auth API
-        await new Promise((r) => setTimeout(r, 1500));
-        setIsLoading(false);
+        if (!email || !password) {
+            setErrorMessage('Vui lòng nhập đầy đủ thông tin');
+            setIsLoading(false);
+            return;
+        }
+        router.push('/homepage');
     };
 
     return (

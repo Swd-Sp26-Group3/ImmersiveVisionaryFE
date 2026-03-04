@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 import Link from "next/link";
 import { Button } from "../components/ui/button";
 
-const W = "max-w-8xl mx-auto w-full md:px-12 lg:px-20";
+const W = "max-w-8xl w-full md:px-12 lg:px-20";
 
 export default function HomePage() {
   const stats = [
@@ -175,11 +175,11 @@ export default function HomePage() {
 
       {/* ── Our Services ── */}
       <section
-        className="py-24 h-[550px]"
+        className="py-24 h-[750px]"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className={W}>
-          <div className="h-[160px] flex flex-col items-center justify-center gap-3">
+          <div className=" flex flex-col items-center justify-center gap-3">
             <h2 className="text-4xl font-bold text-white">
               Our Services
             </h2>
@@ -240,11 +240,11 @@ export default function HomePage() {
 
       {/* ── Production Pipeline ── */}
       <section
-        className="py-24  h-[450px]"
+        className="py-24 "
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className={W}>
-          <div className="h-[160px] flex flex-col items-center justify-center gap-3">
+          <div className="flex flex-col items-center justify-center gap-3">
             <h2 className="text-4xl font-bold text-white mb-5">Production Pipeline</h2>
             <p className="text-base max-w-2xl mx-auto" style={{ color: "#64748b" }}>
               From brief to delivery in 7 streamlined steps
@@ -285,18 +285,18 @@ export default function HomePage() {
 
       {/* ── CTA ── */}
       <section
-        className="py-40"
+        className="py-40 justify-end"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <div className="w-full max-w-7xl px-4 py-4 flex justify-end">
+        <div className="w-full max-w-6xl px-4 py-4 flex justify-end">
           <div
-            className="max-w-5xl ml-auto text-center rounded-2xl px-6 md:px-12 lg:px-16 h-[450px] flex flex-col items-center justify-center"
+            className="text-center rounded-2xl px-6 md:px-12 lg:px-16 h-[450px] w-[750px] flex flex-col items-center justify-center"
             style={{
               background: "linear-gradient(135deg, #3a1fa0 0%, #3730a3 100%)",
               border: "1px solid rgba(139,92,246,0.35)",
             }}
           >
-            <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+            <h2 className="text-4xl font-bold text-white mb-6 px-30">
               Ready to Transform Your Advertising?
             </h2>
 

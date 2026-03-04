@@ -11,7 +11,7 @@ export function Header() {
 
   const navLinks = [
     { name: "Services", path: "/catalog" },
-    { name: "Marketplace", path: "/catalog" },
+    { name: "Marketplace", path: "/marketplace" },
     { name: "Pricing", path: "/catalog" },
     { name: "Case Studies", path: "/" },
   ];
