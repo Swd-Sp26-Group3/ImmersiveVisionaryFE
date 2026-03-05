@@ -304,7 +304,7 @@ export default function HomePage() {
               Join leading brands using 3D/AR to create unforgettable customer experiences
             </p>
 
-            <Link href="/signup">
+            <Link href="/login">
               <Button
                 size="lg"
                 className="font-semibold px-10 py-6 text-base hover:opacity-90 transition"

@@ -10,15 +10,15 @@ export function Header() {
   const pathname = usePathname();
 
   const navLinks = [
-    { name: "Services", path: "/catalog" },
+    { name: "Introduction", path: "/" },
     { name: "Marketplace", path: "/marketplace" },
-    { name: "Pricing", path: "/catalog" },
-    { name: "Case Studies", path: "/" },
+    { name: "Order", path: "/order" },
+    { name: "AI Generator", path: "/ai-custom" },
   ];
 
   return (
     <header
-      className="sticky top-0 z-50 w-full"
+      className="sticky top-0 z-50 w-full border-b border-purple-500/10 bg-[#0f1729]/90 backdrop-blur-lg"
       style={{
         background: "rgba(8,11,20,0.85)",
         backdropFilter: "blur(20px)",

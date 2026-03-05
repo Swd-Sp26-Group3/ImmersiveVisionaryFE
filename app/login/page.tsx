@@ -94,7 +94,7 @@ export default function SignInPage() {
                                         id="email"
                                         type="email"
                                         className={styles.input}
-                                        placeholder="you@company.com"
+                                        placeholder="you@example.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required

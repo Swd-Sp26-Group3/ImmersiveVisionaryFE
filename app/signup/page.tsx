@@ -43,6 +43,7 @@ export default function SignUpPage() {
                 Email Address
               </Label>
               <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="email"
                   type="email"
@@ -61,6 +62,7 @@ export default function SignUpPage() {
                 Password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -86,6 +88,7 @@ export default function SignUpPage() {
                 Confirm password
               </Label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
