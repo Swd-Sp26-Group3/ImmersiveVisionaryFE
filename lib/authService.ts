@@ -36,7 +36,13 @@ export async function login(email: string, password: string): Promise<User> {
         body: JSON.stringify({ email, password }),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        throw new Error("Lỗi kết nối máy chủ (Backend có thể đang tắt).");
+    }
 
     if (!res.ok) {
         throw new Error(
@@ -67,7 +73,13 @@ export async function register(
         body: JSON.stringify({ email, password }),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        throw new Error("Lỗi kết nối máy chủ (Backend có thể đang tắt).");
+    }
 
     if (!res.ok) {
         throw new Error(
