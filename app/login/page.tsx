@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import styles from "./SignIn.module.css";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignInPage() {
     const [email, setEmail] = useState("");
@@ -11,17 +12,27 @@ export default function SignInPage() {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
     const [errorMessage, setErrorMessage] = useState('');
+    const { login } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        setErrorMessage('');
         if (!email || !password) {
             setErrorMessage('Vui lòng nhập đầy đủ thông tin');
-            setIsLoading(false);
             return;
         }
-        router.push('/homepage');
+        setIsLoading(true);
+        try {
+            await login(email, password);
+            router.push('/homepage');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng thử lại.';
+            setErrorMessage(message);
+        } finally {
+            setIsLoading(false);
+        }
     };
+
 
     return (
         <div className={styles.page}>
@@ -148,6 +159,12 @@ export default function SignInPage() {
                                 </div>
                             </div>
 
+                            {errorMessage && (
+                                <p style={{ color: '#f87171', fontSize: '0.875rem', marginTop: '-0.5rem', textAlign: 'center' }}>
+                                    {errorMessage}
+                                </p>
+                            )}
+
                             <button
                                 type="submit"
                                 className={`${styles.submitBtn} ${isLoading ? styles.loading : ""}`}
@@ -160,6 +177,7 @@ export default function SignInPage() {
                                 )}
                             </button>
                         </form>
+
 
                         {/* Footer */}
                         <p className={styles.footerText}>

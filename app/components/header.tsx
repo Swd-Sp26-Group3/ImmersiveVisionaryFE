@@ -1,13 +1,16 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "./ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
 
   const navLinks = [
     { name: "Introduction", path: "/" },
@@ -15,6 +18,11 @@ export function Header() {
     { name: "Order", path: "/order" },
     { name: "AI Generator", path: "/ai-custom" },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/");
+  };
 
   return (
     <header
@@ -56,29 +64,60 @@ export function Header() {
         </nav>
 
         {/* Desktop Auth Buttons */}
-        <div className="hidden md:flex gap-3 flex-1 justify-end">
-          <Link href="/login">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-sm font-medium"
-              style={{ color: "#94a3b8" }}
-            >
-              Sign In
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button
-              size="sm"
-              className="text-white font-semibold text-sm px-5"
-              style={{
-                background: "linear-gradient(135deg, #6d28d9, #4f46e5)",
-                boxShadow: "0 0 16px rgba(109,40,217,0.35)",
-              }}
-            >
-              Get Started
-            </Button>
-          </Link>
+        <div className="hidden md:flex gap-3 flex-1 justify-end items-center">
+          {isAuthenticated ? (
+            <>
+              {/* User info */}
+              <div
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                style={{
+                  background: "rgba(109,40,217,0.15)",
+                  border: "1px solid rgba(139,92,246,0.25)",
+                }}
+              >
+                <User className="w-4 h-4" style={{ color: "#a5b4fc" }} />
+                <span className="text-sm font-medium" style={{ color: "#a5b4fc" }}>
+                  {user?.name ?? user?.email}
+                </span>
+              </div>
+              {/* Logout */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-red-400"
+                style={{ color: "#94a3b8" }}
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm font-medium"
+                  style={{ color: "#94a3b8" }}
+                >
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button
+                  size="sm"
+                  className="text-white font-semibold text-sm px-5"
+                  style={{
+                    background: "linear-gradient(135deg, #6d28d9, #4f46e5)",
+                    boxShadow: "0 0 16px rgba(109,40,217,0.35)",
+                  }}
+                >
+                  Get Started
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -115,20 +154,40 @@ export function Header() {
               className="flex flex-col gap-2 pt-3"
               style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
             >
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="ghost" size="sm" className="w-full" style={{ color: "#94a3b8" }}>
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                <Button
-                  size="sm"
-                  className="w-full text-white"
-                  style={{ background: "linear-gradient(135deg, #6d28d9, #4f46e5)" }}
-                >
-                  Get Started
-                </Button>
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <span className="text-sm px-2" style={{ color: "#a5b4fc" }}>
+                    {user?.name ?? user?.email}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-2"
+                    style={{ color: "#ef4444" }}
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="ghost" size="sm" className="w-full" style={{ color: "#94a3b8" }}>
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <Button
+                      size="sm"
+                      className="w-full text-white"
+                      style={{ background: "linear-gradient(135deg, #6d28d9, #4f46e5)" }}
+                    >
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>
@@ -136,3 +195,5 @@ export function Header() {
     </header>
   );
 }
+
+
