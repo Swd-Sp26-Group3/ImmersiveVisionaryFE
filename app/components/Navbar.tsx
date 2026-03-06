@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
@@ -22,13 +21,13 @@ export default function Navbar() {
 
                 <ul className={styles.navLinks}>
                     <li><a href="#services">Services</a></li>
-                    <li><a href="/marketplace">Marketplace</a></li>
+                    <li><a href="#marketplace">Marketplace</a></li>
                     <li><a href="#pricing">Pricing</a></li>
                     <li><a href="#case-studies">Case Studies</a></li>
                 </ul>
 
                 <div className={styles.navActions}>
-                    <Link href="/sign-in" className={styles.signIn}>Sign In</Link>
+                    <a href="#" className={styles.signIn}>Sign In</a>
                     <a href="#" className={styles.getStarted}>Get Started</a>
                 </div>
             </nav>

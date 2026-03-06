@@ -164,7 +164,7 @@ export default function SignInPage() {
                         {/* Footer */}
                         <p className={styles.footerText}>
                             Don&apos;t have an account?{" "}
-                            <a href="#" className={styles.footerLink}>Create one free</a>
+                            <Link href="/signup" className={styles.footerLink}>Create one free</Link>
                         </p>
                     </div>
                 </div>
