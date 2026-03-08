@@ -76,18 +76,20 @@ export function Header() {
           {isAuthenticated ? (
             <>
               {/* User info */}
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-                style={{
-                  background: "rgba(109,40,217,0.15)",
-                  border: "1px solid rgba(139,92,246,0.25)",
-                }}
-              >
-                <User className="w-4 h-4" style={{ color: "#a5b4fc" }} />
-                <span className="text-sm font-medium" style={{ color: "#a5b4fc" }}>
-                  {user?.name ?? user?.email}
-                </span>
-              </div>
+              <Link href= "/customer-dashboard">
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                  style={{
+                    background: "rgba(109,40,217,0.15)",
+                    border: "1px solid rgba(139,92,246,0.25)",
+                  }}
+                >
+                  <User className="w-4 h-4" style={{ color: "#a5b4fc" }} />
+                  <span className="text-sm font-medium" style={{ color: "#a5b4fc" }}>
+                    {user?.name ?? user?.email}
+                  </span>
+                </div>
+              </Link>
               {/* Logout */}
               <Button
                 variant="ghost"
@@ -148,15 +150,14 @@ export function Header() {
         >
           <nav className="max-w-[1440px] mx-auto w-full px-8 md:px-12 py-4 flex flex-col gap-4">
             {navLinks.map((link) => (
-              <Link
+              <button
                 key={link.name}
-                href={link.path}
                 className="text-sm py-1"
                 style={{ color: "#94a3b8" }}
                 onClick={() => { handleNav(link.path, link.requiresAuth); setMobileMenuOpen(false); }}
               >
                 {link.name}
-              </Link>
+              </button>
             ))}
             <div
               className="flex flex-col gap-2 pt-3"
@@ -164,9 +165,13 @@ export function Header() {
             >
               {isAuthenticated ? (
                 <>
-                  <span className="text-sm px-2" style={{ color: "#a5b4fc" }}>
-                    {user?.name ?? user?.email}
-                  </span>
+                  <Link
+                    href= "/customer-dashboard" 
+                  >
+                    <span className="text-sm px-2" style={{ color: "#a5b4fc" }}>
+                      {user?.name ?? user?.email}
+                    </span>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"
