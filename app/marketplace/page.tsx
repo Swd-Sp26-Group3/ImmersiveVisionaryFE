@@ -7,10 +7,12 @@ import { Button } from "../components/ui/button";
 import { Search, Filter, Eye, Star, Play} from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 const categories = ["All", "Cosmetics", "Fashion", "Food & Beverage", "Electronics", "Home Decor"];
 
-const catalogItems = [
+export const catalogItems = [
   {
     id: "1",
     title: "Luxury Lipstick AR Experience",
@@ -83,11 +85,20 @@ export default function MarketPlacePage() {
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const filteredItems = catalogItems.filter((item) => {
-    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+      const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+      const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+    const { isAuthenticated } = useAuth();
+    const router = useRouter();
+    const handlePurchase = (itemId: string) => {
+      if (!isAuthenticated) {
+        router.push("/login");
+      } else {
+        router.push(`/checkout?itemId=${itemId}`);
+      }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] py-16">
@@ -180,7 +191,7 @@ export default function MarketPlacePage() {
                     </Badge>
                   </div>
                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link href={`/preview/${item.id}`}>
+                    <Link href={`/marketplace/${item.id}`}>
                       <Button size="sm" className="bg-white/90 text-slate-900 hover:bg-white">
                         <Play className="w-4 h-4 mr-1" />
                         Preview
@@ -221,16 +232,18 @@ export default function MarketPlacePage() {
                   <div className="flex items-center justify-between">
                     <span className="text-2xl font-bold text-white">{item.price}</span>
                     <div className="flex gap-2">
-                      <Link href={`/preview/${item.id}`}>
+                      <Link href={`/marketplace/${item.id}`}>
                         <Button size="sm" variant="outline" className="border-blue-500/50">
                           <Eye className="w-4 h-4" />
                         </Button>
                       </Link>
-                      <Link href="/login">
-                        <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600">
-                          Purchase
-                        </Button>
-                      </Link>
+                      <Button 
+                        size="sm" 
+                        onClick={() => handlePurchase(item.id)}
+                        className="bg-gradient-to-r from-blue-600 to-cyan-600"
+                      >
+                        Purchase
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
