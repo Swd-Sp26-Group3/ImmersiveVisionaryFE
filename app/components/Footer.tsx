@@ -1,7 +1,10 @@
+"use client"; 
+import { useAuth } from "@/context/AuthContext";
 import { Box, Facebook, Linkedin, Twitter } from "lucide-react";
 import Link from "next/link";
 
 export function Footer() {
+  const { isAuthenticated } = useAuth();
   return (
     <footer className="border-t border-purple-500/10 bg-[#0a0e1a]/50">
       <div className="max-w-8xl mx-auto px-8 md:px-12 lg:px-20 pt-20 pb-12">
@@ -42,16 +45,21 @@ export function Footer() {
                   Marketplace
                 </Link>
               </li>
-              <li>
-                <Link href="/login" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                  Login
-                </Link>
-              </li>
-              <li>
-                <Link href="/signup" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                  Sign Up
-                </Link>
-              </li>
+              {/* Ẩn khi đã login */}
+              {!isAuthenticated && (
+              <>
+                <li>
+                  <Link href="/login" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                    Login
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/signup" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                    Sign Up
+                  </Link>
+                </li>
+              </>
+              )}
             </ul>
           </div>
 

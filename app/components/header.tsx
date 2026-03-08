@@ -13,11 +13,19 @@ export function Header() {
   const { user, isAuthenticated, logout } = useAuth();
 
   const navLinks = [
-    { name: "Introduction", path: "/" },
-    { name: "Marketplace", path: "/marketplace" },
-    { name: "Order", path: "/order" },
-    { name: "Design Studio", path: "/studio-custom" },
+    { name: "Introduction", path: "/", requiresAuth: false },
+    { name: "Marketplace", path: "/marketplace", requiresAuth: false },
+    { name: "Order", path: "/order", requiresAuth: true },
+    { name: "Design Studio", path: "/studio-custom", requiresAuth: true },
   ];
+
+  const handleNav = (path: string, requiresAuth: boolean) => {
+    if (requiresAuth && !isAuthenticated) {
+      router.push("/login");
+    } else {
+      router.push(path);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -52,14 +60,14 @@ export function Header() {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
-            <Link
+            <button
               key={link.name}
-              href={link.path}
+              onClick={() => handleNav(link.path, link.requiresAuth)}
               className="text-sm transition-colors"
               style={{ color: pathname === link.path ? "#ffffff" : "#94a3b8" }}
             >
               {link.name}
-            </Link>
+            </button>
           ))}
         </nav>
 
@@ -145,7 +153,7 @@ export function Header() {
                 href={link.path}
                 className="text-sm py-1"
                 style={{ color: "#94a3b8" }}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => { handleNav(link.path, link.requiresAuth); setMobileMenuOpen(false); }}
               >
                 {link.name}
               </Link>

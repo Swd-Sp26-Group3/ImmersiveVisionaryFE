@@ -3,10 +3,19 @@ import { ArrowRight, Box, CheckCircle2, Layers, Palette } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import { Button } from "../components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
 
 const W = "max-w-8xl w-full md:px-12 lg:px-20";
 
 export default function HomePage() {
+  const {isAuthenticated} = useAuth();
+  const router = useRouter();
+  
+  const handleNav = (destination: string) => {
+    router.push(isAuthenticated ? destination : "/login");
+  };
+
   const stats = [
     { value: "500+", label: "Projects Completed" },
     { value: "98%", label: "Client Satisfaction" },
@@ -19,21 +28,21 @@ export default function HomePage() {
       title: "Ready-Made Assets",
       description: "Browse and purchase pre-made 3D/AR advertising files. Instant download, ready to deploy.",
       cta: "Browse Marketplace",
-      link: "/catalog",
+      link: "/marketplace",
     },
     {
       icon: <Palette className="w-6 h-6" />,
       title: "Pre-Order Concepts",
       description: "Reserve upcoming 3D content during concept stage. Early access pricing and priority delivery.",
-      cta: "View Concepts",
-      link: "/catalog",
+      cta: "Transfer Your Ideas into 3D Content",
+      link: "/order",
     },
     {
       icon: <Layers className="w-6 h-6" />,
       title: "Custom Production",
       description: "Full-service 3D/AR production from your physical products. Photography to final AR-ready files.",
       cta: "Start Project",
-      link: "/signup",
+      link: "/studio-custom",
     },
   ];
 
@@ -97,19 +106,18 @@ export default function HomePage() {
 
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 mb-16">
-                <Link href="/signup">
-                  <Button
-                    size="lg"
-                    className="text-white font-semibold px-7 text-sm hover:opacity-90 transition-opacity"
-                    style={{
-                      background: "linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%)",
-                      boxShadow: "0 0 28px rgba(109,40,217,0.45)",
-                    }}
-                  >
-                    Start Custom Project
-                  </Button>
-                </Link>
-                <Link href="/catalog">
+                <Button
+                  onClick={() => handleNav("/studio-custom")}
+                  size="lg"
+                  className="text-white font-semibold px-7 text-sm hover:opacity-90 transition-opacity"
+                  style={{
+                    background: "linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%)",
+                    boxShadow: "0 0 28px rgba(109,40,217,0.45)",
+                  }}
+                >
+                  Start Custom Project
+                </Button>
+                <Link href="/marketplace">
                   <Button
                     size="lg"
                     variant="outline"
@@ -122,7 +130,7 @@ export default function HomePage() {
                   >
                     Browse Marketplace
                   </Button>
-                </Link>
+                </Link> 
               </div>
 
               {/* Stats */}
@@ -304,20 +312,19 @@ export default function HomePage() {
               Join leading brands using 3D/AR to create unforgettable customer experiences
             </p>
 
-            <Link href="/login">
-              <Button
-                size="lg"
-                className="font-semibold px-10 py-6 text-base hover:opacity-90 transition"
-                style={{
-                  background: "linear-gradient(135deg, #6d28d9, #4f46e5)",
-                  color: "white",
-                  boxShadow: "0 0 40px rgba(109,40,217,0.45)",
-                }}
-              >
-                Begin Your 3D/AR Journey
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-            </Link>
+            <Button
+              onClick={() => handleNav("/studio-custom")}
+              size="lg"
+              className="font-semibold px-10 py-6 text-base hover:opacity-90 transition"
+              style={{
+                background: "linear-gradient(135deg, #6d28d9, #4f46e5)",
+                color: "white",
+                boxShadow: "0 0 40px rgba(109,40,217,0.45)",
+              }}
+            >
+              Begin Your 3D/AR Journey
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
           </div>
         </div>
       </section>
