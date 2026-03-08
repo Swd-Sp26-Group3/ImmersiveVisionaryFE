@@ -16,7 +16,7 @@ export function Header() {
     { name: "Introduction", path: "/" },
     { name: "Marketplace", path: "/marketplace" },
     { name: "Order", path: "/order" },
-    { name: "AI Generator", path: "/ai-custom" },
+    { name: "Design Studio", path: "/studio-custom" },
   ];
 
   const handleLogout = async () => {

@@ -18,7 +18,7 @@ export default function SignInPage() {
         e.preventDefault();
         setErrorMessage('');
         if (!email || !password) {
-            setErrorMessage('Vui lòng nhập đầy đủ thông tin');
+            setErrorMessage('Tài khoản mail hoặc mật khẩu chưa đúng!!');
             return;
         }
         setIsLoading(true);
