@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
 import { register } from "@/lib/authService";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [userName, setUserName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -22,7 +23,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!email || !password || !confirmPassword) {
+    if (!userName ||!email || !password || !confirmPassword) {
       setErrorMessage("Vui lòng nhập đầy đủ thông tin.");
       return;
     }
@@ -37,7 +38,7 @@ export default function SignUpPage() {
 
     setIsLoading(true);
     try {
-      await register(email, password);
+      await register(email, password, userName);
       router.push("/login");
     } catch (err: unknown) {
       const message =
@@ -66,6 +67,26 @@ export default function SignUpPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+
+            {/* Username Field */}
+            <div className="space-y-2">
+              <Label htmlFor="userName" className="text-gray-300 text-sm font-medium">
+                Username
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  id="userName"
+                  type="text"
+                  placeholder="your_username"
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
+                  required
+                />
+              </div>
+            </div>
+
             {/* Email Field */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300 text-sm font-medium">

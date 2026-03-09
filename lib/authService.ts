@@ -70,12 +70,20 @@ export async function login(email: string, password: string): Promise<User> {
 
 export async function register(
     email: string,
-    password: string
+    password: string,
+    userName?: string
 ): Promise<void> {
     const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+            UserName: userName ?? email.split("@")[0], // tự gen username từ email
+            Email: email,
+            PasswordHash: password,
+            ConfirmPassword: password,
+            Phone: null,
+            CompanyId: null,
+        }),
     });
 
     const text = await res.text();

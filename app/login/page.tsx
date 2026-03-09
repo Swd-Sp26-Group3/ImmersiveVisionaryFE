@@ -24,7 +24,6 @@ export default function SignInPage() {
         setIsLoading(true);
         try {
             await login(email, password);
-            router.push('/homepage');
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng thử lại.';
             setErrorMessage(message);

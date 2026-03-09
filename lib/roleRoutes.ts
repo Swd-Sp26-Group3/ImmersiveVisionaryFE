@@ -1,20 +1,33 @@
-export type Role = 'ADMIN' | 'MANAGER' | 'ARTIST' | 'CUSTOMER' 
+export type Role = 'ADMIN' | 'MANAGER' | 'ARTIST' | 'CUSTOMER'
 
 export const ROLE_HOME_MAP: Record<Role, string> = {
-    ADMIN:    '/dashboard/admin',
-    MANAGER:  '/dashboard/manager',
-    ARTIST:   '/dashboard/artist',
-    CUSTOMER: '/homepage',
+    ADMIN:    '/admin-dashboard',
+    MANAGER:  '/manager-dashboard',
+    ARTIST:   '/artist-dashboard',
+    CUSTOMER: '/customer-dashboard',   
 }
 
-// Các route được phép truy cập theo role
 export const ROLE_ALLOWED_PATHS: Record<Role, string[]> = {
-    ADMIN:    ['/dashboard/admin', '/dashboard'],
-    MANAGER:  ['/dashboard/manager', '/dashboard'],
-    ARTIST:   ['/dashboard/artist'],
-    CUSTOMER: ['/homepage', '/profile', '/products'],
+    ADMIN:    ['/admin-dashboard', '/dashboard'],
+    MANAGER:  ['/manager-dashboard', '/dashboard'],
+    ARTIST:   [
+        '/artist-dashboard',
+        '/marketplace',
+        '/checkout',
+        '/order',
+        '/order-success',
+    ],
+    CUSTOMER: [
+        '/customer-dashboard',
+        '/homepage',
+        '/marketplace',
+        '/checkout',
+        '/order',
+        '/order-success',
+        '/studio-custom',
+    ],
 }
 
 export function getHomeByRole(role: string): string {
-    return ROLE_HOME_MAP[role as Role] ?? '/homepage'
+    return ROLE_HOME_MAP[role as Role] ?? '/customer-dashboard'
 }
