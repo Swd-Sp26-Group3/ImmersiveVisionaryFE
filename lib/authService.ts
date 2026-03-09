@@ -58,7 +58,12 @@ export async function login(email: string, password: string): Promise<User> {
     setTokens(accessToken, refreshToken);
 
     // Persist user info so AuthContext can hydrate from localStorage
-    const userObj: User = user ?? { id: "", email };
+    const userObj: User = 
+    {
+        id: data.user?.userId ?? "",
+        email: data.user?.email ?? email,
+        role: data.user?.role ?? "CUSTOMER",
+    }
     localStorage.setItem("user", JSON.stringify(userObj));
     return userObj;
 }

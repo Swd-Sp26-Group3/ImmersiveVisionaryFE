@@ -6,12 +6,15 @@ import {
     useState,
     ReactNode,
 } from "react";
+
 import {
     User,
     login as apiLogin,
     logout as apiLogout,
     getUserFromStorage,
 } from "@/lib/authService";
+import { getHomeByRole } from "@/lib/roleRoutes";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
     user: User | null;
@@ -26,6 +29,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -40,11 +44,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (email: string, password: string) => {
         const loggedInUser = await apiLogin(email, password);
         setUser(loggedInUser);
+        
+        const destination =  getHomeByRole(loggedInUser.role ?? "CUSTOMER");
+        router.push(destination);
     };
 
     const logout = async () => {
         await apiLogout();
         setUser(null);
+        router.push("/login");
     };
 
     return (
