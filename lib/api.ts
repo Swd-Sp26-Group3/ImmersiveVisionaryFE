@@ -11,11 +11,19 @@ function getRefreshToken(): string | null {
 }
 
 export function setTokens(accessToken: string, refreshToken: string) {
+    //Lưu cookie để middleware đọc được (sever-side)
+    document.cookie = `accessToken=${accessToken}; path=/; max-age=60; SameSite=Strict`;
+    document.cookie = `refreshToken=${refreshToken}; path=/; max-age=${7 * 24 * 3600}; SameSite=Strict`;
+    //Vẫn giữ localStorage cho client-side dùng
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("refreshToken", refreshToken);
 }
 
 export function clearTokens() {
+    // Xóa cookie
+    document.cookie = "accessToken=; path=/; max-age=0";
+    document.cookie = "refreshToken=; path=/; max-age=0";
+    // Xóa localStorage
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
