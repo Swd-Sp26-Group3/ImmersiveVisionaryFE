@@ -25,7 +25,11 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
+const clearTokens = () => {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("user");
+    // xóa thêm cookie nếu cần
+};
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +43,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(savedUser);
         }
         setIsLoading(false);
+
+        const interval = setInterval(() => {
+            const cookieToken = document.cookie
+                .split("; ")
+                .find(r => r.startsWith("accessToken="))
+                ?.split("=")[1];
+            
+            const localToken = localStorage.getItem("accessToken");
+            
+            // Nếu cookie bị xóa (đã logout từ tab khác), clear hết
+            if (!cookieToken && localToken) {
+                clearTokens();
+                setUser(null);
+            }
+        }, 30_000);
+
+    return () => clearInterval(interval);
     }, []);
 
     const login = async (email: string, password: string) => {
