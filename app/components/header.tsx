@@ -29,7 +29,6 @@ export function Header() {
 
   const handleLogout = async () => {
     await logout();
-    router.push("/");
   };
 
   return (

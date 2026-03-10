@@ -34,7 +34,10 @@ export function clearTokens() {
 
 async function refreshAccessToken(): Promise<string | null> {
     const refreshToken = getRefreshToken();
-    if (!refreshToken) return null;
+    if (!refreshToken) {
+        redirectToLogin();
+        return null;
+    }
 
     try {
         const res = await fetch(`${BASE_URL}/auth/refresh-token`, {
@@ -44,6 +47,7 @@ async function refreshAccessToken(): Promise<string | null> {
         });
         if (!res.ok) {
             clearTokens();
+            redirectToLogin
             return null;
         }
         const data = await res.json();
@@ -53,13 +57,20 @@ async function refreshAccessToken(): Promise<string | null> {
             setTokens(newAccessToken, newRefreshToken);
             return newAccessToken;
         }
+        redirectToLogin();
         return null;
     } catch {
         clearTokens();
+        redirectToLogin();
         return null;
     }
 }
 
+function redirectToLogin() {
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+    }
+}
 export async function apiFetch(
     endpoint: string,
     options: RequestInit = {},
