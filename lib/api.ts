@@ -10,10 +10,13 @@ function getRefreshToken(): string | null {
     return localStorage.getItem("refreshToken");
 }
 
+const ACCESS_TOKEN_MAX_AGE = 15 * 60        // 900 giây = 15 phút
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 3600 // 604800 giây = 7 ngày
+
 export function setTokens(accessToken: string, refreshToken: string) {
     //Lưu cookie để middleware đọc được (sever-side)
-    document.cookie = `accessToken=${accessToken}; path=/; max-age=60; SameSite=Strict`;
-    document.cookie = `refreshToken=${refreshToken}; path=/; max-age=${7 * 24 * 3600}; SameSite=Strict`;
+    document.cookie = `accessToken=${accessToken}; path=/; max-age=${ACCESS_TOKEN_MAX_AGE}; SameSite=Strict`;
+    document.cookie = `refreshToken=${refreshToken}; path=/; max-age=${REFRESH_TOKEN_MAX_AGE}; SameSite=Strict`;
     //Vẫn giữ localStorage cho client-side dùng
     localStorage.setItem("accessToken", accessToken);
     localStorage.setItem("refreshToken", refreshToken);
