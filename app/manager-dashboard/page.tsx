@@ -56,12 +56,15 @@ const MOCK_ORDERS = [
   { id: "ORD-005", title: "Furniture Placement AR", company: "IKEA VN", status: "NEW", assignedTo: null, createdAt: "2026-03-02" },
 ];
 
-const MOCK_ARTISTS = [
-  { id: 1, name: "John D.", specialty: "3D Modeling", activeOrders: 2 },
-  { id: 2, name: "Sarah M.", specialty: "AR/VR", activeOrders: 1 },
-  { id: 3, name: "Mike R.", specialty: "Post-Production", activeOrders: 3 },
-  { id: 4, name: "Emma L.", specialty: "3D Animation", activeOrders: 1 },
-];
+// Artist interface — mapped từ GET /users (filter RoleName === "ARTIST")
+interface Artist {
+  UserId: number;
+  UserName: string;
+  Email: string | null;
+  Phone: string | null;
+  RoleName: string;
+  IsActive: boolean;
+}
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   NEW: { label: "New", color: "bg-yellow-600" },
@@ -494,10 +497,12 @@ function ProductModal({
 // ===================== MODAL: Assign Task =====================
 function AssignTaskModal({
   order,
+  artists,
   onClose,
   onAssigned,
 }: {
   order: (typeof MOCK_ORDERS)[0];
+  artists: Artist[];
   onClose: () => void;
   onAssigned: (orderId: string, artistName: string) => void;
 }) {
@@ -508,9 +513,9 @@ function AssignTaskModal({
   const handleAssign = async () => {
     if (!selectedArtist) return;
     setAssigning(true);
-    const artist = MOCK_ARTISTS.find((a) => a.id === selectedArtist)!;
+    const artist = artists.find((a) => a.UserId === selectedArtist)!;
     await new Promise((r) => setTimeout(r, 800));
-    onAssigned(order.id, artist.name);
+    onAssigned(order.id, artist.UserName);
     setAssigning(false);
   };
 
@@ -531,27 +536,34 @@ function AssignTaskModal({
           </div>
           <div className="space-y-3">
             <Label className="text-white">Select Artist *</Label>
-            <div className="space-y-2">
-              {MOCK_ARTISTS.map((artist) => (
+            {artists.length === 0 ? (
+              <div className="flex items-center gap-2 text-yellow-400 text-sm bg-yellow-400/10 rounded-lg px-3 py-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                No artists available.
+              </div>
+            ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              {artists.map((artist) => (
                 <button
-                  key={artist.id}
-                  onClick={() => setSelectedArtist(artist.id)}
+                  key={artist.UserId}
+                  onClick={() => setSelectedArtist(artist.UserId)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                    selectedArtist === artist.id
+                    selectedArtist === artist.UserId
                       ? "border-cyan-500 bg-cyan-500/10"
                       : "border-slate-700 hover:border-slate-500"
                   }`}
                 >
                   <div>
-                    <p className="text-white font-medium">{artist.name}</p>
-                    <p className="text-slate-400 text-xs">{artist.specialty}</p>
+                    <p className="text-white font-medium">{artist.UserName}</p>
+                    <p className="text-slate-400 text-xs">{artist.Email ?? "No email"}</p>
                   </div>
-                  <Badge className="bg-slate-700 text-slate-300 text-xs">
-                    {artist.activeOrders} active
+                  <Badge className={artist.IsActive ? "bg-green-700 text-green-100 text-xs" : "bg-slate-600 text-slate-300 text-xs"}>
+                    {artist.IsActive ? "Active" : "Inactive"}
                   </Badge>
                 </button>
               ))}
             </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label className="text-white">Instructions / Note</Label>
@@ -599,6 +611,11 @@ export default function ManagerDashboard() {
   const [companiesError, setCompaniesError] = useState("");
   const [companyModal, setCompanyModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
 
+  // --- Artist/Team state ---
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [artistsLoading, setArtistsLoading] = useState(true);
+  const [artistsError, setArtistsError] = useState("");
+
   // --- Order state ---
   const [orders, setOrders] = useState(MOCK_ORDERS);
   const [assignModal, setAssignModal] = useState<(typeof MOCK_ORDERS)[0] | null>(null);
@@ -625,9 +642,24 @@ export default function ManagerDashboard() {
       .finally(() => setCompaniesLoading(false));
   };
 
+  const fetchArtists = () => {
+    setArtistsLoading(true);
+    setArtistsError("");
+    apiFetch("/users")
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((data) => {
+        const all: Artist[] = data.data ?? data;
+        // Filter chỉ lấy user có role ARTIST
+        setArtists(all.filter((u) => u.RoleName === "ARTIST"));
+      })
+      .catch(() => setArtistsError("Cannot load artists."))
+      .finally(() => setArtistsLoading(false));
+  };
+
   useEffect(() => {
     fetchCatalog();
     fetchCompanies();
+    fetchArtists();
   }, []);
 
   const handleDeleteProduct = async (productId: number) => {
@@ -686,7 +718,7 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid md:grid-cols-5 gap-4 mb-8">
           <Card className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-blue-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -732,6 +764,21 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
 
+          <Card className="bg-gradient-to-br from-pink-600/20 to-rose-600/20 border-pink-500/30">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm text-gray-300">Artists</CardTitle>
+                <Users className="w-5 h-5 text-pink-400" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-white">{artists.length}</div>
+              <p className="text-xs text-pink-400 mt-1">
+                {artists.filter((a) => a.IsActive).length} active
+              </p>
+            </CardContent>
+          </Card>
+
           <Card className="bg-gradient-to-br from-yellow-600/20 to-orange-600/20 border-yellow-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -748,11 +795,17 @@ export default function ManagerDashboard() {
 
         {/* Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="bg-slate-800/50">
-            <TabsTrigger value="overview">
+          <TabsList className="bg-slate-800/50 p-1">
+            <TabsTrigger
+              value="overview"
+              className="relative text-slate-400 hover:text-white transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-600/40 hover:to-blue-600/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25"
+            >
               <BarChart3 className="w-4 h-4 mr-2" />Overview
             </TabsTrigger>
-            <TabsTrigger value="orders">
+            <TabsTrigger
+              value="orders"
+              className="relative text-slate-400 hover:text-white transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-600/40 hover:to-blue-600/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25"
+            >
               <Package className="w-4 h-4 mr-2" />Orders
               {orders.filter((o) => o.status === "NEW").length > 0 && (
                 <span className="ml-2 bg-yellow-500 text-black text-xs rounded-full px-1.5 py-0.5 font-bold">
@@ -760,13 +813,22 @@ export default function ManagerDashboard() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="companies">
+            <TabsTrigger
+              value="companies"
+              className="relative text-slate-400 hover:text-white transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-600/40 hover:to-blue-600/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25"
+            >
               <Building2 className="w-4 h-4 mr-2" />Companies
             </TabsTrigger>
-            <TabsTrigger value="catalog">
+            <TabsTrigger
+              value="catalog"
+              className="relative text-slate-400 hover:text-white transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-600/40 hover:to-blue-600/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25"
+            >
               <Settings className="w-4 h-4 mr-2" />Catalog
             </TabsTrigger>
-            <TabsTrigger value="team">
+            <TabsTrigger
+              value="team"
+              className="relative text-slate-400 hover:text-white transition-all duration-200 hover:bg-gradient-to-r hover:from-purple-600/40 hover:to-blue-600/40 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-purple-500/25"
+            >
               <Users className="w-4 h-4 mr-2" />Team
             </TabsTrigger>
           </TabsList>
@@ -1160,32 +1222,59 @@ export default function ManagerDashboard() {
           <TabsContent value="team">
             <Card className="bg-slate-800/50 border-blue-500/20">
               <CardHeader>
-                <CardTitle className="text-white">Team Performance</CardTitle>
-                <CardDescription className="text-gray-400">Artist workload and metrics</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Team — Artists</CardTitle>
+                    <CardDescription className="text-gray-400">All users with role ARTIST</CardDescription>
+                  </div>
+                  <Button
+                    onClick={fetchArtists}
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-600 text-slate-300"
+                    disabled={artistsLoading}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${artistsLoading ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {MOCK_ARTISTS.map((artist) => (
-                  <div key={artist.id} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
-                        {artist.name.charAt(0)}
+                {artistsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                  </div>
+                ) : artistsError ? (
+                  <div className="flex flex-col items-center py-12 gap-3">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                    <p className="text-red-400">{artistsError}</p>
+                    <Button onClick={fetchArtists} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
+                  </div>
+                ) : artists.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">No artists found.</p>
+                  </div>
+                ) : (
+                  artists.map((artist) => (
+                    <div key={artist.UserId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
+                          {artist.UserName.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-white font-medium">{artist.UserName}</p>
+                          <p className="text-slate-400 text-sm">{artist.Email ?? "No email"}</p>
+                          {artist.Phone && (
+                            <p className="text-slate-500 text-xs">{artist.Phone}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-white font-medium">{artist.name}</p>
-                        <p className="text-slate-400 text-sm">{artist.specialty}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-white font-bold">{artist.activeOrders}</p>
-                        <p className="text-slate-400 text-xs">active orders</p>
-                      </div>
-                      <Badge className={artist.activeOrders <= 2 ? "bg-green-600" : "bg-yellow-600"}>
-                        {artist.activeOrders <= 2 ? "Available" : "Busy"}
+                      <Badge className={artist.IsActive ? "bg-green-600" : "bg-slate-600"}>
+                        {artist.IsActive ? "Active" : "Inactive"}
                       </Badge>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1220,6 +1309,7 @@ export default function ManagerDashboard() {
       {assignModal && (
         <AssignTaskModal
           order={assignModal}
+          artists={artists}
           onClose={() => setAssignModal(null)}
           onAssigned={handleAssigned}
         />
