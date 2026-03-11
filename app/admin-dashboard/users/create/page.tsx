@@ -339,19 +339,6 @@ export default function CreateUserPage() {
             {loading ? "Creating..." : `Create ${form.selectedRole} Account`}
           </button>
         </div>
-
-        {/* API info */}
-        <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-700/50 text-xs space-y-1">
-          <p className="text-slate-500 font-medium">Flow:</p>
-          <p className="text-slate-400 font-mono">1. POST /api/auth/register → creates user (CUSTOMER)</p>
-          <p className="text-slate-400 font-mono">
-            2. {form.selectedRole === "SELLER"
-              ? "POST /api/users/:id/approve → sets SELLER role ✅"
-              : form.selectedRole === "CUSTOMER"
-              ? "Done — CUSTOMER is default ✅"
-              : `PUT /api/users/:id/role → sets ${form.selectedRole} ⚠️ (BE needs this endpoint)`}
-          </p>
-        </div>
       </div>
     </div>
   );
