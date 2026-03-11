@@ -13,15 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Settings, Download, Plus, Edit, Trash2, Loader2,
-  AlertCircle, CheckCircle2, Clock, Eye, UserCheck,
-  X, Save, RefreshCw
+  AlertCircle, CheckCircle2, Eye, UserCheck,
+  X, Save, RefreshCw, Building2,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-// ✅ Interfaces khớp với BE productService
+// ===================== Interfaces =====================
 interface Product {
   ProductId: number;
   ProductName: string;
@@ -34,7 +34,20 @@ interface Product {
   UpdatedAt: string | null;
 }
 
-// Mock orders — thay bằng API /api/orders khi BE có
+interface Company {
+  CompanyId: number;
+  CompanyName: string;
+  Address: string | null;
+  Email: string | null;
+  Phone: string | null;
+  Website: string | null;
+  CompanyType: "BRAND" | "AGENCY" | "STUDIO" | "SELLER" | null;
+  Status: "ACTIVE" | "INACTIVE" | "SUSPENDED" | null;
+  CreatedAt: string;
+  UpdatedAt: string | null;
+}
+
+// Mock data
 const MOCK_ORDERS = [
   { id: "ORD-001", title: "Luxury Perfume AR Campaign", company: "Chanel VN", status: "NEW", assignedTo: null, createdAt: "2026-03-01" },
   { id: "ORD-002", title: "Fashion Collection Showcase", company: "Zara SEA", status: "IN_PRODUCTION", assignedTo: "John D.", createdAt: "2026-02-28" },
@@ -50,7 +63,6 @@ const MOCK_ARTISTS = [
   { id: 4, name: "Emma L.", specialty: "3D Animation", activeOrders: 1 },
 ];
 
-// Status badge config
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   NEW: { label: "New", color: "bg-yellow-600" },
   IN_PRODUCTION: { label: "In Production", color: "bg-blue-600" },
@@ -60,29 +72,236 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: "Cancelled", color: "bg-red-600" },
 };
 
-// ==================== MODAL: Add/Edit Product ====================
+const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  ACTIVE: { label: "Active", color: "bg-green-600" },
+  INACTIVE: { label: "Inactive", color: "bg-slate-600" },
+  SUSPENDED: { label: "Suspended", color: "bg-red-600" },
+};
+
+// ===================== MODAL: Company =====================
+function CompanyModal({
+  company,
+  onClose,
+  onSave,
+}: {
+  company: Company | null;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const isEdit = !!company;
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    CompanyName: company?.CompanyName ?? "",
+    Address: company?.Address ?? "",
+    Email: company?.Email ?? "",
+    Phone: company?.Phone ?? "",
+    Website: company?.Website ?? "",
+    CompanyType: company?.CompanyType ?? "",
+    Status: company?.Status ?? "ACTIVE",
+  });
+
+  const update = (key: keyof typeof form, value: string) =>
+    setForm((p) => ({ ...p, [key]: value }));
+
+  const handleSave = async () => {
+    if (!form.CompanyName.trim()) {
+      setError("Company name is required.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        CompanyName: form.CompanyName,
+        Address: form.Address || null,
+        Email: form.Email || null,
+        Phone: form.Phone || null,
+        Website: form.Website || null,
+        CompanyType: form.CompanyType || null,
+        Status: form.Status || null,
+      };
+
+      if (isEdit) {
+        const res = await apiFetch(`/companies/${company!.CompanyId}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      } else {
+        const res = await apiFetch("/companies", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error((await res.json()).message);
+      }
+      onSave();
+    } catch (err: any) {
+      setError(err.message ?? "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-blue-500/30 rounded-2xl w-full max-w-lg shadow-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h2 className="text-white font-bold text-lg">
+            {isEdit ? "Edit Company" : "Add New Company"}
+          </h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Company Name */}
+          <div className="space-y-2">
+            <Label className="text-white">Company Name *</Label>
+            <Input
+              value={form.CompanyName}
+              onChange={(e) => update("CompanyName", e.target.value)}
+              placeholder="e.g., Chanel Vietnam"
+              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          {/* Type & Status */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-white">Company Type</Label>
+              <Select value={form.CompanyType} onValueChange={(v) => update("CompanyType", v)}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  {["BRAND", "AGENCY", "STUDIO", "SELLER"].map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white">Status</Label>
+              <Select value={form.Status} onValueChange={(v) => update("Status", v)}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  {["ACTIVE", "INACTIVE", "SUSPENDED"].map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Email & Phone */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label className="text-white">Email</Label>
+              <Input
+                type="email"
+                value={form.Email}
+                onChange={(e) => update("Email", e.target.value)}
+                placeholder="contact@company.com"
+                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-white">Phone</Label>
+              <Input
+                value={form.Phone}
+                onChange={(e) => update("Phone", e.target.value)}
+                placeholder="+84 xxx xxx xxx"
+                className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+              />
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="space-y-2">
+            <Label className="text-white">Address</Label>
+            <Input
+              value={form.Address}
+              onChange={(e) => update("Address", e.target.value)}
+              placeholder="123 Main Street, HCMC"
+              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          {/* Website */}
+          <div className="space-y-2">
+            <Label className="text-white">Website</Label>
+            <Input
+              value={form.Website}
+              onChange={(e) => update("Website", e.target.value)}
+              placeholder="https://company.com"
+              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+            />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 p-6 border-t border-slate-700">
+          <Button onClick={onClose} variant="outline" className="flex-1 border-slate-600 text-slate-300">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+            {isEdit ? "Save Changes" : "Add Company"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== MODAL: Product (với Company dropdown từ API) =====================
 function ProductModal({
   product,
   onClose,
   onSave,
 }: {
-  product: Product | null; // null = add new
+  product: Product | null;
   onClose: () => void;
   onSave: () => void;
 }) {
   const isEdit = !!product;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Load companies để chọn CompanyId
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+
   const [form, setForm] = useState({
     ProductName: product?.ProductName ?? "",
     Description: product?.Description ?? "",
     Category: product?.Category ?? "",
     SizeInfo: product?.SizeInfo ?? "",
     ColorInfo: product?.ColorInfo ?? "",
-    CompanyId: product?.CompanyId ?? 1,
+    CompanyId: product?.CompanyId ? String(product.CompanyId) : "",
   });
 
-  const update = (key: keyof typeof form, value: string | number) =>
+  useEffect(() => {
+    apiFetch("/companies")
+      .then((res) => res.json())
+      .then((data) => setCompanies(data.data ?? data))
+      .catch(() => setCompanies([]))
+      .finally(() => setCompaniesLoading(false));
+  }, []);
+
+  const update = (key: keyof typeof form, value: string) =>
     setForm((p) => ({ ...p, [key]: value }));
 
   const handleSave = async () => {
@@ -90,11 +309,14 @@ function ProductModal({
       setError("Product name is required.");
       return;
     }
+    if (!isEdit && !form.CompanyId) {
+      setError("Please select a company.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
       if (isEdit) {
-        // ✅ PUT /api/products/:id
         const res = await apiFetch(`/products/${product!.ProductId}`, {
           method: "PUT",
           body: JSON.stringify({
@@ -107,11 +329,10 @@ function ProductModal({
         });
         if (!res.ok) throw new Error((await res.json()).message);
       } else {
-        // ✅ POST /api/products
         const res = await apiFetch("/products", {
           method: "POST",
           body: JSON.stringify({
-            CompanyId: form.CompanyId,
+            CompanyId: Number(form.CompanyId),
             ProductName: form.ProductName,
             Description: form.Description || null,
             Category: form.Category || null,
@@ -141,6 +362,54 @@ function ProductModal({
           </button>
         </div>
         <div className="p-6 space-y-4">
+          {/* Company Selection — chỉ hiện khi tạo mới */}
+          {!isEdit && (
+            <div className="space-y-2">
+              <Label className="text-white">Company *</Label>
+              {companiesLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading companies...
+                </div>
+              ) : companies.length === 0 ? (
+                <div className="flex items-center gap-2 text-yellow-400 text-sm bg-yellow-400/10 rounded-lg px-3 py-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  No companies found. Please create a company first.
+                </div>
+              ) : (
+                <Select value={form.CompanyId} onValueChange={(v) => update("CompanyId", v)}>
+                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                    <SelectValue placeholder="Select company" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {companies
+                      .filter((c) => c.Status === "ACTIVE" || c.Status === null)
+                      .map((c) => (
+                        <SelectItem key={c.CompanyId} value={String(c.CompanyId)}>
+                          <div className="flex items-center gap-2">
+                            <span>{c.CompanyName}</span>
+                            {c.CompanyType && (
+                              <span className="text-xs text-slate-400">({c.CompanyType})</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
+          {/* Edit mode: hiển thị company hiện tại (read-only) */}
+          {isEdit && (
+            <div className="space-y-2">
+              <Label className="text-white">Company</Label>
+              <div className="bg-slate-900/60 border border-slate-700 rounded-md px-3 py-2 text-slate-400 text-sm">
+                Company ID: {product?.CompanyId} — (không thể thay đổi)
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label className="text-white">Product Name *</Label>
             <Input
@@ -150,6 +419,7 @@ function ProductModal({
               className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
             />
           </div>
+
           <div className="space-y-2">
             <Label className="text-white">Category</Label>
             <Select value={form.Category} onValueChange={(v) => update("Category", v)}>
@@ -163,6 +433,7 @@ function ProductModal({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
             <Label className="text-white">Description</Label>
             <Textarea
@@ -173,6 +444,7 @@ function ProductModal({
               className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label className="text-white">Size Info</Label>
@@ -193,6 +465,7 @@ function ProductModal({
               />
             </div>
           </div>
+
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -206,7 +479,7 @@ function ProductModal({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || (!isEdit && companiesLoading)}
             className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
@@ -218,7 +491,7 @@ function ProductModal({
   );
 }
 
-// ==================== MODAL: Assign Task ====================
+// ===================== MODAL: Assign Task =====================
 function AssignTaskModal({
   order,
   onClose,
@@ -236,14 +509,6 @@ function AssignTaskModal({
     if (!selectedArtist) return;
     setAssigning(true);
     const artist = MOCK_ARTISTS.find((a) => a.id === selectedArtist)!;
-
-    // Khi BE có /api/orders/:id/assign:
-    // await apiFetch(`/orders/${order.id}/assign`, {
-    //   method: "POST",
-    //   body: JSON.stringify({ artistId: selectedArtist, note }),
-    // });
-
-    // Mock delay
     await new Promise((r) => setTimeout(r, 800));
     onAssigned(order.id, artist.name);
     setAssigning(false);
@@ -259,14 +524,11 @@ function AssignTaskModal({
           </button>
         </div>
         <div className="p-6 space-y-5">
-          {/* Order info */}
           <div className="bg-slate-900/60 rounded-lg p-4 border border-slate-700">
             <p className="text-xs text-slate-400 mb-1">Order</p>
             <p className="text-white font-medium">{order.title}</p>
             <p className="text-slate-400 text-sm">{order.id} • {order.company}</p>
           </div>
-
-          {/* Artist selection */}
           <div className="space-y-3">
             <Label className="text-white">Select Artist *</Label>
             <div className="space-y-2">
@@ -291,14 +553,12 @@ function AssignTaskModal({
               ))}
             </div>
           </div>
-
-          {/* Note */}
           <div className="space-y-2">
             <Label className="text-white">Instructions / Note</Label>
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Upload guide or special instructions for the artist..."
+              placeholder="Special instructions for the artist..."
               rows={3}
               className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
             />
@@ -313,11 +573,7 @@ function AssignTaskModal({
             disabled={!selectedArtist || assigning}
             className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
           >
-            {assigning ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <UserCheck className="w-4 h-4 mr-2" />
-            )}
+            {assigning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserCheck className="w-4 h-4 mr-2" />}
             Assign Task
           </Button>
         </div>
@@ -326,49 +582,59 @@ function AssignTaskModal({
   );
 }
 
-// ==================== MAIN PAGE ====================
+// ===================== MAIN PAGE =====================
 export default function ManagerDashboard() {
   const router = useRouter();
 
-  // --- Catalog state ---
+  // --- Product state ---
   const [products, setProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
-  const [productModal, setProductModal] = useState<{ open: boolean; product: Product | null }>({
-    open: false,
-    product: null,
-  });
+  const [productModal, setProductModal] = useState<{ open: boolean; product: Product | null }>({ open: false, product: null });
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // --- Company state ---
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [companiesError, setCompaniesError] = useState("");
+  const [companyModal, setCompanyModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
 
   // --- Order state ---
   const [orders, setOrders] = useState(MOCK_ORDERS);
   const [assignModal, setAssignModal] = useState<(typeof MOCK_ORDERS)[0] | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  // ✅ Fetch catalog từ API thật
+  // --- Fetch ---
   const fetchCatalog = () => {
     setCatalogLoading(true);
     setCatalogError("");
-    apiFetch("/products") // GET /api/products
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-      })
+    apiFetch("/products")
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
       .then((data) => setProducts(data.data ?? data))
       .catch(() => setCatalogError("Cannot load catalog."))
       .finally(() => setCatalogLoading(false));
   };
 
+  const fetchCompanies = () => {
+    setCompaniesLoading(true);
+    setCompaniesError("");
+    apiFetch("/companies")
+      .then((res) => { if (!res.ok) throw new Error("Failed"); return res.json(); })
+      .then((data) => setCompanies(data.data ?? data))
+      .catch(() => setCompaniesError("Cannot load companies."))
+      .finally(() => setCompaniesLoading(false));
+  };
+
   useEffect(() => {
     fetchCatalog();
+    fetchCompanies();
   }, []);
 
-  // ✅ Delete product
   const handleDeleteProduct = async (productId: number) => {
     if (!confirm("Delete this product?")) return;
     setDeletingId(productId);
     try {
-      const res = await apiFetch(`/products/${productId}`, { method: "DELETE" }); // DELETE /api/products/:id
+      const res = await apiFetch(`/products/${productId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       setProducts((prev) => prev.filter((p) => p.ProductId !== productId));
     } catch {
@@ -378,12 +644,9 @@ export default function ManagerDashboard() {
     }
   };
 
-  // Handle assign task
   const handleAssigned = (orderId: string, artistName: string) => {
     setOrders((prev) =>
-      prev.map((o) =>
-        o.id === orderId ? { ...o, assignedTo: artistName, status: "IN_PRODUCTION" } : o
-      )
+      prev.map((o) => o.id === orderId ? { ...o, assignedTo: artistName, status: "IN_PRODUCTION" } : o)
     );
     setAssignModal(null);
   };
@@ -418,7 +681,7 @@ export default function ManagerDashboard() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Manager Dashboard</h1>
-            <p className="text-gray-400">Monitor performance, manage catalog, and assign tasks</p>
+            <p className="text-gray-400">Monitor performance, manage catalog, companies, and assign tasks</p>
           </div>
         </div>
 
@@ -457,13 +720,15 @@ export default function ManagerDashboard() {
           <Card className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm text-gray-300">Artists</CardTitle>
-                <Users className="w-5 h-5 text-purple-400" />
+                <CardTitle className="text-sm text-gray-300">Companies</CardTitle>
+                <Building2 className="w-5 h-5 text-purple-400" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">{MOCK_ARTISTS.length}</div>
-              <p className="text-xs text-purple-400 mt-1">Available team members</p>
+              <div className="text-3xl font-bold text-white">{companies.length}</div>
+              <p className="text-xs text-purple-400 mt-1">
+                {companies.filter((c) => c.Status === "ACTIVE").length} active
+              </p>
             </CardContent>
           </Card>
 
@@ -485,29 +750,28 @@ export default function ManagerDashboard() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="bg-slate-800/50">
             <TabsTrigger value="overview">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Overview
+              <BarChart3 className="w-4 h-4 mr-2" />Overview
             </TabsTrigger>
             <TabsTrigger value="orders">
-              <Package className="w-4 h-4 mr-2" />
-              Orders
+              <Package className="w-4 h-4 mr-2" />Orders
               {orders.filter((o) => o.status === "NEW").length > 0 && (
                 <span className="ml-2 bg-yellow-500 text-black text-xs rounded-full px-1.5 py-0.5 font-bold">
                   {orders.filter((o) => o.status === "NEW").length}
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="companies">
+              <Building2 className="w-4 h-4 mr-2" />Companies
+            </TabsTrigger>
             <TabsTrigger value="catalog">
-              <Settings className="w-4 h-4 mr-2" />
-              Catalog
+              <Settings className="w-4 h-4 mr-2" />Catalog
             </TabsTrigger>
             <TabsTrigger value="team">
-              <Users className="w-4 h-4 mr-2" />
-              Team
+              <Users className="w-4 h-4 mr-2" />Team
             </TabsTrigger>
           </TabsList>
 
-          {/* ===================== TAB: OVERVIEW ===================== */}
+          {/* ===== TAB: OVERVIEW ===== */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
@@ -536,7 +800,8 @@ export default function ManagerDashboard() {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
-                      <Pie data={orderStatusData} cx="50%" cy="50%"
+                      <Pie
+                        data={orderStatusData} cx="50%" cy="50%"
                         labelLine={false}
                         label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                         outerRadius={80} dataKey="value"
@@ -556,7 +821,7 @@ export default function ManagerDashboard() {
               <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
                 <CardHeader>
                   <CardTitle className="text-white">Catalog by Category</CardTitle>
-                  <CardDescription className="text-gray-400">Products per category (from live data)</CardDescription>
+                  <CardDescription className="text-gray-400">Products per category (live data)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={250}>
@@ -573,9 +838,7 @@ export default function ManagerDashboard() {
             )}
 
             <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
-              <CardHeader>
-                <CardTitle className="text-white">Export Reports</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-white">Export Reports</CardTitle></CardHeader>
               <CardContent className="flex flex-wrap gap-3">
                 <Button variant="outline" className="border-blue-500/50 text-slate-300">
                   <Download className="w-4 h-4 mr-2" /> Revenue Report (PDF)
@@ -590,23 +853,16 @@ export default function ManagerDashboard() {
             </Card>
           </TabsContent>
 
-          {/* ===================== TAB: ORDERS (Global Order List + Detail + Assign) ===================== */}
+          {/* ===== TAB: ORDERS ===== */}
           <TabsContent value="orders">
             {selectedOrder ? (
-              // ---- ORDER DETAIL VIEW ----
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <Button
-                    onClick={() => setSelectedOrderId(null)}
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-600 text-slate-300"
-                  >
+                  <Button onClick={() => setSelectedOrderId(null)} variant="outline" size="sm" className="border-slate-600 text-slate-300">
                     ← Back to Orders
                   </Button>
                   <h2 className="text-white font-bold text-lg">Order Detail</h2>
                 </div>
-
                 <Card className="bg-slate-800/50 border-blue-500/20">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -620,14 +876,9 @@ export default function ManagerDashboard() {
                           <span className="text-slate-400 text-sm">• {selectedOrder.company}</span>
                         </div>
                       </div>
-                      {/* Assign Task button — chỉ hiện khi chưa assign hoặc status là NEW */}
                       {(selectedOrder.status === "NEW" || !selectedOrder.assignedTo) && (
-                        <Button
-                          onClick={() => setAssignModal(selectedOrder)}
-                          className="bg-gradient-to-r from-blue-600 to-cyan-600"
-                        >
-                          <UserCheck className="w-4 h-4 mr-2" />
-                          Assign Task
+                        <Button onClick={() => setAssignModal(selectedOrder)} className="bg-gradient-to-r from-blue-600 to-cyan-600">
+                          <UserCheck className="w-4 h-4 mr-2" />Assign Task
                         </Button>
                       )}
                     </div>
@@ -643,8 +894,6 @@ export default function ManagerDashboard() {
                         <p className="text-white">{selectedOrder.assignedTo ?? "Not assigned"}</p>
                       </div>
                     </div>
-
-                    {/* Production stages — mock, thay bằng API /api/orders/:id/stages khi có */}
                     <div>
                       <p className="text-white font-medium mb-3">Production Stages</p>
                       <div className="space-y-2">
@@ -666,66 +915,43 @@ export default function ManagerDashboard() {
                 </Card>
               </div>
             ) : (
-              // ---- GLOBAL ORDER LIST ----
               <Card className="bg-slate-800/50 border-blue-500/20">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
                       <CardTitle className="text-white">Global Order List</CardTitle>
-                      <CardDescription className="text-gray-400">
-                        Review incoming briefs and assign to artists
-                      </CardDescription>
+                      <CardDescription className="text-gray-400">Review incoming briefs and assign to artists</CardDescription>
                     </div>
-                    <div className="flex gap-2">
-                      <Badge className="bg-yellow-600/80">
-                        {orders.filter((o) => o.status === "NEW").length} unassigned
-                      </Badge>
-                    </div>
+                    <Badge className="bg-yellow-600/80">{orders.filter((o) => o.status === "NEW").length} unassigned</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <p className="text-white font-medium">{order.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-slate-400 text-xs">{order.id}</span>
-                            <span className="text-slate-500 text-xs">•</span>
-                            <span className="text-slate-400 text-xs">{order.company}</span>
-                            {order.assignedTo && (
-                              <>
-                                <span className="text-slate-500 text-xs">•</span>
-                                <span className="text-cyan-400 text-xs">→ {order.assignedTo}</span>
-                              </>
-                            )}
-                          </div>
+                    <div key={order.id} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all">
+                      <div>
+                        <p className="text-white font-medium">{order.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-slate-400 text-xs">{order.id}</span>
+                          <span className="text-slate-500 text-xs">•</span>
+                          <span className="text-slate-400 text-xs">{order.company}</span>
+                          {order.assignedTo && (
+                            <>
+                              <span className="text-slate-500 text-xs">•</span>
+                              <span className="text-cyan-400 text-xs">→ {order.assignedTo}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge className={STATUS_CONFIG[order.status]?.color ?? "bg-gray-600"}>
                           {STATUS_CONFIG[order.status]?.label}
                         </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-blue-500/50 text-slate-300"
-                          onClick={() => setSelectedOrderId(order.id)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
+                        <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300" onClick={() => setSelectedOrderId(order.id)}>
+                          <Eye className="w-4 h-4 mr-1" />View
                         </Button>
                         {(order.status === "NEW" || !order.assignedTo) && (
-                          <Button
-                            size="sm"
-                            className="bg-gradient-to-r from-blue-600 to-cyan-600"
-                            onClick={() => setAssignModal(order)}
-                          >
-                            <UserCheck className="w-4 h-4 mr-1" />
-                            Assign
+                          <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600" onClick={() => setAssignModal(order)}>
+                            <UserCheck className="w-4 h-4 mr-1" />Assign
                           </Button>
                         )}
                       </div>
@@ -736,33 +962,120 @@ export default function ManagerDashboard() {
             )}
           </TabsContent>
 
-          {/* ===================== TAB: CATALOG MANAGEMENT ===================== */}
+          {/* ===== TAB: COMPANIES ===== */}
+          <TabsContent value="companies">
+            <Card className="bg-slate-800/50 border-blue-500/20">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-white">Company Management</CardTitle>
+                    <CardDescription className="text-gray-400">Create and manage client companies</CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={fetchCompanies}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-600 text-slate-300"
+                      disabled={companiesLoading}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${companiesLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                    <Button
+                      onClick={() => setCompanyModal({ open: true, company: null })}
+                      className="bg-gradient-to-r from-blue-600 to-cyan-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />Add Company
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {companiesLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                  </div>
+                ) : companiesError ? (
+                  <div className="flex flex-col items-center py-12 gap-3">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                    <p className="text-red-400">{companiesError}</p>
+                    <Button onClick={fetchCompanies} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
+                  </div>
+                ) : companies.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-400">No companies yet.</p>
+                    <Button
+                      onClick={() => setCompanyModal({ open: true, company: null })}
+                      className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600"
+                    >
+                      <Plus className="w-4 h-4 mr-2" /> Add First Company
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {companies.map((company) => (
+                      <div
+                        key={company.CompanyId}
+                        className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-white font-medium truncate">{company.CompanyName}</p>
+                            {company.CompanyType && (
+                              <Badge className="bg-blue-600/80 text-xs flex-shrink-0">{company.CompanyType}</Badge>
+                            )}
+                            {company.Status && (
+                              <Badge className={`${COMPANY_STATUS_CONFIG[company.Status]?.color ?? "bg-gray-600"} text-xs flex-shrink-0`}>
+                                {COMPANY_STATUS_CONFIG[company.Status]?.label}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {company.Email && (
+                              <span className="text-xs text-slate-400">{company.Email}</span>
+                            )}
+                            {company.Phone && (
+                              <span className="text-xs text-slate-500">• {company.Phone}</span>
+                            )}
+                            {company.Address && (
+                              <span className="text-xs text-slate-500 truncate">• {company.Address}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-blue-500/50 text-slate-300"
+                            onClick={() => setCompanyModal({ open: true, company })}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ===== TAB: CATALOG ===== */}
           <TabsContent value="catalog">
             <Card className="bg-slate-800/50 border-blue-500/20">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-white">Catalog Management</CardTitle>
-                    <CardDescription className="text-gray-400">
-                      Add, edit, and delete 3D/AR products
-                    </CardDescription>
+                    <CardDescription className="text-gray-400">Add, edit, and delete 3D/AR products</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      onClick={fetchCatalog}
-                      variant="outline"
-                      size="sm"
-                      className="border-slate-600 text-slate-300"
-                      disabled={catalogLoading}
-                    >
+                    <Button onClick={fetchCatalog} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={catalogLoading}>
                       <RefreshCw className={`w-4 h-4 ${catalogLoading ? "animate-spin" : ""}`} />
                     </Button>
-                    <Button
-                      onClick={() => setProductModal({ open: true, product: null })}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Product
+                    <Button onClick={() => setProductModal({ open: true, product: null })} className="bg-gradient-to-r from-blue-600 to-cyan-600">
+                      <Plus className="w-4 h-4 mr-2" />Add Product
                     </Button>
                   </div>
                 </div>
@@ -776,81 +1089,74 @@ export default function ManagerDashboard() {
                   <div className="flex flex-col items-center py-12 gap-3">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <p className="text-red-400">{catalogError}</p>
-                    <Button onClick={fetchCatalog} variant="outline" className="border-slate-600 text-slate-300">
-                      Retry
-                    </Button>
+                    <Button onClick={fetchCatalog} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
                   </div>
                 ) : products.length === 0 ? (
                   <div className="text-center py-12">
                     <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                     <p className="text-slate-400">No products yet.</p>
-                    <Button
-                      onClick={() => setProductModal({ open: true, product: null })}
-                      className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
+                    <Button onClick={() => setProductModal({ open: true, product: null })} className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600">
                       <Plus className="w-4 h-4 mr-2" /> Add First Product
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {products.map((product) => (
-                      <div
-                        key={product.ProductId}
-                        className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-white font-medium truncate">{product.ProductName}</p>
-                            {product.Category && (
-                              <Badge className="bg-blue-600/80 text-xs flex-shrink-0">{product.Category}</Badge>
-                            )}
+                    {products.map((product) => {
+                      // Tìm tên company từ danh sách đã load
+                      const company = companies.find((c) => c.CompanyId === product.CompanyId);
+                      return (
+                        <div
+                          key={product.ProductId}
+                          className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <p className="text-white font-medium truncate">{product.ProductName}</p>
+                              {product.Category && (
+                                <Badge className="bg-blue-600/80 text-xs flex-shrink-0">{product.Category}</Badge>
+                              )}
+                            </div>
+                            <p className="text-slate-400 text-sm truncate">{product.Description ?? "No description"}</p>
+                            <div className="flex gap-3 mt-1 flex-wrap">
+                              {/* Hiện tên company thay vì ID */}
+                              <span className="text-xs text-cyan-500/80">
+                                {company ? company.CompanyName : `Company #${product.CompanyId}`}
+                              </span>
+                              {product.SizeInfo && <span className="text-xs text-slate-500">Size: {product.SizeInfo}</span>}
+                              {product.ColorInfo && <span className="text-xs text-slate-500">Color: {product.ColorInfo}</span>}
+                            </div>
                           </div>
-                          <p className="text-slate-400 text-sm truncate">
-                            {product.Description ?? "No description"}
-                          </p>
-                          <div className="flex gap-3 mt-1">
-                            {product.SizeInfo && (
-                              <span className="text-xs text-slate-500">Size: {product.SizeInfo}</span>
-                            )}
-                            {product.ColorInfo && (
-                              <span className="text-xs text-slate-500">Color: {product.ColorInfo}</span>
-                            )}
+                          <div className="flex items-center gap-2 ml-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-blue-500/50 text-slate-300"
+                              onClick={() => setProductModal({ open: true, product })}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                              onClick={() => handleDeleteProduct(product.ProductId)}
+                              disabled={deletingId === product.ProductId}
+                            >
+                              {deletingId === product.ProductId
+                                ? <Loader2 className="w-4 h-4 animate-spin" />
+                                : <Trash2 className="w-4 h-4" />}
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          {/* Edit */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-blue-500/50 text-slate-300"
-                            onClick={() => setProductModal({ open: true, product })}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          {/* Delete */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-                            onClick={() => handleDeleteProduct(product.ProductId)}
-                            disabled={deletingId === product.ProductId}
-                          >
-                            {deletingId === product.ProductId ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* ===================== TAB: TEAM ===================== */}
+          {/* ===== TAB: TEAM ===== */}
           <TabsContent value="team">
             <Card className="bg-slate-800/50 border-blue-500/20">
               <CardHeader>
@@ -859,10 +1165,7 @@ export default function ManagerDashboard() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {MOCK_ARTISTS.map((artist) => (
-                  <div
-                    key={artist.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10"
-                  >
+                  <div key={artist.id} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center text-white font-bold text-sm">
                         {artist.name.charAt(0)}
@@ -889,19 +1192,31 @@ export default function ManagerDashboard() {
         </Tabs>
       </div>
 
-      {/* ===================== MODAL: Add/Edit Product ===================== */}
+      {/* ===== MODAL: Company ===== */}
+      {companyModal.open && (
+        <CompanyModal
+          company={companyModal.company}
+          onClose={() => setCompanyModal({ open: false, company: null })}
+          onSave={() => {
+            setCompanyModal({ open: false, company: null });
+            fetchCompanies();
+          }}
+        />
+      )}
+
+      {/* ===== MODAL: Product ===== */}
       {productModal.open && (
         <ProductModal
           product={productModal.product}
           onClose={() => setProductModal({ open: false, product: null })}
           onSave={() => {
             setProductModal({ open: false, product: null });
-            fetchCatalog(); // refresh list
+            fetchCatalog();
           }}
         />
       )}
 
-      {/* ===================== MODAL: Assign Task ===================== */}
+      {/* ===== MODAL: Assign Task ===== */}
       {assignModal && (
         <AssignTaskModal
           order={assignModal}
