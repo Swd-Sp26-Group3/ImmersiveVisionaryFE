@@ -12,8 +12,6 @@ import { BriefsTab } from "./components/BriefsTab";
 import { PurchasesTab } from "./components/PurchasesTab";
 import { ProfileTab } from "./components/ProfileTab";
 
-
-
 // Tab config
 const TABS = [
   { id: "orders",    label: "Orders",    icon: Package },
@@ -127,7 +125,7 @@ export default function CustomerDashboard() {
           </Card>
         </div>
 
-        {/* ✅ Custom Tabs với purple gradient */}
+        {/* Custom Tabs với purple gradient */}
         <div className="space-y-6">
           {/* Tab Bar */}
           <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-fit">
@@ -158,7 +156,7 @@ export default function CustomerDashboard() {
             {activeTab === "orders"    && <OrdersTab />}
             {activeTab === "briefs"    && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
-            {activeTab === "profile"   && <ProfileTab profile={profile} loading={profileLoading} />}
+            {activeTab === "profile"   && <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />}
           </div>
         </div>
 
