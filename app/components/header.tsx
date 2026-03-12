@@ -5,12 +5,15 @@ import { Button } from "./ui/button";
 import { Menu, X, LogOut, User } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { getHomeByRole } from "@/lib/roleRoutes";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+
+  const dashboardPath = getHomeByRole(user?.role ?? "CUSTOMER");
 
   const navLinks = [
     { name: "Introduction", path: "/", requiresAuth: false },
@@ -75,7 +78,7 @@ export function Header() {
           {isAuthenticated ? (
             <>
               {/* User info */}
-              <Link href= "/customer-dashboard">
+              <Link href= {dashboardPath}>
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
                   style={{
@@ -165,7 +168,8 @@ export function Header() {
               {isAuthenticated ? (
                 <>
                   <Link
-                    href= "/customer-dashboard" 
+                    href= {dashboardPath}
+                    onClick={() => setMobileMenuOpen(false)} 
                   >
                     <span className="text-sm px-2" style={{ color: "#a5b4fc" }}>
                       {user?.name ?? user?.email}

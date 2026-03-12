@@ -3,25 +3,13 @@ import { jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/marketplace'];
+
 const ROLE_ROUTES: Record<string, string[]> = {
     ADMIN:    ['/admin-dashboard'],
     MANAGER:  ['/manager-dashboard'],
-    ARTIST:   [
-        '/artist-dashboard',
-        '/marketplace',
-        '/checkout',
-        '/order',
-        '/order-success',
-    ],
-    CUSTOMER: [
-        '/customer-dashboard',
-        '/homepage',
-        '/marketplace',
-        '/checkout',
-        '/order',
-        '/order-success',
-        '/studio-custom',
-    ],
+    ARTIST:   ['/artist-dashboard', '/marketplace', '/checkout', '/order', '/order-success'],
+    CUSTOMER: ['/customer-dashboard', '/homepage', '/marketplace', '/checkout', '/order', '/order-success', '/studio-custom'],
 };
 
 const ROLE_HOME: Record<string, string> = {
@@ -48,35 +36,43 @@ export const config = {
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
-
     console.log(" MIDDLEWARE CHẠY:", pathname);
 
-    const publicPaths = ["/login", "/signup", "/"];
-    const isPublic =
-        publicPaths.includes(pathname) ||
+    // Bỏ qua static files và API
+    if (
         pathname.startsWith("/api/") ||
         pathname.startsWith("/_next") ||
-        pathname.startsWith("/favicon");
-
-    if (isPublic) {
-        console.log(" Public path, bỏ qua", pathname);
+        pathname.startsWith("/favicon")
+    ) {
         return NextResponse.next();
     }
 
-    const token = req.cookies.get("accessToken")?.value;
-    console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
+    //Dùng PUBLIC_PATHS — bao gồm /marketplace và /marketplace/*
+    const isPublic = PUBLIC_PATHS.some(
+        (p) => pathname === p || pathname.startsWith(p + "/")
+    );
+
+    if (isPublic) {
+        console.log(" Public path, bỏ qua:", pathname);
+        return NextResponse.next();
+    }
+
+    const token        = req.cookies.get("accessToken")?.value;
     const refreshToken = req.cookies.get("refreshToken")?.value;
+    console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
 
     if (!token && !refreshToken) {
         console.log(" Không có token → redirect /login");
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    if(token) {
+    // Thử verify access token
+    if (token) {
         try {
             const { payload } = await jwtVerify(token, secret);
             const role = (payload.role as string)?.toUpperCase();
             console.log("Role:", role);
+
             const allowedPaths = ROLE_ROUTES[role] ?? [];
             const isAllowed = allowedPaths.some((p) => pathname.startsWith(p));
 
@@ -88,11 +84,12 @@ export async function middleware(req: NextRequest) {
 
             return NextResponse.next();
         } catch {
-
+            // Token hết hạn → thử refresh bên dưới
         }
     }
 
-    if(refreshToken){
+    // Thử refresh token
+    if (refreshToken) {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh-token`, {
                 method: "POST",
@@ -102,11 +99,10 @@ export async function middleware(req: NextRequest) {
 
             if (res.ok) {
                 const data = await res.json();
-                const newAccessToken = data.accessToken ?? data.data?.accessToken;
+                const newAccessToken  = data.accessToken  ?? data.data?.accessToken;
                 const newRefreshToken = data.refreshToken ?? data.data?.refreshToken ?? refreshToken;
 
                 if (newAccessToken) {
-                    // Verify token mới để lấy role
                     const { payload } = await jwtVerify(
                         newAccessToken,
                         new TextEncoder().encode(process.env.JWT_SECRET!)
@@ -119,16 +115,11 @@ export async function middleware(req: NextRequest) {
                         ? NextResponse.next()
                         : NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/customer-dashboard", req.url));
 
-                    //  Set cookie mới vào response
                     response.cookies.set("accessToken", newAccessToken, {
-                        path: "/",
-                        maxAge: 15 * 60,
-                        sameSite: "strict",
+                        path: "/", maxAge: 15 * 60, sameSite: "strict",
                     });
                     response.cookies.set("refreshToken", newRefreshToken, {
-                        path: "/",
-                        maxAge: 7 * 24 * 60 * 60,
-                        sameSite: "strict",
+                        path: "/", maxAge: 7 * 24 * 60 * 60, sameSite: "strict",
                     });
 
                     return response;
@@ -136,7 +127,7 @@ export async function middleware(req: NextRequest) {
             }
         } catch (err) {
             console.log("Refresh failed:", err);
-        }    
+        }
     }
 
     return NextResponse.redirect(new URL("/login", req.url));

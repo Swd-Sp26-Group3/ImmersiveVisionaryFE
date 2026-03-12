@@ -6,7 +6,6 @@ import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Search, Filter, Eye, Star, Play, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
@@ -43,6 +42,7 @@ export default function MarketPlacePage() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+
   // Fetch products từ API 
   useEffect(() => {
     apiFetch("/products") // GET /api/products
@@ -74,15 +74,19 @@ export default function MarketPlacePage() {
     return matchCategory && matchSearch;
   });
 
-  //  Navigate to checkout, yêu cầu login nếu chưa
+  const handleViewDetail = (productId: number) => {
+      router.push(`/marketplace/${productId}`);
+  };
+ 
+  /** Mua hàng — yêu cầu login */
   const handlePurchase = (productId: number) => {
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push(`/login?redirect=/checkout?productId=${productId}`);
       return;
     }
     router.push(`/checkout?productId=${productId}`);
   };
-
+  
   // --- Loading State ---
   if (loading) {
     return (
@@ -113,8 +117,7 @@ export default function MarketPlacePage() {
     );
   }
 
-  // --- Main Render ---
-  return (
+return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] py-16">
       <div className="max-w-7xl mx-auto px-6">
         {/* Header */}
@@ -125,8 +128,15 @@ export default function MarketPlacePage() {
           <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
             Browse our collection of professional 3D models and AR experiences across industries
           </p>
-        </div>
 
+          {!isAuthenticated && (
+            <p className="mt-3 text-sm text-yellow-400/80">
+              <span className="mr-1">ℹ️</span>
+              Login to buy or view details of products
+            </p>
+          )}
+        </div>
+ 
         {/* Search */}
         <div className="mb-8">
           <div className="relative max-w-2xl mx-auto mb-6">
@@ -139,8 +149,6 @@ export default function MarketPlacePage() {
               className="pl-12 h-12 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
             />
           </div>
-
-          {/* Category Filters — generated from real data */}
           <div className="flex flex-wrap gap-2 justify-center">
             {categories.map((category) => (
               <Button
@@ -159,7 +167,7 @@ export default function MarketPlacePage() {
             ))}
           </div>
         </div>
-
+ 
         {/* Results count */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-400">
@@ -170,7 +178,7 @@ export default function MarketPlacePage() {
             More Filters
           </Button>
         </div>
-
+ 
         {/* Product Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredItems.map((product, index) => (
@@ -194,20 +202,21 @@ export default function MarketPlacePage() {
                       <Badge className="bg-blue-600/90">{product.Category}</Badge>
                     </div>
                   )}
-                  {/* Hover preview button */}
+                  {/* Preview button — chỉ hiện khi đã login */}
                   <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Link href={`/marketplace/${product.ProductId}`}>
-                      <Button size="sm" className="bg-white/90 text-slate-900 hover:bg-white">
-                        <Play className="w-4 h-4 mr-1" />
-                        Preview
-                      </Button>
-                    </Link>
+                    <Button
+                      size="sm"
+                      className="bg-white/90 text-slate-900 hover:bg-white"
+                      onClick={() => handleViewDetail(product.ProductId)}
+                    >
+                      <Play className="w-4 h-4 mr-1" />
+                      Preview
+                    </Button>
                   </div>
                 </div>
-
+ 
                 {/* Content */}
                 <CardHeader className="flex-1">
-                  {/* Placeholder rating — BE chưa có */}
                   <div className="flex items-center gap-2 mb-2">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-white text-sm">—</span>
@@ -220,9 +229,8 @@ export default function MarketPlacePage() {
                     {product.Description ?? "No description available."}
                   </CardDescription>
                 </CardHeader>
-
+ 
                 <CardContent>
-                  {/* Tags từ SizeInfo / ColorInfo */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {product.SizeInfo && (
                       <Badge variant="outline" className="border-blue-500/30 text-cyan-400 text-xs">
@@ -240,22 +248,27 @@ export default function MarketPlacePage() {
                       </Badge>
                     )}
                   </div>
-
-                  {/* Actions */}
+ 
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-cyan-400">Contact for price</span>
                     <div className="flex gap-2">
-                      <Link href={`/marketplace/${product.ProductId}`}>
-                        <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300">
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      </Link>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-blue-500/50 text-slate-300"
+                        onClick={() => handleViewDetail(product.ProductId)}
+                        title="View detail"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      {/* Purchase — yêu cầu login */}
                       <Button
                         size="sm"
                         onClick={() => handlePurchase(product.ProductId)}
                         className="bg-gradient-to-r from-blue-600 to-cyan-600"
                       >
-                        Purchase
+                        {isAuthenticated ? "Purchase" : "Login to buy"}
                       </Button>
                     </div>
                   </div>
@@ -264,7 +277,7 @@ export default function MarketPlacePage() {
             </motion.div>
           ))}
         </div>
-
+ 
         {/* Empty state */}
         {filteredItems.length === 0 && (
           <div className="text-center py-16">
