@@ -3,8 +3,10 @@ import { jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
+// path mà guest có thể view
 const PUBLIC_PATHS = ['/', '/login', '/signup', '/marketplace'];
 
+//Khi role cụ verify thành công ở login thì đây là đường dẫn họ có quyền truy cập
 const ROLE_ROUTES: Record<string, string[]> = {
     ADMIN:    ['/admin-dashboard'],
     MANAGER:  ['/manager-dashboard'],
@@ -12,6 +14,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
     CUSTOMER: ['/customer-dashboard', '/homepage', '/marketplace', '/checkout', '/order', '/order-success', '/studio-custom'],
 };
 
+//Khi login thành công thì mỗi role sẽ được tự động điều hướng đến path cụ thể 
 const ROLE_HOME: Record<string, string> = {
     ADMIN:    '/admin-dashboard',
     MANAGER:  '/manager-dashboard',
@@ -19,6 +22,7 @@ const ROLE_HOME: Record<string, string> = {
     CUSTOMER: '/customer-dashboard',
 };
 
+// Config = middleware sẽ được chạy ở đâu qua matcher
 export const config = {
     matcher: [
         '/admin-dashboard/:path*',
@@ -57,6 +61,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
+    // Không có cả 2 token thì sẽ quay lại login
     const token        = req.cookies.get("accessToken")?.value;
     const refreshToken = req.cookies.get("refreshToken")?.value;
     console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
@@ -66,7 +71,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    // Thử verify access token
+    // Có access token thì sẽ verify và check field role
     if (token) {
         try {
             const { payload } = await jwtVerify(token, secret);
@@ -88,7 +93,7 @@ export async function middleware(req: NextRequest) {
         }
     }
 
-    // Thử refresh token
+    // Access token hết hạn thì Thử refresh token
     if (refreshToken) {
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh-token`, {
@@ -103,6 +108,7 @@ export async function middleware(req: NextRequest) {
                 const newRefreshToken = data.refreshToken ?? data.data?.refreshToken ?? refreshToken;
 
                 if (newAccessToken) {
+                    // Verify token thì mới lấy role
                     const { payload } = await jwtVerify(
                         newAccessToken,
                         new TextEncoder().encode(process.env.JWT_SECRET!)
@@ -114,7 +120,7 @@ export async function middleware(req: NextRequest) {
                     const response = isAllowed
                         ? NextResponse.next()
                         : NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/customer-dashboard", req.url));
-
+                    // Set cookie mới vào response
                     response.cookies.set("accessToken", newAccessToken, {
                         path: "/", maxAge: 15 * 60, sameSite: "strict",
                     });
@@ -129,6 +135,6 @@ export async function middleware(req: NextRequest) {
             console.log("Refresh failed:", err);
         }
     }
-
+    // nếu refresh thất bại thì quay về login
     return NextResponse.redirect(new URL("/login", req.url));
 }
