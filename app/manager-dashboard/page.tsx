@@ -13,18 +13,43 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { apiFetch } from "@/lib/api";
-import { Artist, Company, COMPANY_STATUS_CONFIG, CreativeOrder, Product } from "./components/type";
+import { Artist, Company, CreativeOrder, Product } from "./components/type";
 import { ProductModal } from "./components/ProductModal";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
 
+// ===================== Local constants (không import từ type.ts) =====================
+const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
+  ACTIVE:    { label: "Active",    color: "bg-green-600"  },
+  INACTIVE:  { label: "Inactive",  color: "bg-slate-600"  },
+  SUSPENDED: { label: "Suspended", color: "bg-red-600"    },
+};
+
+// Null-safe lookup
+const getCompanyStatusCfg = (status: string | null | undefined) => {
+  if (!status) return null;
+  return COMPANY_STATUS_CONFIG[status] ?? null;
+};
+
+// Payment interface (khớp BE paymentService)
+interface Payment {
+  PaymentId: number;
+  OrderId: number | null;
+  AssetId: number | null;
+  CompanyId: number;
+  Amount: number;
+  PaymentType: string | null;
+  PaymentStatus: "PENDING" | "PAID" | "FAILED";
+  PaymentDate: string | null;
+}
+
 // Tab definition
 const TABS = [
-  { id: "overview",  label: "Overview",  icon: BarChart3 },
-  { id: "orders",    label: "Orders",    icon: Package   },
-  { id: "companies", label: "Companies", icon: Building2 },
-  { id: "catalog",   label: "MarketPlace",   icon: Settings  },
-  { id: "team",      label: "Team",      icon: Users     },
+  { id: "overview",  label: "Overview",   icon: BarChart3 },
+  { id: "orders",    label: "Orders",     icon: Package   },
+  { id: "companies", label: "Companies",  icon: Building2 },
+  { id: "catalog",   label: "MarketPlace",icon: Settings  },
+  { id: "team",      label: "Team",       icon: Users     },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -50,9 +75,13 @@ export default function ManagerDashboard() {
   const [artistsLoading, setArtistsLoading] = useState(true);
   const [artistsError, setArtistsError]     = useState("");
 
-  // Orders (for stats + overview charts)
+  // Orders (stats + overview charts)
   const [orders, setOrders]               = useState<CreativeOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+
+  // Payments (revenue)
+  const [payments, setPayments]               = useState<Payment[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   // ===================== Fetch =====================
   const fetchCatalog = () => {
@@ -94,11 +123,21 @@ export default function ManagerDashboard() {
       .finally(() => setOrdersLoading(false));
   };
 
+  const fetchPayments = () => {
+    setPaymentsLoading(true);
+    apiFetch("/payments") // GET /api/payments — ADMIN/MANAGER sees all
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((d) => setPayments(d.data ?? d))
+      .catch(() => setPayments([]))
+      .finally(() => setPaymentsLoading(false));
+  };
+
   useEffect(() => {
     fetchCatalog();
     fetchCompanies();
     fetchArtists();
     fetchOrders();
+    fetchPayments();
   }, []);
 
   // ===================== Handlers =====================
@@ -116,19 +155,38 @@ export default function ManagerDashboard() {
     }
   };
 
-  // ===================== Null-safe helper =====================
-  const getCompanyStatusCfg = (status: string | null) => {
-    if (!status) return null;
-    return COMPANY_STATUS_CONFIG[status] ?? null;
-  };
+  // ===================== Revenue calculations from real payments =====================
+  // Chỉ tính payments có PaymentStatus === "PAID"
+  const paidPayments = payments.filter((p) => p.PaymentStatus === "PAID");
+  const totalRevenue = paidPayments.reduce((sum, p) => sum + (p.Amount ?? 0), 0);
 
-  // ===================== Chart data =====================
-  const revenueData = [
-    { month: "Jan", revenue: 12000 }, { month: "Feb", revenue: 15000 },
-    { month: "Mar", revenue: 18000 }, { month: "Apr", revenue: 22000 },
-    { month: "May", revenue: 19000 }, { month: "Jun", revenue: 25000 },
+  // Group by month for line chart — dùng PaymentDate
+  const revenueByMonth = paidPayments.reduce((acc, p) => {
+    if (!p.PaymentDate) return acc;
+    const month = new Date(p.PaymentDate).toLocaleString("en-US", { month: "short" });
+    acc[month] = (acc[month] ?? 0) + (p.Amount ?? 0);
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Sắp xếp theo tháng trong năm
+  const MONTH_ORDER = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const revenueData = MONTH_ORDER
+    .filter((m) => revenueByMonth[m] !== undefined)
+    .map((month) => ({ month, revenue: revenueByMonth[month] }));
+
+  // Fallback: nếu không có payment nào thì chart vẫn hiện placeholder
+  const chartData = revenueData.length > 0 ? revenueData : [
+    { month: "—", revenue: 0 },
   ];
 
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000)     return `$${(amount / 1_000).toFixed(1)}K`;
+    return `$${amount.toFixed(0)}`;
+  };
+
+  // ===================== Other chart data =====================
   const orderStatusData = [
     { name: "Completed",   value: orders.filter((o) => o.Status === "COMPLETED").length,     color: "#10b981" },
     { name: "In Progress", value: orders.filter((o) => o.Status === "IN_PRODUCTION").length,  color: "#3b82f6" },
@@ -160,6 +218,8 @@ export default function ManagerDashboard() {
 
         {/* Stats cards */}
         <div className="grid md:grid-cols-5 gap-4 mb-8">
+
+          {/* Total Revenue — từ payments PAID */}
           <Card className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-blue-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -168,11 +228,18 @@ export default function ManagerDashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-white">$45,000</div>
-              <p className="text-xs text-green-400 mt-1">+20% from last month</p>
+              {paymentsLoading ? (
+                <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+              ) : (
+                <>
+                  <div className="text-3xl font-bold text-white">{formatCurrency(totalRevenue)}</div>
+                  <p className="text-xs text-cyan-400 mt-1">{paidPayments.length} paid transactions</p>
+                </>
+              )}
             </CardContent>
           </Card>
 
+          {/* Active Orders */}
           <Card className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border-green-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -196,6 +263,7 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
 
+          {/* Companies */}
           <Card className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-purple-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -210,13 +278,14 @@ export default function ManagerDashboard() {
                 <>
                   <div className="text-3xl font-bold text-white">{companies.length}</div>
                   <p className="text-xs text-purple-400 mt-1">
-                    {companies.filter((c) => c.Status === "ACTIVE").length} active
+                    {companies.filter((c) => String(c.Status) === "ACTIVE").length} active
                   </p>
                 </>
               )}
             </CardContent>
           </Card>
 
+          {/* Artists */}
           <Card className="bg-gradient-to-br from-pink-600/20 to-rose-600/20 border-pink-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -238,6 +307,7 @@ export default function ManagerDashboard() {
             </CardContent>
           </Card>
 
+          {/* Catalog Items */}
           <Card className="bg-gradient-to-br from-yellow-600/20 to-orange-600/20 border-yellow-500/30">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -258,7 +328,7 @@ export default function ManagerDashboard() {
           </Card>
         </div>
 
-        {/* Custom Tabs với purple gradient */}
+        {/* Custom Tabs */}
         <div className="space-y-6">
           <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-fit flex-wrap">
             {TABS.map(({ id, label, icon: Icon }) => {
@@ -292,24 +362,40 @@ export default function ManagerDashboard() {
           {activeTab === "overview" && (
             <div className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
+
+                {/* Revenue Trend — real data từ payments */}
                 <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
                   <CardHeader>
-                    <CardTitle className="text-white">Revenue Trend</CardTitle>
-                    <CardDescription className="text-gray-400">Monthly revenue</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-white">Revenue Trend</CardTitle>
+                        <CardDescription className="text-gray-400">
+                          Monthly revenue from PAID transactions
+                        </CardDescription>
+                      </div>
+                      {paymentsLoading && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={revenueData}>
+                      <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                         <XAxis dataKey="month" stroke="#94a3b8" />
-                        <YAxis stroke="#94a3b8" />
-                        <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }} />
-                        <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={false} />
+                        <YAxis
+                          stroke="#94a3b8"
+                          tickFormatter={(v) => formatCurrency(v)}
+                        />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }}
+                          formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                        />
+                        <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={{ fill: "#06b6d4" }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
+                {/* Order Status Pie */}
                 <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
                   <CardHeader>
                     <CardTitle className="text-white">Order Status</CardTitle>
@@ -347,6 +433,7 @@ export default function ManagerDashboard() {
                 </Card>
               </div>
 
+              {/* Category Bar Chart */}
               {categoryData.length > 0 && (
                 <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
                   <CardHeader>
@@ -367,6 +454,80 @@ export default function ManagerDashboard() {
                 </Card>
               )}
 
+              {/* Payments summary table */}
+              <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-white">Recent Payments</CardTitle>
+                      <CardDescription className="text-gray-400">
+                        Latest paid transactions — total {formatCurrency(totalRevenue)}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      onClick={fetchPayments}
+                      variant="outline" size="sm"
+                      className="border-slate-600 text-slate-300"
+                      disabled={paymentsLoading}
+                    >
+                      <RefreshCw className={`w-4 h-4 ${paymentsLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {paymentsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+                    </div>
+                  ) : paidPayments.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8">No paid transactions yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {paidPayments.slice(0, 8).map((payment) => (
+                        <div
+                          key={payment.PaymentId}
+                          className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-blue-500/10"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                              <DollarSign className="w-4 h-4 text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-white text-sm font-medium">
+                                Payment #{payment.PaymentId}
+                                {payment.PaymentType && (
+                                  <span className="ml-2 text-xs text-slate-400">({payment.PaymentType})</span>
+                                )}
+                              </p>
+                              <p className="text-slate-500 text-xs">
+                                {payment.OrderId ? `Order #${payment.OrderId}` : payment.AssetId ? `Asset #${payment.AssetId}` : "—"}
+                                {payment.PaymentDate && (
+                                  <span className="ml-2">
+                                    {new Date(payment.PaymentDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-green-600/80 text-xs">PAID</Badge>
+                            <span className="text-green-400 font-semibold text-sm">
+                              {formatCurrency(payment.Amount)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                      {paidPayments.length > 8 && (
+                        <p className="text-center text-slate-500 text-xs pt-2">
+                          +{paidPayments.length - 8} more transactions
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Export */}
               <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
                 <CardHeader>
                   <CardTitle className="text-white">Export Reports</CardTitle>
@@ -397,18 +558,10 @@ export default function ManagerDashboard() {
                     <CardDescription className="text-gray-400">Create and manage client companies</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      onClick={fetchCompanies}
-                      variant="outline" size="sm"
-                      className="border-slate-600 text-slate-300"
-                      disabled={companiesLoading}
-                    >
+                    <Button onClick={fetchCompanies} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={companiesLoading}>
                       <RefreshCw className={`w-4 h-4 ${companiesLoading ? "animate-spin" : ""}`} />
                     </Button>
-                    <Button
-                      onClick={() => setCompanyModal({ open: true, company: null })}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
+                    <Button onClick={() => setCompanyModal({ open: true, company: null })} className="bg-gradient-to-r from-blue-600 to-cyan-600">
                       <Plus className="w-4 h-4 mr-2" /> Add Company
                     </Button>
                   </div>
@@ -423,37 +576,29 @@ export default function ManagerDashboard() {
                   <div className="flex flex-col items-center py-12 gap-3">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <p className="text-red-400">{companiesError}</p>
-                    <Button onClick={fetchCompanies} variant="outline" className="border-slate-600 text-slate-300">
-                      Retry
-                    </Button>
+                    <Button onClick={fetchCompanies} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
                   </div>
                 ) : companies.length === 0 ? (
                   <div className="text-center py-12">
                     <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                     <p className="text-slate-400">No companies yet.</p>
-                    <Button
-                      onClick={() => setCompanyModal({ open: true, company: null })}
-                      className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
+                    <Button onClick={() => setCompanyModal({ open: true, company: null })} className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600">
                       <Plus className="w-4 h-4 mr-2" /> Add First Company
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {companies.map((company) => {
-                      // ✅ FIX: null-safe — không dùng company.Status làm key trực tiếp
-                      const statusCfg = getCompanyStatusCfg(company.Status);
+                      // ✅ String() cast để handle cả enum value và string value
+                      const statusCfg = getCompanyStatusCfg(String(company.Status ?? ""));
                       return (
-                        <div
-                          key={company.CompanyId}
-                          className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
-                        >
+                        <div key={company.CompanyId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-white font-medium truncate">{company.CompanyName}</p>
                               {company.CompanyType && (
                                 <Badge className="bg-blue-600/80 text-xs flex-shrink-0">
-                                  {company.CompanyType}
+                                  {String(company.CompanyType)}
                                 </Badge>
                               )}
                               {statusCfg && (
@@ -468,11 +613,8 @@ export default function ManagerDashboard() {
                               {company.Address && <span className="text-xs text-slate-500 truncate">• {company.Address}</span>}
                             </div>
                           </div>
-                          <Button
-                            size="sm" variant="outline"
-                            className="border-blue-500/50 text-slate-300 ml-4"
-                            onClick={() => setCompanyModal({ open: true, company })}
-                          >
+                          <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300 ml-4"
+                            onClick={() => setCompanyModal({ open: true, company })}>
                             <Edit className="w-4 h-4" />
                           </Button>
                         </div>
@@ -494,18 +636,10 @@ export default function ManagerDashboard() {
                     <CardDescription className="text-gray-400">Add, edit, and delete 3D/AR products</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      onClick={fetchCatalog}
-                      variant="outline" size="sm"
-                      className="border-slate-600 text-slate-300"
-                      disabled={catalogLoading}
-                    >
+                    <Button onClick={fetchCatalog} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={catalogLoading}>
                       <RefreshCw className={`w-4 h-4 ${catalogLoading ? "animate-spin" : ""}`} />
                     </Button>
-                    <Button
-                      onClick={() => setProductModal({ open: true, product: null })}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
+                    <Button onClick={() => setProductModal({ open: true, product: null })} className="bg-gradient-to-r from-blue-600 to-cyan-600">
                       <Plus className="w-4 h-4 mr-2" /> Add Product
                     </Button>
                   </div>
@@ -520,18 +654,13 @@ export default function ManagerDashboard() {
                   <div className="flex flex-col items-center py-12 gap-3">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <p className="text-red-400">{catalogError}</p>
-                    <Button onClick={fetchCatalog} variant="outline" className="border-slate-600 text-slate-300">
-                      Retry
-                    </Button>
+                    <Button onClick={fetchCatalog} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
                   </div>
                 ) : products.length === 0 ? (
                   <div className="text-center py-12">
                     <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
                     <p className="text-slate-400">No products yet.</p>
-                    <Button
-                      onClick={() => setProductModal({ open: true, product: null })}
-                      className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600"
-                    >
+                    <Button onClick={() => setProductModal({ open: true, product: null })} className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600">
                       <Plus className="w-4 h-4 mr-2" /> Add First Product
                     </Button>
                   </div>
@@ -540,22 +669,15 @@ export default function ManagerDashboard() {
                     {products.map((product) => {
                       const company = companies.find((c) => c.CompanyId === product.CompanyId);
                       return (
-                        <div
-                          key={product.ProductId}
-                          className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
-                        >
+                        <div key={product.ProductId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <p className="text-white font-medium truncate">{product.ProductName}</p>
                               {product.Category && (
-                                <Badge className="bg-blue-600/80 text-xs flex-shrink-0">
-                                  {product.Category}
-                                </Badge>
+                                <Badge className="bg-blue-600/80 text-xs flex-shrink-0">{product.Category}</Badge>
                               )}
                             </div>
-                            <p className="text-slate-400 text-sm truncate">
-                              {product.Description ?? "No description"}
-                            </p>
+                            <p className="text-slate-400 text-sm truncate">{product.Description ?? "No description"}</p>
                             <div className="flex gap-3 mt-1 flex-wrap">
                               <span className="text-xs text-cyan-500/80">
                                 {company ? company.CompanyName : `Company #${product.CompanyId}`}
@@ -565,19 +687,13 @@ export default function ManagerDashboard() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 ml-4">
-                            <Button
-                              size="sm" variant="outline"
-                              className="border-blue-500/50 text-slate-300"
-                              onClick={() => setProductModal({ open: true, product })}
-                            >
+                            <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300"
+                              onClick={() => setProductModal({ open: true, product })}>
                               <Edit className="w-4 h-4" />
                             </Button>
-                            <Button
-                              size="sm" variant="outline"
-                              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                            <Button size="sm" variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10"
                               onClick={() => handleDeleteProduct(product.ProductId)}
-                              disabled={deletingId === product.ProductId}
-                            >
+                              disabled={deletingId === product.ProductId}>
                               {deletingId === product.ProductId
                                 ? <Loader2 className="w-4 h-4 animate-spin" />
                                 : <Trash2 className="w-4 h-4" />}
@@ -601,12 +717,7 @@ export default function ManagerDashboard() {
                     <CardTitle className="text-white">Team — Artists</CardTitle>
                     <CardDescription className="text-gray-400">All users with role ARTIST</CardDescription>
                   </div>
-                  <Button
-                    onClick={fetchArtists}
-                    variant="outline" size="sm"
-                    className="border-slate-600 text-slate-300"
-                    disabled={artistsLoading}
-                  >
+                  <Button onClick={fetchArtists} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={artistsLoading}>
                     <RefreshCw className={`w-4 h-4 ${artistsLoading ? "animate-spin" : ""}`} />
                   </Button>
                 </div>
@@ -620,9 +731,7 @@ export default function ManagerDashboard() {
                   <div className="flex flex-col items-center py-12 gap-3">
                     <AlertCircle className="w-8 h-8 text-red-400" />
                     <p className="text-red-400">{artistsError}</p>
-                    <Button onClick={fetchArtists} variant="outline" className="border-slate-600 text-slate-300">
-                      Retry
-                    </Button>
+                    <Button onClick={fetchArtists} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
                   </div>
                 ) : artists.length === 0 ? (
                   <div className="text-center py-12">
@@ -631,10 +740,7 @@ export default function ManagerDashboard() {
                   </div>
                 ) : (
                   artists.map((artist) => (
-                    <div
-                      key={artist.UserId}
-                      className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10"
-                    >
+                    <div key={artist.UserId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
                           {artist.UserName.charAt(0).toUpperCase()}
@@ -662,10 +768,7 @@ export default function ManagerDashboard() {
         <CompanyModal
           company={companyModal.company}
           onClose={() => setCompanyModal({ open: false, company: null })}
-          onSave={() => {
-            setCompanyModal({ open: false, company: null });
-            fetchCompanies();
-          }}
+          onSave={() => { setCompanyModal({ open: false, company: null }); fetchCompanies(); }}
         />
       )}
 
@@ -673,10 +776,7 @@ export default function ManagerDashboard() {
         <ProductModal
           product={productModal.product}
           onClose={() => setProductModal({ open: false, product: null })}
-          onSave={() => {
-            setProductModal({ open: false, product: null });
-            fetchCatalog();
-          }}
+          onSave={() => { setProductModal({ open: false, product: null }); fetchCatalog(); }}
         />
       )}
     </div>
