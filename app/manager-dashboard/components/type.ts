@@ -1,5 +1,3 @@
-// ===================== BE-matched interfaces =====================
-
 export interface Product {
   ProductId: number;
   ProductName: string;
@@ -34,7 +32,7 @@ export interface Artist {
   IsActive: boolean;
 }
 
-// Matches BE CreativeOrderDetail (orderService)
+//CreativeOrderDetail (orderService)
 export type CreativeOrderStatus =
   | "NEW"
   | "IN_PRODUCTION"
@@ -55,7 +53,6 @@ export interface CreativeOrder {
   CreatedAt: string;
   UpdatedAt: string | null;
   IsDeleted: boolean;
-  // Joined fields from orderService
   CompanyName: string | null;
   ProductName: string | null;
   PackageName: string | null;
