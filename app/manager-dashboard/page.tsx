@@ -387,7 +387,7 @@ export default function ManagerDashboard() {
                         />
                         <Tooltip
                           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }}
-                          formatter={(value: number) => [formatCurrency(value), "Revenue"]}
+                          formatter={(value: number | undefined) => [`$${value ?? 0}`, "Revenue"]}
                         />
                         <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={{ fill: "#06b6d4" }} />
                       </LineChart>

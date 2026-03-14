@@ -5,101 +5,97 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { ArrowLeft, ShoppingCart, Loader2, AlertCircle, Box, Palette, Ruler } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft, ShoppingCart, Loader2, AlertCircle,
+  Box, CheckCircle2, Tag, Building2
+} from "lucide-react";
 
-interface Product {
-  ProductId: number;
-  ProductName: string;
+// Asset3D 
+interface Asset {
+  AssetId: number;
+  AssetName: string;
   Description: string | null;
   Category: string | null;
-  SizeInfo: string | null;
-  ColorInfo: string | null;
-  CompanyId: number;
+  Industry: string | null;
+  Price: number | null;
+  PreviewImage: string | null;
+  PublishStatus: string;
+  IsMarketplace: boolean | number;
+  OwnerCompanyId: number | null;
   CreatedAt: string;
 }
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=800",
-  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=800",
+  Cosmetics:         "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=800",
+  Fashion:           "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=800",
   "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=800",
-  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
-  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=800",
-  default: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
+  Electronics:       "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
+  "Home Decor":      "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=800",
+  default:           "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
 };
 
-export default function ItemDetailPage() {
-  const { id } = useParams();
+export default function AssetDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
-  const [product, setProduct] = useState<Product | null>(null);
+  const [asset, setAsset]   = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError]   = useState("");
 
-  // Fetch chi tiết product từ API
+  // GET /api/assets/:id
   useEffect(() => {
     if (!id) return;
-    apiFetch(`/products/${id}`) // GET /api/products/:id
-      .then((res) => {
-        if (!res.ok) throw new Error("Not found");
-        return res.json();
-      })
-      .then((data) => {
-        // BE trả về { message: "...", data: {...} }
-        setProduct(data.data ?? data);
-      })
-      .catch(() => setError("Không tìm thấy sản phẩm."))
+    apiFetch(`/assets/${id}`)
+      .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
+      .then((data) => setAsset(data.data ?? data))
+      .catch((e) => setError(`Asset not found. (${e.message})`))
       .finally(() => setLoading(false));
   }, [id]);
 
-  //  Lưu product vào sessionStorage rồi chuyển sang checkout
   const handlePurchase = () => {
+    if (!asset) return;
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push(`/login?redirect=/marketplace/checkout?productId=${asset.AssetId}`);
       return;
     }
-    // Lưu để /checkout đọc lại, tránh fetch thêm lần nữa
-    sessionStorage.setItem("checkoutProduct", JSON.stringify(product));
-    router.push(`/checkout?productId=${product?.ProductId}`);
+    // Cache asset — checkout dùng luôn, không cần fetch lại
+    sessionStorage.setItem("checkoutProduct", JSON.stringify(asset));
+    router.push(`/marketplace/checkout?productId=${asset.AssetId}`);
   };
 
-  // --- Loading ---
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b1220] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mx-auto mb-3" />
-          <p className="text-slate-400">Đang tải...</p>
-        </div>
+  if (loading) return (
+    <div className="min-h-screen bg-[#0b1220] flex items-center justify-center">
+      <div className="text-center">
+        <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mx-auto mb-3" />
+        <p className="text-slate-400">Loading asset...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // --- Error ---
-  if (error || !product) {
-    return (
-      <div className="min-h-screen bg-[#0b1220] flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
-          <p className="text-red-400 mb-4">{error || "Sản phẩm không tồn tại."}</p>
-          <Button onClick={() => router.back()} variant="outline" className="border-slate-600 text-white">
-            Quay lại
-          </Button>
-        </div>
+  if (error || !asset) return (
+    <div className="min-h-screen bg-[#0b1220] flex items-center justify-center">
+      <div className="text-center">
+        <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+        <p className="text-red-400 mb-4">{error || "Asset not found."}</p>
+        <Button onClick={() => router.push("/marketplace")} variant="outline" className="border-slate-600 text-white">
+          Back to Marketplace
+        </Button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  const productImage =
-    CATEGORY_IMAGES[product.Category ?? "default"] ?? CATEGORY_IMAGES.default;
+  const assetImage = asset.PreviewImage ||
+    CATEGORY_IMAGES[asset.Category ?? "default"] ||
+    CATEGORY_IMAGES.default;
 
-  // --- Main ---
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] py-16 text-white">
       <div className="max-w-5xl mx-auto px-6">
-        {/* Back */}
+
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/marketplace")}
           className="flex items-center gap-2 text-slate-400 hover:text-white mb-10 transition"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -107,63 +103,93 @@ export default function ItemDetailPage() {
         </button>
 
         <div className="grid md:grid-cols-2 gap-12 items-start">
+
           {/* Image */}
-          <div className="rounded-2xl overflow-hidden border border-blue-500/20 shadow-2xl">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="rounded-2xl overflow-hidden border border-blue-500/20 shadow-2xl"
+          >
             <img
-              src={productImage}
-              alt={product.ProductName}
+              src={assetImage}
+              alt={asset.AssetName}
               className="w-full h-80 object-cover"
             />
-          </div>
+          </motion.div>
 
           {/* Info */}
-          <div className="flex flex-col gap-5">
-            {product.Category && (
-              <Badge className="w-fit bg-blue-600 text-sm px-3 py-1">
-                {product.Category}
-              </Badge>
-            )}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex flex-col gap-5"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              {asset.Category && (
+                <Badge className="bg-blue-600 text-sm px-3 py-1">{asset.Category}</Badge>
+              )}
+              {asset.Industry && (
+                <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-sm px-3 py-1">
+                  {asset.Industry}
+                </Badge>
+              )}
+            </div>
 
-            <h1 className="text-3xl font-bold leading-tight">{product.ProductName}</h1>
+            <h1 className="text-3xl font-bold leading-tight">{asset.AssetName}</h1>
 
             <p className="text-slate-400 leading-relaxed">
-              {product.Description ?? "No description available for this product."}
+              {asset.Description ?? "No description available for this asset."}
             </p>
 
             {/* Specs */}
             <div className="grid grid-cols-1 gap-3">
-              {product.SizeInfo && (
-                <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-3 border border-blue-500/10">
-                  <Ruler className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Size Info</p>
-                    <p className="text-white text-sm">{product.SizeInfo}</p>
-                  </div>
-                </div>
-              )}
-              {product.ColorInfo && (
-                <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-3 border border-blue-500/10">
-                  <Palette className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Color Info</p>
-                    <p className="text-white text-sm">{product.ColorInfo}</p>
-                  </div>
-                </div>
-              )}
               <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-3 border border-blue-500/10">
                 <Box className="w-4 h-4 text-cyan-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Product ID</p>
-                  <p className="text-white text-sm">#{product.ProductId}</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Asset ID</p>
+                  <p className="text-white text-sm font-mono">#{asset.AssetId}</p>
                 </div>
               </div>
+              {asset.Category && (
+                <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-3 border border-blue-500/10">
+                  <Tag className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Category</p>
+                    <p className="text-white text-sm">{asset.Category}</p>
+                  </div>
+                </div>
+              )}
+              {asset.Industry && (
+                <div className="flex items-center gap-3 bg-slate-800/50 rounded-lg px-4 py-3 border border-blue-500/10">
+                  <Building2 className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Industry</p>
+                    <p className="text-white text-sm">{asset.Industry}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Included */}
+            <div className="rounded-xl bg-cyan-500/5 border border-cyan-500/20 p-4">
+              <p className="text-white font-semibold text-sm mb-2">What's included</p>
+              <ul className="space-y-1.5">
+                {["All available formats (GLB, USDZ, FBX, WebAR)", "Commercial use license", "Download from dashboard after purchase"].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-xs text-slate-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             {/* CTA */}
-            <div className="rounded-xl p-5 flex items-center justify-between bg-slate-800/80 border border-blue-500/20 mt-2">
+            <div className="rounded-xl p-5 flex items-center justify-between bg-slate-800/80 border border-blue-500/20">
               <div>
                 <p className="text-slate-400 text-xs mb-1">Price</p>
-                <span className="text-2xl font-bold text-cyan-400">Contact for quote</span>
+                <span className="text-2xl font-bold text-cyan-400">
+                  {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Contact for quote"}
+                </span>
               </div>
               <Button
                 onClick={handlePurchase}
@@ -171,20 +197,10 @@ export default function ItemDetailPage() {
                 className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 px-8"
               >
                 <ShoppingCart className="w-5 h-5 mr-2" />
-                Purchase Now
+                {isAuthenticated ? "Purchase Now" : "Login to Buy"}
               </Button>
             </div>
-
-            {!isAuthenticated && (
-              <p className="text-xs text-slate-500 text-center">
-                You need to{" "}
-                <button onClick={() => router.push("/login")} className="text-cyan-400 underline">
-                  log in
-                </button>{" "}
-                to purchase.
-              </p>
-            )}
-          </div>
+          </motion.div>
         </div>
       </div>
     </div>
