@@ -8,7 +8,7 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Loader2, AlertCircle, RefreshCw,
   Box, DollarSign, Clock, ChevronRight, CheckCircle2,
-  RotateCcw, Download, ExternalLink
+  RotateCcw, Download, ExternalLink, CreditCard
 } from "lucide-react";
 
 interface MarketplaceOrder {
@@ -65,9 +65,9 @@ const STATUS_CONFIG: Record<string, {
 };
 
 const FORMAT_COLOR: Record<string, string> = {
-  GLB:   "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  USDZ:  "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  FBX:   "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  GLB: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  USDZ: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  FBX: "bg-blue-500/20 text-blue-300 border-blue-500/30",
   WEBAR: "bg-green-500/20 text-green-300 border-green-500/30",
 };
 
@@ -79,10 +79,11 @@ function OrderDetail({
   onBack: () => void;
   onRefunded: (updated: MarketplaceOrder) => void;
 }) {
-  const [versions,  setVersions]  = useState<AssetVersion[]>([]);
-  const [vLoading,  setVLoading]  = useState(false);
+  const [versions, setVersions] = useState<AssetVersion[]>([]);
+  const [vLoading, setVLoading] = useState(false);
   const [refunding, setRefunding] = useState(false);
-  const [error,     setError]     = useState("");
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState("");
 
   const cfg = STATUS_CONFIG[order.Status];
 
@@ -93,13 +94,13 @@ function OrderDetail({
     apiFetch(`/asset-versions/${order.AssetId}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setVersions(d.data ?? d); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setVLoading(false));
   }, [order.AssetId, cfg.canDownload]);
 
   const handleDownload = async (versionId: number) => {
     try {
-      const res  = await apiFetch(`/asset-versions/${versionId}/download`);
+      const res = await apiFetch(`/asset-versions/${versionId}/download`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       const url = data.data?.downloadUrl ?? data.downloadUrl;
@@ -114,7 +115,7 @@ function OrderDetail({
     if (!confirm("Request a refund for this order?")) return;
     setRefunding(true); setError("");
     try {
-      const res  = await apiFetch(`/marketplace-orders/${order.MpOrderId}/refund`, { method: "PUT" });
+      const res = await apiFetch(`/marketplace-orders/${order.MpOrderId}/refund`, { method: "PUT" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Refund failed");
       onRefunded(data.data ?? data);
@@ -122,6 +123,50 @@ function OrderDetail({
       setError(err.message ?? "Refund failed.");
     } finally {
       setRefunding(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    setPaying(true); setError("");
+    try {
+      // 1. Tạo payment record
+      const payRes = await apiFetch("/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AssetId: order.AssetId,
+          OrderId: null,
+          Amount: order.Price,
+          PaymentType: "ASSET",
+        }),
+      });
+      const payData = await payRes.json();
+      if (!payRes.ok) throw new Error(payData.message ?? "Failed to create payment");
+      const pid = payData.data?.PaymentId ?? payData.paymentId;
+
+      // 2. Tạo VNPay URL
+      const vnpRes = await apiFetch("/payments/create-vnpay-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: pid,
+          returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL || "http://localhost:3000/marketplace/checkout/vnpay-return"
+        }),
+      });
+      console.log("VNPay Payment Initiation:", {
+        paymentId: pid,
+        returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL
+      });
+      const vnpData = await vnpRes.json();
+      if (vnpRes.ok && vnpData.paymentUrl) {
+        window.location.href = vnpData.paymentUrl;
+      } else {
+        throw new Error(vnpData.message ?? "Failed to create VNPay URL");
+      }
+    } catch (err: any) {
+      setError(err.message ?? "Payment initiation failed.");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -154,9 +199,9 @@ function OrderDetail({
             {[
               { label: "Order ID", value: `#${order.MpOrderId}` },
               { label: "Asset ID", value: `#${order.AssetId}` },
-              { label: "Seller",   value: order.SellerCompanyName ?? `#${order.SellerCompanyId}` },
-              { label: "Amount",   value: order.Price != null ? `$${order.Price.toLocaleString()}` : "—" },
-              { label: "Placed",   value: new Date(order.CreatedAt).toLocaleDateString() },
+              { label: "Seller", value: order.SellerCompanyName ?? `#${order.SellerCompanyId}` },
+              { label: "Amount", value: order.Price != null ? `$${order.Price.toLocaleString()}` : "—" },
+              { label: "Placed", value: new Date(order.CreatedAt).toLocaleDateString() },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900/50 border border-white/6 rounded-xl p-3">
                 <p className="text-slate-500 text-xs mb-1">{label}</p>
@@ -170,6 +215,18 @@ function OrderDetail({
             {cfg.icon}
             <span>{cfg.description}</span>
           </div>
+
+          {/* Pay Now Button for PENDING */}
+          {order.Status === "PENDING" && (
+            <Button onClick={handlePayNow} disabled={paying}
+              className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-semibold py-6 rounded-xl shadow-lg shadow-orange-500/20">
+              {paying ? (
+                <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
+              ) : (
+                <><CreditCard className="w-4 h-4 mr-2" />Pay Now (${order.Price?.toLocaleString()})</>
+              )}
+            </Button>
+          )}
 
           {/* ── Download section — only when PAID/DELIVERED ── */}
           {cfg.canDownload && (
@@ -239,11 +296,11 @@ function OrderDetail({
 // ── Main PurchasesTab ─────────────────────────────────────────────────
 export function PurchasesTab() {
   const router = useRouter();
-  const [orders,   setOrders]   = useState<MarketplaceOrder[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState("");
+  const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selected, setSelected] = useState<MarketplaceOrder | null>(null);
-  const [filter,   setFilter]   = useState("ALL");
+  const [filter, setFilter] = useState("ALL");
 
   const fetchOrders = () => {
     setLoading(true); setError("");
@@ -265,8 +322,8 @@ export function PurchasesTab() {
     return <OrderDetail order={selected} onBack={() => setSelected(null)} onRefunded={handleRefunded} />;
   }
 
-  const filtered     = filter === "ALL" ? orders : orders.filter(o => o.Status === filter);
-  const paidCount    = orders.filter(o => o.Status === "PAID" || o.Status === "DELIVERED").length;
+  const filtered = filter === "ALL" ? orders : orders.filter(o => o.Status === filter);
+  const paidCount = orders.filter(o => o.Status === "PAID" || o.Status === "DELIVERED").length;
   const pendingCount = orders.filter(o => o.Status === "PENDING").length;
 
   return (
@@ -300,11 +357,10 @@ export function PurchasesTab() {
       <div className="flex flex-wrap gap-2">
         {["ALL", "PENDING", "PAID", "DELIVERED", "REFUNDED"].map(s => (
           <button key={s} onClick={() => setFilter(s)}
-            className={`text-xs px-3 py-1 rounded-full border transition-all ${
-              filter === s
-                ? "bg-purple-600 border-purple-600 text-white"
-                : "border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20"
-            }`}
+            className={`text-xs px-3 py-1 rounded-full border transition-all ${filter === s
+              ? "bg-purple-600 border-purple-600 text-white"
+              : "border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20"
+              }`}
           >
             {s === "ALL" ? "All" : STATUS_CONFIG[s]?.label.split(" ")[0] ?? s}
             {s !== "ALL" && <span className="ml-1 opacity-50">({orders.filter(o => o.Status === s).length})</span>}
@@ -357,9 +413,9 @@ export function PurchasesTab() {
                     <span>Order #{order.MpOrderId}</span>
                     {order.Price != null && (
                       <><span>·</span>
-                      <span className="text-green-400 flex items-center gap-0.5">
-                        <DollarSign className="w-3 h-3" />{order.Price.toLocaleString()}
-                      </span></>
+                        <span className="text-green-400 flex items-center gap-0.5">
+                          <DollarSign className="w-3 h-3" />{order.Price.toLocaleString()}
+                        </span></>
                     )}
                     <span>·</span>
                     <span className="flex items-center gap-0.5">

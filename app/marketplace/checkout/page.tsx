@@ -31,31 +31,31 @@ type CheckoutStep =
   | "error";
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics:         "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=600",
-  Fashion:           "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=600",
+  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=600",
+  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=600",
   "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=600",
-  Electronics:       "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=600",
-  "Home Decor":      "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=600",
-  default:           "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600",
+  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=600",
+  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=600",
+  default: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600",
 };
 
 const PROCESSING_STEPS: { key: CheckoutStep; label: string }[] = [
-  { key: "creating_order",     label: "Creating order…"     },
-  { key: "creating_payment",   label: "Processing payment…" },
+  { key: "creating_order", label: "Creating order…" },
+  { key: "creating_payment", label: "Processing payment…" },
   { key: "confirming_payment", label: "Confirming payment…" },
 ];
 
 export default function CheckoutPage() {
-  const searchParams        = useSearchParams();
-  const router              = useRouter();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
 
   const assetId = searchParams.get("productId");
 
-  const [asset,     setAsset]     = useState<Asset | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [step,      setStep]      = useState<CheckoutStep>("review");
-  const [errorMsg,  setErrorMsg]  = useState("");
+  const [asset, setAsset] = useState<Asset | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [step, setStep] = useState<CheckoutStep>("review");
+  const [errorMsg, setErrorMsg] = useState("");
   const [mpOrderId, setMpOrderId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function CheckoutPage() {
   // Step 1 — POST /marketplace-orders
   const createOrder = async (): Promise<number> => {
     setStep("creating_order");
-    const res  = await apiFetch("/marketplace-orders", {
+    const res = await apiFetch("/marketplace-orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ AssetId: Number(assetId) }),
@@ -96,7 +96,7 @@ export default function CheckoutPage() {
 
     // Đã mua rồi → dùng order cũ
     if (!res.ok && (data.message ?? "").toLowerCase().includes("already purchased")) {
-      const myRes  = await apiFetch("/marketplace-orders/my");
+      const myRes = await apiFetch("/marketplace-orders/my");
       const myData = await myRes.json();
       const orders: any[] = myData.data ?? myData;
       const existing = orders.find(
@@ -109,7 +109,7 @@ export default function CheckoutPage() {
 
     if (!res.ok) throw new Error(data.message ?? "Failed to create order");
     const order = data.data ?? data;
-    const oid   = order.MpOrderId ?? order.id;
+    const oid = order.MpOrderId ?? order.id;
     if (!oid) throw new Error("Invalid order response");
     setMpOrderId(oid);
     return oid;
@@ -119,12 +119,12 @@ export default function CheckoutPage() {
   const createPayment = async (): Promise<number | null> => {
     if (!asset?.Price || asset.Price <= 0) return null;
     setStep("creating_payment");
-    const res  = await apiFetch("/payments", {
+    const res = await apiFetch("/payments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        AssetId:     Number(assetId),
-        Amount:      asset.Price,
+        AssetId: Number(assetId),
+        Amount: asset.Price,
         PaymentType: "ASSET",
       }),
     });
@@ -137,7 +137,7 @@ export default function CheckoutPage() {
   // Step 3 — POST /payments/confirm  (BR-16: customer confirms immediately)
   const confirmPayment = async (pid: number): Promise<void> => {
     setStep("confirming_payment");
-    const res  = await apiFetch("/payments/confirm", {
+    const res = await apiFetch("/payments/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentId: pid }),
@@ -151,7 +151,33 @@ export default function CheckoutPage() {
     try {
       const oid = await createOrder();
       const pid = await createPayment();
-      if (pid) await confirmPayment(pid);
+
+      if (pid) {
+        // Step 2.5 — Get VNPay URL
+        const vnpRes = await apiFetch("/payments/create-vnpay-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentId: pid,
+            returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL || "http://localhost:3000/marketplace/checkout/vnpay-return"
+          }),
+        });
+        console.log("VNPay Checkout Initiation:", {
+          paymentId: pid,
+          returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL
+        });
+        const vnpData = await vnpRes.json();
+
+        if (vnpRes.ok && vnpData.paymentUrl) {
+          // Redirect to VNPay
+          window.location.href = vnpData.paymentUrl;
+          return;
+        } else {
+          // Fallback if VNPay URL creation fails
+          console.warn("VNPay URL creation failed, falling back to manual confirmation:", vnpData.message);
+          await confirmPayment(pid);
+        }
+      }
 
       setStep("done");
       sessionStorage.removeItem("checkoutProduct");
@@ -187,9 +213,9 @@ export default function CheckoutPage() {
     </div>
   );
 
-  const coverImage   = asset.PreviewImage || CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
+  const coverImage = asset.PreviewImage || CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
   const isProcessing = ["creating_order", "creating_payment", "confirming_payment"].includes(step);
-  const curProcIdx   = PROCESSING_STEPS.findIndex(s => s.key === step);
+  const curProcIdx = PROCESSING_STEPS.findIndex(s => s.key === step);
 
   return (
     <div className="min-h-screen bg-[#080d1a] text-white">
@@ -264,23 +290,22 @@ export default function CheckoutPage() {
             {/* Step tracker */}
             <div className="flex items-center gap-2 mb-8">
               {[
-                { key: "creating_order",     label: "Order"   },
-                { key: "creating_payment",   label: "Payment" },
+                { key: "creating_order", label: "Order" },
+                { key: "creating_payment", label: "Payment" },
                 { key: "confirming_payment", label: "Confirm" },
-                { key: "done",               label: "Done"    },
+                { key: "done", label: "Done" },
               ].map((s, i, arr) => {
-                const ORDER = ["review","creating_order","creating_payment","confirming_payment","done","error"];
-                const curI  = ORDER.indexOf(step);
-                const sI    = ORDER.indexOf(s.key);
-                const active   = step === s.key;
+                const ORDER = ["review", "creating_order", "creating_payment", "confirming_payment", "done", "error"];
+                const curI = ORDER.indexOf(step);
+                const sI = ORDER.indexOf(s.key);
+                const active = step === s.key;
                 const complete = curI > sI && step !== "error";
                 return (
                   <div key={s.key} className="flex items-center gap-2">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                      complete ? "bg-cyan-500 text-white" :
-                      active   ? "bg-white text-black ring-2 ring-cyan-400/40" :
-                                 "bg-white/10 text-slate-500"
-                    }`}>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${complete ? "bg-cyan-500 text-white" :
+                      active ? "bg-white text-black ring-2 ring-cyan-400/40" :
+                        "bg-white/10 text-slate-500"
+                      }`}>
                       {complete ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
                     </div>
                     <span className={`text-xs ${active ? "text-white font-medium" : "text-slate-500"}`}>{s.label}</span>
@@ -296,8 +321,8 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { icon: ShieldCheck, text: "Secure payment" },
-                    { icon: Zap,         text: "Instant access" },
-                    { icon: Download,    text: "Download now"   },
+                    { icon: Zap, text: "Instant access" },
+                    { icon: Download, text: "Download now" },
                   ].map(({ icon: Icon, text }) => (
                     <div key={text} className="rounded-xl bg-white/5 border border-white/8 p-3 text-center">
                       <Icon className="w-5 h-5 text-cyan-400 mx-auto mb-1.5" />
@@ -360,11 +385,10 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   {PROCESSING_STEPS.map((s, i) => (
-                    <div key={s.key} className={`h-1.5 rounded-full transition-all duration-500 ${
-                      i < curProcIdx  ? "w-3 bg-cyan-700" :
+                    <div key={s.key} className={`h-1.5 rounded-full transition-all duration-500 ${i < curProcIdx ? "w-3 bg-cyan-700" :
                       i === curProcIdx ? "w-6 bg-cyan-400" :
-                                        "w-3 bg-white/15"
-                    }`} />
+                        "w-3 bg-white/15"
+                      }`} />
                   ))}
                 </div>
               </motion.div>
