@@ -53,7 +53,7 @@ const ASSET_PUBLISH_CONFIG: Record<string, { label: string; color: string }> = {
 const TABS = [
   { id: "overview",  label: "Overview",          icon: BarChart3  },
   { id: "orders",    label: "Orders",             icon: Package    },
-  { id: "catalog",   label: "Catalog Mgmt",       icon: Box        },
+  { id: "catalog",   label: "Catalog",       icon: Box        },
   { id: "companies", label: "Companies",          icon: Building2  },
   { id: "team",      label: "Team",               icon: Users      },
 ] as const;
@@ -205,7 +205,7 @@ export default function ManagerDashboard() {
     // Manager lấy tất cả assets (không chỉ marketplace) — dùng một endpoint admin hoặc filter
     // Hiện tại dùng /assets/marketplace để xem published, nhưng manager cần thấy cả DRAFT/PENDING
     // Nếu BE có GET /assets (list all) dùng đó, tạm thời dùng /assets/marketplace
-    apiFetch("/assets/marketplace")
+    apiFetch("/assets")
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(d => setAssets(d.data ?? d))
       .catch(e => setAssetsError(`Cannot load assets. (${e.message})`))
