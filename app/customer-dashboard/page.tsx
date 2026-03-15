@@ -3,40 +3,83 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { Package, FileText, Download, Plus, MessageSquare, Bell, Loader2, User } from "lucide-react";
+import { Package, FileText, Download, Plus, MessageSquare, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { MOCK_ORDERS, MOCK_PURCHASES, UserProfile } from "./components/types";
+import { UserProfile } from "./components/types";
 import { OrdersTab } from "./components/OrderTab";
 import { BriefsTab } from "./components/BriefsTab";
 import { PurchasesTab } from "./components/PurchasesTab";
 import { ProfileTab } from "./components/ProfileTab";
 
-// Tab config
 const TABS = [
-  { id: "orders",    label: "Orders",    icon: Package },
+  { id: "orders",    label: "Orders",    icon: Package  },
   { id: "briefs",    label: "Briefs",    icon: FileText },
   { id: "purchases", label: "Purchases", icon: Download },
-  { id: "profile",   label: "Profile",   icon: User },
+  { id: "profile",   label: "Profile",   icon: User     },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
+
+interface MarketplaceOrder {
+  MpOrderId: number;
+  Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
+}
 
 export default function CustomerDashboard() {
   const [activeTab, setActiveTab]           = useState<TabId>("orders");
   const [profile, setProfile]               = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  // Real purchase stats
+  const [purchases, setPurchases]           = useState<MarketplaceOrder[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(true);
+
   useEffect(() => {
     apiFetch("/users/profile")
-      .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
-      .then((data) => setProfile(data.data ?? data))
-      .catch((err) => console.error("Profile fetch error:", err))
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => setProfile(d.data ?? d))
+      .catch(e => console.error("Profile fetch error:", e))
       .finally(() => setProfileLoading(false));
+
+    apiFetch("/marketplace-orders/my")
+      .then(r => r.json())
+      .then(d => setPurchases(Array.isArray(d.data ?? d) ? (d.data ?? d) : []))
+      .catch(() => setPurchases([]))
+      .finally(() => setPurchasesLoading(false));
   }, []);
 
-  const activeOrders    = MOCK_ORDERS.filter((o) => o.status !== "Completed").length;
-  const completedOrders = MOCK_ORDERS.filter((o) => o.status === "Completed").length;
+  const totalPurchases   = purchases.length;
+  const pendingPurchases = purchases.filter(p => p.Status === "PENDING").length;
+  const deliveredCount   = purchases.filter(p => p.Status === "DELIVERED").length;
+
+  const STATS = [
+    {
+      label:    "Total Purchases",
+      value:    purchasesLoading ? null : totalPurchases,
+      sub:      "All time",
+      subColor: "text-gray-400",
+    },
+    {
+      label:    "Pending",
+      value:    purchasesLoading ? null : pendingPurchases,
+      sub:      "Awaiting confirmation",
+      subColor: "text-yellow-400",
+    },
+    {
+      label:    "Delivered",
+      value:    purchasesLoading ? null : deliveredCount,
+      sub:      "Ready to download",
+      subColor: "text-cyan-400",
+    },
+    {
+      label:    "Member Since",
+      value:    null, // rendered separately
+      sub:      profile?.RoleName ?? "Customer",
+      subColor: "text-gray-400",
+      isMember: true,
+    },
+  ];
 
   return (
     <div className="min-h-screen py-8">
@@ -76,40 +119,26 @@ export default function CustomerDashboard() {
           </Link>
         </div>
 
-        {/* Notification Banner */}
-        <Card className="bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border-blue-500/30 mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Bell className="w-5 h-5 text-cyan-400" />
-              <div className="flex-1">
-                <p className="text-white font-medium">Order ORD-001 is now in 3D Modeling phase!</p>
-                <p className="text-sm text-gray-300">Preview will be available for review soon</p>
-              </div>
-              <Button size="sm" variant="outline" className="border-cyan-500/50 text-white">
-                View
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Active Orders",    value: activeOrders,            sub: "In progress",   subColor: "text-green-400" },
-            { label: "Completed",        value: completedOrders,          sub: "This month",    subColor: "text-gray-400"  },
-            { label: "Total Purchases",  value: MOCK_PURCHASES.length,    sub: "All time",      subColor: "text-gray-400"  },
-          ].map(({ label, value, sub, subColor }) => (
+          {/* Purchase stats */}
+          {STATS.slice(0, 3).map(({ label, value, sub, subColor }) => (
             <Card key={label} className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm text-gray-400">{label}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-white">{value}</div>
+                {value === null ? (
+                  <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+                ) : (
+                  <div className="text-3xl font-bold text-white">{value}</div>
+                )}
                 <p className={`text-xs mt-1 ${subColor}`}>{sub}</p>
               </CardContent>
             </Card>
           ))}
 
+          {/* Member since */}
           <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm text-gray-400">Member Since</CardTitle>
@@ -125,38 +154,38 @@ export default function CustomerDashboard() {
           </Card>
         </div>
 
-        {/* Custom Tabs với purple gradient */}
+        {/* Tabs */}
         <div className="space-y-6">
-          {/* Tab Bar */}
           <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-fit">
-            {TABS.map(({ id, label, icon: Icon }) => {
-              const isActive = activeTab === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                    transition-all duration-200
-                    ${isActive
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              );
-            })}
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  activeTab === id
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
+                    : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+                {/* Badge số pending trên tab Purchases */}
+                {id === "purchases" && pendingPurchases > 0 && (
+                  <span className="ml-1 text-xs bg-yellow-500/30 text-yellow-300 rounded-full px-1.5 py-0.5 leading-none">
+                    {pendingPurchases}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
-          {/* Tab Content */}
           <div>
             {activeTab === "orders"    && <OrdersTab />}
             {activeTab === "briefs"    && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
-            {activeTab === "profile"   && <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />}
+            {activeTab === "profile"   && (
+              <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />
+            )}
           </div>
         </div>
 

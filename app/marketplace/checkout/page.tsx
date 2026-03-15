@@ -8,21 +8,27 @@ import { Badge } from "@/app/components/ui/badge";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Box, CheckCircle2, CreditCard, Loader2,
-  AlertCircle, Lock, ShieldCheck, Zap
+  AlertCircle, Lock, ShieldCheck, Zap, Download
 } from "lucide-react";
 
-// ✅ Asset interface — khớp với GET /api/assets/:id
 interface Asset {
   AssetId: number;
   AssetName: string;
   Description: string | null;
   Category: string | null;
   Price: number | null;
-  CompanyId: number;
+  PreviewImage: string | null;
   PublishStatus: string | null;
 }
 
-type CheckoutStep = "review" | "creating_order" | "creating_payment" | "confirming_payment" | "done" | "error";
+// 3 bước tự động theo doc: Order → Payment → Confirm → Download
+type CheckoutStep =
+  | "review"
+  | "creating_order"
+  | "creating_payment"
+  | "confirming_payment"
+  | "done"
+  | "error";
 
 const CATEGORY_IMAGES: Record<string, string> = {
   Cosmetics:         "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=600",
@@ -33,152 +39,136 @@ const CATEGORY_IMAGES: Record<string, string> = {
   default:           "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600",
 };
 
-const STEP_LABELS: Record<CheckoutStep, string> = {
-  review:             "Review",
-  creating_order:     "Creating order…",
-  creating_payment:   "Setting up payment…",
-  confirming_payment: "Confirming payment…",
-  done:               "Done!",
-  error:              "Error",
-};
+const PROCESSING_STEPS: { key: CheckoutStep; label: string }[] = [
+  { key: "creating_order",     label: "Creating order…"     },
+  { key: "creating_payment",   label: "Processing payment…" },
+  { key: "confirming_payment", label: "Confirming payment…" },
+];
 
 export default function CheckoutPage() {
   const searchParams        = useSearchParams();
   const router              = useRouter();
   const { isAuthenticated } = useAuth();
 
-  const assetId = searchParams.get("productId"); // giữ param name để không break URL cũ
+  const assetId = searchParams.get("productId");
 
   const [asset,     setAsset]     = useState<Asset | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [step,      setStep]      = useState<CheckoutStep>("review");
   const [errorMsg,  setErrorMsg]  = useState("");
   const [mpOrderId, setMpOrderId] = useState<number | null>(null);
-  const [paymentId, setPaymentId] = useState<number | null>(null);
 
-  // Redirect nếu chưa login
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace(`/login?redirect=/marketplace/checkout?productId=${assetId}`);
     }
   }, [isAuthenticated]);
 
-  // Load asset — đổi từ /products/:id → /assets/:id
   useEffect(() => {
     if (!assetId) { setLoading(false); return; }
-
-    // Try sessionStorage cache trước
     const cached = sessionStorage.getItem("checkoutProduct");
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (String(parsed.AssetId) === assetId || String(parsed.ProductId) === assetId) {
-          // Normalize sang Asset shape nếu cached là Product shape cũ
-          setAsset({
-            AssetId:       parsed.AssetId ?? parsed.ProductId,
-            AssetName:     parsed.AssetName ?? parsed.ProductName,
-            Description:   parsed.Description ?? null,
-            Category:      parsed.Category ?? null,
-            Price:         parsed.Price ?? null,
-            CompanyId:     parsed.CompanyId ?? 0,
-            PublishStatus: parsed.PublishStatus ?? null,
-          });
+        if (String(parsed.AssetId) === assetId) {
+          setAsset(parsed);
           setLoading(false);
           return;
         }
       } catch { /* fall through */ }
     }
-
-    // Endpoint: GET /api/assets/:id
     apiFetch(`/assets/${assetId}`)
-      .then(r => {
-        if (!r.ok) throw new Error(`Asset not found (${r.status})`);
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(d => setAsset(d.data ?? d))
-      .catch((e) => setErrorMsg(e.message ?? "Cannot load asset details."))
+      .catch(e => setErrorMsg(e.message ?? "Cannot load asset."))
       .finally(() => setLoading(false));
   }, [assetId]);
 
-  // ── Step 1: POST /marketplace-orders { AssetId } ─────────────────
-  const handleCreateMarketplaceOrder = async (): Promise<number> => {
+  // Step 1 — POST /marketplace-orders
+  const createOrder = async (): Promise<number> => {
     setStep("creating_order");
-
     const res  = await apiFetch("/marketplace-orders", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ AssetId: Number(assetId) }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message ?? "Failed to create marketplace order");
 
+    // Đã mua rồi → dùng order cũ
+    if (!res.ok && (data.message ?? "").toLowerCase().includes("already purchased")) {
+      const myRes  = await apiFetch("/marketplace-orders/my");
+      const myData = await myRes.json();
+      const orders: any[] = myData.data ?? myData;
+      const existing = orders.find(
+        (o: any) => o.AssetId === Number(assetId) && o.Status !== "REFUNDED"
+      );
+      if (existing) { setMpOrderId(existing.MpOrderId); return existing.MpOrderId; }
+      router.push("/customer-dashboard");
+      throw new Error("__REDIRECT__");
+    }
+
+    if (!res.ok) throw new Error(data.message ?? "Failed to create order");
     const order = data.data ?? data;
-    // BE có thể trả về MpOrderId hoặc MarketplaceOrderId tùy naming
-    const id = order.MpOrderId ?? order.MarketplaceOrderId ?? order.mpOrderId ?? order.id;
-    if (!id) throw new Error("Invalid order response from server");
-
-    setMpOrderId(id);
-    return id;
+    const oid   = order.MpOrderId ?? order.id;
+    if (!oid) throw new Error("Invalid order response");
+    setMpOrderId(oid);
+    return oid;
   };
 
-  // ── Step 2: POST /payments { AssetId, Amount, PaymentType: "ASSET" } ──
-  const handleCreatePayment = async (createdMpOrderId: number): Promise<number> => {
+  // Step 2 — POST /payments
+  const createPayment = async (): Promise<number | null> => {
+    if (!asset?.Price || asset.Price <= 0) return null;
     setStep("creating_payment");
-
     const res  = await apiFetch("/payments", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         AssetId:     Number(assetId),
-        Amount:      asset?.Price ?? 1,   // dùng Price thật nếu có
+        Amount:      asset.Price,
         PaymentType: "ASSET",
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? "Failed to create payment");
-
     const payment = data.data ?? data;
-    const pid     = payment.PaymentId ?? payment.paymentId ?? payment.id;
-    if (!pid) throw new Error("Invalid payment response from server");
-
-    setPaymentId(pid);
-    return pid;
+    return payment.PaymentId ?? payment.paymentId ?? null;
   };
 
-  // ── Step 3: POST /payments/confirm { paymentId } ─────────────────
-  const handleConfirmPayment = async (pid: number, oid: number): Promise<void> => {
+  // Step 3 — POST /payments/confirm  (BR-16: customer confirms immediately)
+  const confirmPayment = async (pid: number): Promise<void> => {
     setStep("confirming_payment");
-
     const res  = await apiFetch("/payments/confirm", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentId: pid }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message ?? "Failed to confirm payment");
-
-    setStep("done");
-    sessionStorage.removeItem("checkoutProduct");
-
-    setTimeout(() => {
-      router.push(
-        `/marketplace/order-success?orderId=${oid}&productId=${assetId}&name=${encodeURIComponent(asset?.AssetName ?? "Asset")}`
-      );
-    }, 1400);
   };
 
-  // ── Main handler ──────────────────────────────────────────────────
-  const handleSubmitOrder = async () => {
+  const handleSubmit = async () => {
     setErrorMsg("");
     try {
-      const oid = await handleCreateMarketplaceOrder();
-      const pid = await handleCreatePayment(oid);
-      await handleConfirmPayment(pid, oid);
+      const oid = await createOrder();
+      const pid = await createPayment();
+      if (pid) await confirmPayment(pid);
+
+      setStep("done");
+      sessionStorage.removeItem("checkoutProduct");
+      setTimeout(() => {
+        router.push(
+          `/marketplace/order-success?orderId=${oid}` +
+          `&productId=${assetId}` +
+          `&name=${encodeURIComponent(asset?.AssetName ?? "Asset")}`
+        );
+      }, 1200);
     } catch (err: any) {
-      console.error("Checkout error:", err);
+      if (err.message === "__REDIRECT__") return;
       setStep("error");
-      setErrorMsg(err.message ?? "Something went wrong. Please try again.");
+      setErrorMsg(err.message ?? "Something went wrong.");
     }
   };
 
-  // ── Loading / error states ────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
@@ -197,19 +187,18 @@ export default function CheckoutPage() {
     </div>
   );
 
-  const coverImage   = CATEGORY_IMAGES[asset.Category ?? "default"] ?? CATEGORY_IMAGES.default;
+  const coverImage   = asset.PreviewImage || CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
   const isProcessing = ["creating_order", "creating_payment", "confirming_payment"].includes(step);
-  const processingSteps = ["creating_order", "creating_payment", "confirming_payment"] as const;
+  const curProcIdx   = PROCESSING_STEPS.findIndex(s => s.key === step);
 
   return (
     <div className="min-h-screen bg-[#080d1a] text-white">
-
       {/* Top bar */}
       <div className="sticky top-0 z-20 bg-[#080d1a]/90 backdrop-blur border-b border-white/5 px-6 py-4 flex items-center justify-between">
         <button
           onClick={() => router.push(`/marketplace/${assetId}`)}
           disabled={isProcessing}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm disabled:opacity-40 disabled:pointer-events-none"
+          className="flex items-center gap-2 text-slate-400 hover:text-white transition text-sm disabled:opacity-40 disabled:pointer-events-none"
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
@@ -219,14 +208,10 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-12 grid lg:grid-cols-5 gap-10">
-
-        {/* LEFT — Order summary */}
+        {/* LEFT — Asset card */}
         <div className="lg:col-span-2">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden sticky top-24"
-          >
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden sticky top-24">
             <div className="aspect-video relative overflow-hidden">
               <img src={coverImage} alt={asset.AssetName} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#080d1a] via-transparent" />
@@ -238,70 +223,57 @@ export default function CheckoutPage() {
               <div className="flex items-center gap-1.5 text-cyan-400 text-xs mb-2">
                 <Box className="w-3.5 h-3.5" /> 3D/AR Asset
               </div>
-              <h2 className="text-white font-semibold text-lg mb-4 leading-snug">{asset.AssetName}</h2>
+              <h2 className="text-white font-semibold text-lg mb-1 leading-snug">{asset.AssetName}</h2>
+              {asset.Description && (
+                <p className="text-slate-500 text-xs line-clamp-2 mb-4">{asset.Description}</p>
+              )}
               <div className="border-t border-white/10 pt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Type</span>
-                  <span className="text-white">Marketplace Asset</span>
-                </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">License</span>
                   <span className="text-white">Commercial</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Formats</span>
+                  <span className="text-white text-xs">GLB, USDZ, FBX, WebAR</span>
+                </div>
                 <div className="border-t border-white/10 pt-2 flex justify-between font-bold">
                   <span className="text-white">Total</span>
                   <span className="text-cyan-400 text-lg">
-                    {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Contact for quote"}
+                    {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Free"}
                   </span>
                 </div>
               </div>
-
-              {/* Show IDs once created */}
-              {(mpOrderId || paymentId) && (
-                <div className="mt-4 pt-4 border-t border-white/10 space-y-1.5 text-xs">
-                  {mpOrderId && (
-                    <div className="flex justify-between text-slate-400">
-                      <span>Order ID</span>
-                      <span className="text-white font-mono">#{mpOrderId}</span>
-                    </div>
-                  )}
-                  {paymentId && (
-                    <div className="flex justify-between text-slate-400">
-                      <span>Payment ID</span>
-                      <span className="text-white font-mono">#{paymentId}</span>
-                    </div>
-                  )}
+              {mpOrderId && (
+                <div className="mt-3 pt-3 border-t border-white/10 text-xs text-slate-500 flex justify-between">
+                  <span>Order ID</span>
+                  <span className="text-white font-mono">#{mpOrderId}</span>
                 </div>
               )}
             </div>
           </motion.div>
         </div>
 
-        {/* RIGHT — Payment flow */}
+        {/* RIGHT — Payment panel */}
         <div className="lg:col-span-3 flex flex-col justify-center">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <h1 className="text-3xl font-bold text-white mb-2">Confirm Order</h1>
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <h1 className="text-3xl font-bold text-white mb-2">Checkout</h1>
             <p className="text-slate-400 mb-8 text-sm">
-              Submit your order request — our team will follow up within 24 hours
+              Complete your purchase — asset available for download immediately
             </p>
 
-            {/* Step indicators */}
-            <div className="flex items-center gap-2 mb-8 flex-wrap">
+            {/* Step tracker */}
+            <div className="flex items-center gap-2 mb-8">
               {[
                 { key: "creating_order",     label: "Order"   },
                 { key: "creating_payment",   label: "Payment" },
                 { key: "confirming_payment", label: "Confirm" },
                 { key: "done",               label: "Done"    },
               ].map((s, i, arr) => {
-                const stepOrder  = ["review", "creating_order", "creating_payment", "confirming_payment", "done", "error"];
-                const currentIdx = stepOrder.indexOf(step);
-                const sIdx       = stepOrder.indexOf(s.key);
-                const active     = step === s.key;
-                const complete   = currentIdx > sIdx && step !== "error";
+                const ORDER = ["review","creating_order","creating_payment","confirming_payment","done","error"];
+                const curI  = ORDER.indexOf(step);
+                const sI    = ORDER.indexOf(s.key);
+                const active   = step === s.key;
+                const complete = curI > sI && step !== "error";
                 return (
                   <div key={s.key} className="flex items-center gap-2">
                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
@@ -312,20 +284,20 @@ export default function CheckoutPage() {
                       {complete ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
                     </div>
                     <span className={`text-xs ${active ? "text-white font-medium" : "text-slate-500"}`}>{s.label}</span>
-                    {i < arr.length - 1 && <div className="w-6 h-px bg-white/15 mx-1" />}
+                    {i < arr.length - 1 && <div className="w-5 h-px bg-white/15 mx-1" />}
                   </div>
                 );
               })}
             </div>
 
-            {/* ── Review ── */}
+            {/* Review */}
             {step === "review" && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { icon: ShieldCheck,  text: "Secure order"  },
-                    { icon: Zap,          text: "Fast response" },
-                    { icon: CheckCircle2, text: "Pro 3D team"   },
+                    { icon: ShieldCheck, text: "Secure payment" },
+                    { icon: Zap,         text: "Instant access" },
+                    { icon: Download,    text: "Download now"   },
                   ].map(({ icon: Icon, text }) => (
                     <div key={text} className="rounded-xl bg-white/5 border border-white/8 p-3 text-center">
                       <Icon className="w-5 h-5 text-cyan-400 mx-auto mb-1.5" />
@@ -345,92 +317,88 @@ export default function CheckoutPage() {
                       <span>Asset ID</span>
                       <span className="text-white font-mono">#{asset.AssetId}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Order type</span>
-                      <span className="text-white">Marketplace Purchase</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Payment type</span>
-                      <span className="text-white">ASSET</span>
-                    </div>
                     <div className="flex justify-between pt-2 border-t border-white/10 font-semibold">
                       <span className="text-white">Amount</span>
-                      <span className="text-cyan-400">
-                        {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Contact us for quote"}
+                      <span className="text-cyan-400 text-base">
+                        {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Free"}
                       </span>
                     </div>
                   </div>
                 </div>
 
+                <div className="rounded-xl bg-green-500/5 border border-green-500/20 p-4 text-xs text-slate-300 space-y-1">
+                  <p className="text-green-400 font-semibold mb-1.5 flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5" /> After purchase
+                  </p>
+                  <p>✓ Payment confirmed instantly</p>
+                  <p>✓ Asset available in <strong className="text-white">My Purchases</strong> immediately</p>
+                  <p>✓ Download GLB, USDZ, FBX, WebAR formats</p>
+                  <p>✓ Commercial license included</p>
+                </div>
+
                 <Button
-                  onClick={handleSubmitOrder}
-                  className="w-full h-13 text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold rounded-xl shadow-lg shadow-cyan-500/20"
+                  onClick={handleSubmit}
+                  className="w-full py-6 text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold rounded-xl shadow-lg shadow-cyan-500/20"
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  Submit Order Request
+                  Pay {asset.Price != null ? `$${asset.Price.toLocaleString()}` : ""} & Download
                 </Button>
               </motion.div>
             )}
 
-            {/* ── Processing ── */}
+            {/* Processing */}
             {isProcessing && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-12 space-y-5">
                 <div className="w-20 h-20 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto">
                   <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-lg mb-1">{STEP_LABELS[step]}</p>
+                  <p className="text-white font-semibold text-lg mb-1">
+                    {PROCESSING_STEPS[curProcIdx]?.label ?? "Processing…"}
+                  </p>
                   <p className="text-slate-400 text-sm">Please don't close this page</p>
                 </div>
-                <div className="flex items-center justify-center gap-2 pt-2">
-                  {processingSteps.map((s) => (
-                    <div
-                      key={s}
-                      className={`h-1.5 rounded-full transition-all duration-500 ${
-                        step === s
-                          ? "w-6 bg-cyan-400"
-                          : processingSteps.indexOf(step as typeof processingSteps[number]) >
-                            processingSteps.indexOf(s)
-                          ? "w-3 bg-cyan-700"
-                          : "w-3 bg-white/15"
-                      }`}
-                    />
+                <div className="flex items-center justify-center gap-2">
+                  {PROCESSING_STEPS.map((s, i) => (
+                    <div key={s.key} className={`h-1.5 rounded-full transition-all duration-500 ${
+                      i < curProcIdx  ? "w-3 bg-cyan-700" :
+                      i === curProcIdx ? "w-6 bg-cyan-400" :
+                                        "w-3 bg-white/15"
+                    }`} />
                   ))}
                 </div>
               </motion.div>
             )}
 
-            {/* ── Done ── */}
+            {/* Done */}
             {step === "done" && (
               <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-12 space-y-4">
                 <div className="w-20 h-20 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-10 h-10 text-green-400" />
                 </div>
-                <p className="text-white font-bold text-xl">Order Submitted!</p>
-                <p className="text-slate-400 text-sm">Redirecting to order details…</p>
+                <p className="text-white font-bold text-xl">Payment Confirmed!</p>
+                <p className="text-slate-400 text-sm">Redirecting to your download page…</p>
               </motion.div>
             )}
 
-            {/* ── Error ── */}
+            {/* Error */}
             {step === "error" && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
                 <div className="rounded-xl bg-red-500/10 border border-red-500/30 p-4 flex gap-3">
                   <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-red-400 font-medium text-sm mb-0.5">Order failed</p>
+                    <p className="text-red-400 font-medium text-sm mb-0.5">Payment failed</p>
                     <p className="text-red-300/70 text-xs">{errorMsg}</p>
                   </div>
                 </div>
                 <Button
-                  onClick={() => { setStep("review"); setErrorMsg(""); setMpOrderId(null); setPaymentId(null); }}
-                  variant="outline"
-                  className="w-full border-slate-700 text-slate-300 hover:text-white"
+                  onClick={() => { setStep("review"); setErrorMsg(""); setMpOrderId(null); }}
+                  variant="outline" className="w-full border-slate-700 text-slate-300 hover:text-white"
                 >
                   Try Again
                 </Button>
               </motion.div>
             )}
-
           </motion.div>
         </div>
       </div>
