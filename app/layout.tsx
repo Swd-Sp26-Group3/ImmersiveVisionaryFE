@@ -22,8 +22,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} antialiased`} style={{ background: "#090d1f" }}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} antialiased`}
+        style={{ background: "#090d1f" }}
+        suppressHydrationWarning
+      >
         <AuthProvider>
           <Header />
           <main className="pt-16">
