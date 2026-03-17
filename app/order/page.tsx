@@ -106,7 +106,7 @@ export default function OrderProductPage() {
 
       const data = await res.json();
       const newOrder = data.data ?? data;
-      
+
       sessionStorage.setItem("customOrder", JSON.stringify(newOrder));
 
       // Redirect to success page with real order ID
@@ -151,9 +151,8 @@ export default function OrderProductPage() {
                 {/* Ready-made */}
                 <Label
                   htmlFor="ready-made"
-                  className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    orderType === "ready-made" ? "border-indigo-500 bg-indigo-500/10" : "border-purple-500/20 hover:border-purple-500/40"
-                  }`}
+                  className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${orderType === "ready-made" ? "border-indigo-500 bg-indigo-500/10" : "border-purple-500/20 hover:border-purple-500/40"
+                    }`}
                 >
                   <RadioGroupItem value="ready-made" id="ready-made" />
                   <div>
@@ -168,9 +167,8 @@ export default function OrderProductPage() {
                 {/* Custom */}
                 <Label
                   htmlFor="custom"
-                  className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                    orderType === "custom" ? "border-indigo-500 bg-indigo-500/10" : "border-purple-500/20 hover:border-purple-500/40"
-                  }`}
+                  className={`flex items-center gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all ${orderType === "custom" ? "border-indigo-500 bg-indigo-500/10" : "border-purple-500/20 hover:border-purple-500/40"
+                    }`}
                 >
                   <RadioGroupItem value="custom" id="custom" />
                   <div>
@@ -290,10 +288,10 @@ export default function OrderProductPage() {
                         <SelectValue placeholder="Select budget" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30">
-                        <SelectItem value="$5-$10">$5 – $10</SelectItem>
-                        <SelectItem value="$10-$30">$10 – $30</SelectItem>
-                        <SelectItem value="$30-$50">$30 – $50</SelectItem>
-                        <SelectItem value="$50+">$50+</SelectItem>
+                        <SelectItem value="100k-250k">100.000 – 250.000 ₫</SelectItem>
+                        <SelectItem value="250k-750k">250.000 – 750.000 ₫</SelectItem>
+                        <SelectItem value="750k-1250k">750.000 – 1.250.000 ₫</SelectItem>
+                        <SelectItem value="1250k+">Over 1.250.000 ₫</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -340,10 +338,10 @@ export default function OrderProductPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { key: "arOptimize", label: "AR optimization for web & mobile (+$2)" },
-                  { key: "animation", label: "Add 3D animations (+$300)" },
-                  { key: "multiVariant", label: "Multiple color/material variants (+$15)" },
-                  { key: "sourceFiles", label: "Include editable source files (+$10)" },
+                  { key: "arOptimize", label: "AR optimization for web & mobile (+50.000 ₫)" },
+                  { key: "animation", label: "Add 3D animations (+7.500.000 ₫)" },
+                  { key: "multiVariant", label: "Multiple color/material variants (+350.000 ₫)" },
+                  { key: "sourceFiles", label: "Include editable source files (+250.000 ₫)" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center gap-2">
                     <Checkbox

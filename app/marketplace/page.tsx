@@ -26,12 +26,12 @@ interface Asset {
 }
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics:         "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=400",
-  Fashion:           "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=400",
+  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=400",
+  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=400",
   "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=400",
-  Electronics:       "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
-  "Home Decor":      "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=400",
-  default:           "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
+  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
+  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=400",
+  default: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
 };
 
 const getAssetImage = (asset: Asset) =>
@@ -40,10 +40,10 @@ const getAssetImage = (asset: Asset) =>
   CATEGORY_IMAGES.default;
 
 export default function MarketPlacePage() {
-  const [assets, setAssets]                     = useState<Asset[]>([]);
-  const [loading, setLoading]                   = useState(true);
-  const [error, setError]                       = useState("");
-  const [searchQuery, setSearchQuery]           = useState("");
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const { isAuthenticated } = useAuth();
   const router = useRouter();
@@ -218,7 +218,7 @@ export default function MarketPlacePage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-cyan-400">
-                      {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Contact for price"}
+                      {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Contact for price"}
                     </span>
                     <div className="flex gap-2">
                       <Button

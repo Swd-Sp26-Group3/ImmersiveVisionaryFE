@@ -27,15 +27,15 @@ interface RecentLog {
 }
 
 const LOG_ICON = {
-  Error:   <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />,
+  Error: <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />,
   Warning: <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />,
-  Info:    <CheckCircle className="w-4 h-4 text-blue-400 shrink-0" />,
+  Info: <CheckCircle className="w-4 h-4 text-blue-400 shrink-0" />,
 };
 
 const LOG_COLOR = {
-  Error:   "border-red-500/20 text-red-400",
+  Error: "border-red-500/20 text-red-400",
   Warning: "border-yellow-500/20 text-yellow-400",
-  Info:    "border-blue-500/20 text-blue-400",
+  Info: "border-blue-500/20 text-blue-400",
 };
 
 export default function AdminDashboardPage() {
@@ -53,29 +53,30 @@ export default function AdminDashboardPage() {
 
   const fetchDashboardData = async () => {
     try {
-        const usersRes = await apiFetch("/users");
+      const [usersRes, statsRes] = await Promise.all([
+        apiFetch("/users"),
+        apiFetch("/admin/dashboard")
+      ]);
 
-        if (!usersRes.ok) throw new Error(`Users API failed: ${usersRes.status}`);
-
+      if (usersRes.ok) {
         const json = await usersRes.json();
-
-        // Handle response shape từ backend
-        const users = Array.isArray(json)
-            ? json                          
-            : Array.isArray(json.data)
-            ? json.data                                      
-            : [];
-
+        const users = Array.isArray(json) ? json : (json.data ?? []);
         setStats(prev => ({ ...prev, totalUsers: users.length }));
         setRecentUsers(users.slice(0, 4));
+      }
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        // Assuming the backend eventually returns more stats, we merge them here
+        // For now adminController.getDashboardStats only returns a message
+        console.log("Admin extra stats:", statsData);
+      }
 
     } catch (err) {
-        console.warn("API /users failed, dùng mock:", err);
-        setStats(prev => ({ ...prev, totalUsers: 0 }));
-        setRecentUsers([]);
+      console.warn("Dashboard fetch failed:", err);
     } finally {
-        setLoading(false);
-        setRecentLogs([]);
+      setLoading(false);
+      setRecentLogs([]);
     }
   };
 
@@ -109,10 +110,10 @@ export default function AdminDashboardPage() {
 
   // Quick action cards
   const quickActions = [
-    { label: "Manage Users",       desc: "View and edit user accounts",    href: "/admin-dashboard/users",    icon: Users    },
-    { label: "System Settings",    desc: "Configure upload & notifications", href: "/admin-dashboard/settings", icon: Settings },
-    { label: "Content Moderation", desc: "Review flagged content",          href: "/admin-dashboard/content",  icon: FileText },
-    { label: "System Logs",        desc: "Monitor events and errors",       href: "/admin-dashboard/logs",     icon: Shield   },
+    { label: "Manage Users", desc: "View and edit user accounts", href: "/admin-dashboard/users", icon: Users },
+    { label: "System Settings", desc: "Configure upload & notifications", href: "/admin-dashboard/settings", icon: Settings },
+    { label: "Content Moderation", desc: "Review flagged content", href: "/admin-dashboard/content", icon: FileText },
+    { label: "System Logs", desc: "Monitor events and errors", href: "/admin-dashboard/logs", icon: Shield },
   ];
 
   if (loading) {
@@ -183,23 +184,23 @@ export default function AdminDashboardPage() {
           <div className="space-y-3">
             {recentUsers.length === 0 ? (
               <p className="text-gray-500 text-sm text-center py-6">
-                  No users found
+                No users found
               </p>
-            ):(
+            ) : (
               recentUsers.map(user => (
-              <div key={user.UserId}
-                className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-blue-500/10">
-                <div>
-                  <p className="text-white text-sm font-medium">{user.UserName}</p>
-                  <p className="text-xs text-gray-500">{user.Email}</p>
+                <div key={user.UserId}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-blue-500/10">
+                  <div>
+                    <p className="text-white text-sm font-medium">{user.UserName}</p>
+                    <p className="text-xs text-gray-500">{user.Email}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-cyan-400 border border-blue-500/30">
+                      {user.RoleName}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">{user.CreatedAt}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-cyan-400 border border-blue-500/30">
-                    {user.RoleName}
-                  </span>
-                  <p className="text-xs text-gray-500 mt-1">{user.CreatedAt}</p>
-                </div>
-              </div>
               ))
             )}
           </div>
@@ -219,21 +220,21 @@ export default function AdminDashboardPage() {
           <div className="space-y-2">
             {recentLogs.length === 0 ? (
               <p className="text-gray-500 text-sm text-center py-6">
-                  No logs available
+                No logs available
               </p>
-              ) : (
+            ) : (
               recentLogs.map(log => (
-              <div key={log.id}
-                className={`flex items-start gap-3 p-3 rounded-lg bg-slate-900/50 border ${LOG_COLOR[log.type].split(" ")[0]}`}>
-                {LOG_ICON[log.type]}
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm truncate">{log.message}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{log.timestamp}</p>
+                <div key={log.id}
+                  className={`flex items-start gap-3 p-3 rounded-lg bg-slate-900/50 border ${LOG_COLOR[log.type].split(" ")[0]}`}>
+                  {LOG_ICON[log.type]}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm truncate">{log.message}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{log.timestamp}</p>
+                  </div>
+                  <span className={`text-xs shrink-0 ${LOG_COLOR[log.type].split(" ")[1]}`}>
+                    {log.type}
+                  </span>
                 </div>
-                <span className={`text-xs shrink-0 ${LOG_COLOR[log.type].split(" ")[1]}`}>
-                  {log.type}
-                </span>
-              </div>
               ))
             )}
           </div>

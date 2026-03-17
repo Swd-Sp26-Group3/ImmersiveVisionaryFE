@@ -27,12 +27,12 @@ interface Asset {
 }
 
 const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics:         "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=800",
-  Fashion:           "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=800",
+  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=800",
+  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=800",
   "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=800",
-  Electronics:       "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
-  "Home Decor":      "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=800",
-  default:           "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
+  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
+  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=800",
+  default: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
 };
 
 export default function AssetDetailPage() {
@@ -40,9 +40,9 @@ export default function AssetDetailPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
-  const [asset, setAsset]   = useState<Asset | null>(null);
+  const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState("");
+  const [error, setError] = useState("");
 
   // GET /api/assets/:id
   useEffect(() => {
@@ -188,7 +188,7 @@ export default function AssetDetailPage() {
               <div>
                 <p className="text-slate-400 text-xs mb-1">Price</p>
                 <span className="text-2xl font-bold text-cyan-400">
-                  {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Contact for quote"}
+                  {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Contact for quote"}
                 </span>
               </div>
               <Button

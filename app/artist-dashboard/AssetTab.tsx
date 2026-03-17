@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Loader2, AlertCircle, RefreshCw, Plus, Box, Send, Clock,
-         ShoppingBag, ArrowRight, Sparkles, X } from "lucide-react";
+import {
+  Loader2, AlertCircle, RefreshCw, Plus, Box, Send, Clock,
+  ShoppingBag, ArrowRight, Sparkles, X
+} from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
@@ -13,7 +15,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     Industry: "", Price: "", PreviewImage: "",
   });
   const [saving, setSaving] = useState(false);
-  const [error, setError]   = useState("");
+  const [error, setError] = useState("");
 
   const field = (key: keyof typeof form) => ({
     value: form[key],
@@ -29,13 +31,13 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          AssetName:     form.AssetName,
-          Description:   form.Description  || null,
-          Category:      form.Category     || null,
-          Industry:      form.Industry     || null,
-          Price:         form.Price ? Number(form.Price) : null,
-          PreviewImage:  form.PreviewImage || null,
-          AssetType:     "MARKETPLACE",
+          AssetName: form.AssetName,
+          Description: form.Description || null,
+          Category: form.Category || null,
+          Industry: form.Industry || null,
+          Price: form.Price ? Number(form.Price) : null,
+          PreviewImage: form.PreviewImage || null,
+          AssetType: "MARKETPLACE",
           IsMarketplace: true,
         }),
       });
@@ -61,11 +63,11 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
         <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
           {([
-            { label: "Asset Name *",     key: "AssetName",    placeholder: "e.g. Luxury Bag 3D Model", type: "text"   },
-            { label: "Category",         key: "Category",     placeholder: "e.g. Fashion, Cosmetics",  type: "text"   },
-            { label: "Industry",         key: "Industry",     placeholder: "e.g. Retail, Beauty",      type: "text"   },
-            { label: "Price (USD)",      key: "Price",        placeholder: "e.g. 299",                 type: "number" },
-            { label: "Preview Image URL",key: "PreviewImage", placeholder: "https://...",              type: "text"   },
+            { label: "Asset Name *", key: "AssetName", placeholder: "e.g. Luxury Bag 3D Model", type: "text" },
+            { label: "Category", key: "Category", placeholder: "e.g. Fashion, Cosmetics", type: "text" },
+            { label: "Industry", key: "Industry", placeholder: "e.g. Retail, Beauty", type: "text" },
+            { label: "Price (VND)", key: "Price", placeholder: "e.g. 5000000", type: "number" },
+            { label: "Preview Image URL", key: "PreviewImage", placeholder: "https://...", type: "text" },
           ] as const).map(({ label, key, placeholder, type }) => (
             <div key={key} className="space-y-1.5">
               <label className="text-slate-300 text-xs font-medium">{label}</label>
@@ -114,7 +116,7 @@ function AssetCard({
   submitting: boolean;
 }) {
   const pCfg = PUBLISH_CONFIG[asset.PublishStatus] ?? PUBLISH_CONFIG.DRAFT;
-  const img  = asset.PreviewImage
+  const img = asset.PreviewImage
     || CATEGORY_IMAGES[asset.Category ?? "default"]
     || CATEGORY_IMAGES.default;
 
@@ -134,7 +136,7 @@ function AssetCard({
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
           {asset.Category && <span>{asset.Category}</span>}
           {asset.Price != null && (
-            <><span>·</span><span className="text-green-400">${asset.Price.toLocaleString()}</span></>
+            <><span>·</span><span className="text-green-400">{asset.Price.toLocaleString("vi-VN")} ₫</span></>
           )}
         </div>
 
@@ -168,11 +170,11 @@ function AssetCard({
 
 // ── Main Tab ─────────────────────────────────────────────────────────
 export function AssetsTab() {
-  const [assets, setAssets]           = useState<Asset[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState("");
-  const [showModal, setShowModal]     = useState(false);
-  const [submitting, setSubmitting]   = useState<number | null>(null);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState<number | null>(null);
 
   const fetchAssets = () => {
     setLoading(true); setError("");
@@ -212,12 +214,11 @@ export function AssetsTab() {
             {(["Create Asset", "Submit for Review", "Manager Approves", "Live on Marketplace"] as const)
               .map((step, i, arr) => (
                 <div key={step} className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full border ${
-                    i === 0 ? "border-slate-600 text-slate-400" :
+                  <span className={`px-2.5 py-1 rounded-full border ${i === 0 ? "border-slate-600 text-slate-400" :
                     i === 1 ? "border-yellow-500/30 text-yellow-400" :
-                    i === 2 ? "border-purple-500/30 text-purple-400" :
-                              "border-green-500/30 text-green-400"
-                  }`}>{step}</span>
+                      i === 2 ? "border-purple-500/30 text-purple-400" :
+                        "border-green-500/30 text-green-400"
+                    }`}>{step}</span>
                   {i < arr.length - 1 && <ArrowRight className="w-3 h-3 text-slate-700" />}
                 </div>
               ))

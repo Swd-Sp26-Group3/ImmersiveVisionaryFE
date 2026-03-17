@@ -200,7 +200,7 @@ function OrderDetail({
               { label: "Order ID", value: `#${order.MpOrderId}` },
               { label: "Asset ID", value: `#${order.AssetId}` },
               { label: "Seller", value: order.SellerCompanyName ?? `#${order.SellerCompanyId}` },
-              { label: "Amount", value: order.Price != null ? `$${order.Price.toLocaleString()}` : "—" },
+              { label: "Amount", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
               { label: "Placed", value: new Date(order.CreatedAt).toLocaleDateString() },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900/50 border border-white/6 rounded-xl p-3">
@@ -223,7 +223,7 @@ function OrderDetail({
               {paying ? (
                 <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
               ) : (
-                <><CreditCard className="w-4 h-4 mr-2" />Pay Now (${order.Price?.toLocaleString()})</>
+                <><CreditCard className="w-4 h-4 mr-2" />Pay Now ({order.Price?.toLocaleString("vi-VN")} ₫)</>
               )}
             </Button>
           )}
@@ -414,7 +414,7 @@ export function PurchasesTab() {
                     {order.Price != null && (
                       <><span>·</span>
                         <span className="text-green-400 flex items-center gap-0.5">
-                          <DollarSign className="w-3 h-3" />{order.Price.toLocaleString()}
+                          <DollarSign className="w-3 h-3" />{order.Price.toLocaleString("vi-VN")} ₫
                         </span></>
                     )}
                     <span>·</span>

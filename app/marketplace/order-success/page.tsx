@@ -1,6 +1,6 @@
 "use client";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -26,23 +26,23 @@ interface AssetVersion {
 }
 
 const FORMAT_COLOR: Record<string, string> = {
-  GLB:   "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  USDZ:  "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  FBX:   "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  GLB: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  USDZ: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  FBX: "bg-blue-500/20 text-blue-300 border-blue-500/30",
   WEBAR: "bg-green-500/20 text-green-300 border-green-500/30",
 };
 
-export default function OrderSuccessPage() {
+function OrderSuccessContent() {
   const searchParams = useSearchParams();
-  const router       = useRouter();
+  const router = useRouter();
 
-  const orderId   = searchParams.get("orderId");
+  const orderId = searchParams.get("orderId");
   const productId = searchParams.get("productId");
   const assetName = decodeURIComponent(searchParams.get("name") ?? "Your Asset");
 
-  const [order,    setOrder]    = useState<MarketplaceOrder | null>(null);
+  const [order, setOrder] = useState<MarketplaceOrder | null>(null);
   const [versions, setVersions] = useState<AssetVersion[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!orderId) { setLoading(false); return; }
@@ -54,22 +54,22 @@ export default function OrderSuccessPage() {
         .then(d => d ? (d.data ?? d) : null),
       productId
         ? apiFetch(`/asset-versions/${productId}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(d => d ? (d.data ?? d) : [])
+          .then(r => r.ok ? r.json() : null)
+          .then(d => d ? (d.data ?? d) : [])
         : Promise.resolve([]),
     ])
       .then(([ord, vers]) => {
         if (ord) setOrder(ord);
         if (Array.isArray(vers)) setVersions(vers);
       })
-      .catch(() => {/* non-critical */})
+      .catch(() => {/* non-critical */ })
       .finally(() => setLoading(false));
   }, [orderId, productId]);
 
   // Download một version cụ thể
   const handleDownload = async (versionId: number, format: string) => {
     try {
-      const res  = await apiFetch(`/asset-versions/${versionId}/download`);
+      const res = await apiFetch(`/asset-versions/${versionId}/download`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       const url = data.data?.downloadUrl ?? data.downloadUrl;
@@ -126,11 +126,10 @@ export default function OrderSuccessPage() {
                 <Box className="w-4 h-4 text-cyan-400" />
                 <span className="text-white font-medium text-sm">{order?.AssetName ?? assetName}</span>
                 {order?.Status && (
-                  <Badge className={`ml-auto text-xs border ${
-                    order.Status === "PAID" || order.Status === "DELIVERED"
-                      ? "bg-green-500/20 text-green-300 border-green-500/30"
-                      : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
-                  }`}>
+                  <Badge className={`ml-auto text-xs border ${order.Status === "PAID" || order.Status === "DELIVERED"
+                    ? "bg-green-500/20 text-green-300 border-green-500/30"
+                    : "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+                    }`}>
                     {order.Status === "PAID" ? "Paid ✓" : order.Status}
                   </Badge>
                 )}
@@ -151,7 +150,7 @@ export default function OrderSuccessPage() {
                 {order?.Price != null && (
                   <div>
                     <p className="text-slate-500 mb-0.5">Amount Paid</p>
-                    <p className="text-cyan-400 font-semibold">${order.Price.toLocaleString()}</p>
+                    <p className="text-cyan-400 font-semibold">{order.Price.toLocaleString("vi-VN")} ₫</p>
                   </div>
                 )}
                 {order?.CreatedAt && (
@@ -251,5 +250,17 @@ export default function OrderSuccessPage() {
         </motion.p>
       </div>
     </div>
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <OrderSuccessContent />
+    </Suspense>
   );
 }

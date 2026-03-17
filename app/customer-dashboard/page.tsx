@@ -13,10 +13,10 @@ import { PurchasesTab } from "./components/PurchasesTab";
 import { ProfileTab } from "./components/ProfileTab";
 
 const TABS = [
-  { id: "orders",    label: "Orders",    icon: Package  },
-  { id: "briefs",    label: "Briefs",    icon: FileText },
+  { id: "orders", label: "Orders", icon: Package },
+  { id: "briefs", label: "Briefs", icon: FileText },
   { id: "purchases", label: "Purchases", icon: Download },
-  { id: "profile",   label: "Profile",   icon: User     },
+  { id: "profile", label: "Profile", icon: User },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -34,7 +34,7 @@ export default function CustomerDashboard() {
   const [ordersLoading, setOrdersLoading] = useState(true);
 
   // Real purchase stats
-  const [purchases, setPurchases]           = useState<MarketplaceOrder[]>([]);
+  const [purchases, setPurchases] = useState<MarketplaceOrder[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(true);
 
   useEffect(() => {
@@ -58,33 +58,40 @@ export default function CustomerDashboard() {
       .finally(() => setPurchasesLoading(false));
   }, []);
 
-  const totalPurchases   = purchases.length;
+  const totalPurchases = purchases.length;
   const pendingPurchases = purchases.filter(p => p.Status === "PENDING").length;
-  const deliveredCount   = purchases.filter(p => p.Status === "DELIVERED").length;
+  const deliveredCount = purchases.filter(p => p.Status === "DELIVERED").length;
+
+  const activeOrders = orders.filter(
+    (o) => o.Status !== "COMPLETED" && o.Status !== "DELIVERED" && o.Status !== "CANCELLED"
+  ).length;
+  const completedOrders = orders.filter(
+    (o) => o.Status === "COMPLETED" || o.Status === "DELIVERED"
+  ).length;
 
   const STATS = [
     {
-      label:    "Total Purchases",
-      value:    purchasesLoading ? null : totalPurchases,
-      sub:      "All time",
+      label: "Total Purchases",
+      value: purchasesLoading ? null : totalPurchases,
+      sub: "All time",
       subColor: "text-gray-400",
     },
     {
-      label:    "Pending",
-      value:    purchasesLoading ? null : pendingPurchases,
-      sub:      "Awaiting confirmation",
+      label: "Pending",
+      value: purchasesLoading ? null : pendingPurchases,
+      sub: "Awaiting confirmation",
       subColor: "text-yellow-400",
     },
     {
-      label:    "Delivered",
-      value:    purchasesLoading ? null : deliveredCount,
-      sub:      "Ready to download",
+      label: "Delivered",
+      value: purchasesLoading ? null : deliveredCount,
+      sub: "Ready to download",
       subColor: "text-cyan-400",
     },
     {
-      label:    "Member Since",
-      value:    null, // rendered separately
-      sub:      profile?.RoleName ?? "Customer",
+      label: "Member Since",
+      value: null, // rendered separately
+      sub: profile?.RoleName ?? "Customer",
       subColor: "text-gray-400",
       isMember: true,
     },
@@ -173,11 +180,10 @@ export default function CustomerDashboard() {
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  activeTab === id
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === id
                     ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
                     : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 {label}
@@ -195,7 +201,7 @@ export default function CustomerDashboard() {
             {activeTab === "orders" && <OrdersTab />}
             {activeTab === "briefs" && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
-            {activeTab === "profile"   && (
+            {activeTab === "profile" && (
               <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />
             )}
           </div>

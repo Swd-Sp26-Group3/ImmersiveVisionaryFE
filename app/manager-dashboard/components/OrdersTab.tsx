@@ -27,10 +27,10 @@ interface MarketplaceOrder {
 }
 
 const MP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  PENDING:   { label: "Pending",   color: "bg-yellow-600" },
-  PAID:      { label: "Paid",      color: "bg-green-600"  },
-  DELIVERED: { label: "Delivered", color: "bg-cyan-600"   },
-  REFUNDED:  { label: "Refunded",  color: "bg-red-600"    },
+  PENDING: { label: "Pending", color: "bg-yellow-600" },
+  PAID: { label: "Paid", color: "bg-green-600" },
+  DELIVERED: { label: "Delivered", color: "bg-cyan-600" },
+  REFUNDED: { label: "Refunded", color: "bg-red-600" },
 };
 
 // ===================== AssignTaskModal =====================
@@ -53,7 +53,7 @@ function AssignTaskModal({
     try {
       const res = await apiFetch(`/orders/${order.OrderId}/status`, {
         method: "PUT",
-        body: JSON.stringify({ Status: "IN_PRODUCTION" }),
+        body: JSON.stringify({ Status: "IN_PRODUCTION", ArtistId: selectedArtist }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Failed to assign");
       const data = await res.json();
@@ -94,11 +94,10 @@ function AssignTaskModal({
                   <button
                     key={artist.UserId}
                     onClick={() => setSelectedArtist(artist.UserId)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                      selectedArtist === artist.UserId
-                        ? "border-cyan-500 bg-cyan-500/10"
-                        : "border-slate-700 hover:border-slate-500"
-                    }`}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${selectedArtist === artist.UserId
+                      ? "border-cyan-500 bg-cyan-500/10"
+                      : "border-slate-700 hover:border-slate-500"
+                      }`}
                   >
                     <div>
                       <p className="text-white font-medium">{artist.UserName}</p>
@@ -181,11 +180,11 @@ function CreativeOrderDetail({
   };
 
   const STAGES = [
-    { key: "NEW",           label: "Order Received" },
-    { key: "IN_PRODUCTION", label: "3D Production"  },
-    { key: "REVIEW",        label: "Client Review"  },
-    { key: "COMPLETED",     label: "Completed"      },
-    { key: "DELIVERED",     label: "Delivered"      },
+    { key: "NEW", label: "Order Received" },
+    { key: "IN_PRODUCTION", label: "3D Production" },
+    { key: "REVIEW", label: "Client Review" },
+    { key: "COMPLETED", label: "Completed" },
+    { key: "DELIVERED", label: "Delivered" },
   ];
 
   const NEXT_STATUS_MAP: Partial<Record<CreativeOrderStatus, CreativeOrderStatus>> = {
@@ -247,13 +246,13 @@ function CreativeOrderDetail({
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             {[
-              { label: "Order ID",     value: `#${order.OrderId}` },
-              { label: "Company",      value: order.CompanyName ?? `#${order.CompanyId}` },
-              { label: "Product",      value: order.ProductName ?? `#${order.ProductId}` },
-              { label: "Package",      value: order.PackageName ?? `#${order.PackageId}` },
-              { label: "Platform",     value: order.TargetPlatform ?? "Not specified" },
-              { label: "Deadline",     value: order.Deadline ? new Date(order.Deadline).toLocaleDateString() : "No deadline" },
-              { label: "Created",      value: new Date(order.CreatedAt).toLocaleDateString() },
+              { label: "Order ID", value: `#${order.OrderId}` },
+              { label: "Company", value: order.CompanyName ?? `#${order.CompanyId}` },
+              { label: "Product", value: order.ProductName ?? `#${order.ProductId}` },
+              { label: "Package", value: order.PackageName ?? `#${order.PackageId}` },
+              { label: "Platform", value: order.TargetPlatform ?? "Not specified" },
+              { label: "Deadline", value: order.Deadline ? new Date(order.Deadline).toLocaleDateString() : "No deadline" },
+              { label: "Created", value: new Date(order.CreatedAt).toLocaleDateString() },
               { label: "Last updated", value: order.UpdatedAt ? new Date(order.UpdatedAt).toLocaleDateString() : "—" },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
@@ -281,9 +280,8 @@ function CreativeOrderDetail({
                   const current = i === stageIdx;
                   return (
                     <div key={s.key} className="flex items-center gap-3 relative z-10">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${
-                        done ? "bg-green-500" : current ? "bg-white ring-2 ring-cyan-500/40" : "bg-white/10"
-                      }`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${done ? "bg-green-500" : current ? "bg-white ring-2 ring-cyan-500/40" : "bg-white/10"
+                        }`}>
                         {done && <CheckCircle2 className="w-3 h-3 text-white" />}
                         {current && <div className="w-2 h-2 rounded-full bg-black" />}
                       </div>
@@ -401,12 +399,12 @@ function MarketplaceOrderDetail({
 
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             {[
-              { label: "Order ID",    value: `#${order.MpOrderId}` },
-              { label: "Asset ID",    value: `#${order.AssetId}` },
-              { label: "Buyer",       value: order.BuyerCompanyName ?? `Company #${order.BuyerCompanyId}` },
-              { label: "Seller",      value: order.SellerCompanyName ?? `Company #${order.SellerCompanyId}` },
-              { label: "Price",       value: order.Price != null ? `$${order.Price.toLocaleString()}` : "—" },
-              { label: "Created",     value: new Date(order.CreatedAt).toLocaleDateString() },
+              { label: "Order ID", value: `#${order.MpOrderId}` },
+              { label: "Asset ID", value: `#${order.AssetId}` },
+              { label: "Buyer", value: order.BuyerCompanyName ?? `Company #${order.BuyerCompanyId}` },
+              { label: "Seller", value: order.SellerCompanyName ?? `Company #${order.SellerCompanyId}` },
+              { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
+              { label: "Created", value: new Date(order.CreatedAt).toLocaleDateString() },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
                 <p className="text-slate-400 text-xs mb-1">{label}</p>
@@ -421,20 +419,19 @@ function MarketplaceOrderDetail({
             <div className="relative">
               <div className="absolute left-[9px] top-3 bottom-3 w-px bg-white/10" />
               {[
-                { key: "PENDING",   label: "Order Placed"  },
-                { key: "PAID",      label: "Payment Confirmed" },
+                { key: "PENDING", label: "Order Placed" },
+                { key: "PAID", label: "Payment Confirmed" },
                 { key: "DELIVERED", label: "Asset Delivered" },
               ].map((s, i) => {
                 const statusOrder = ["PENDING", "PAID", "DELIVERED", "REFUNDED"];
                 const curIdx = statusOrder.indexOf(order.Status);
-                const sIdx   = statusOrder.indexOf(s.key);
-                const done    = curIdx > sIdx && order.Status !== "REFUNDED";
+                const sIdx = statusOrder.indexOf(s.key);
+                const done = curIdx > sIdx && order.Status !== "REFUNDED";
                 const current = order.Status === s.key;
                 return (
                   <div key={s.key} className="flex items-center gap-3 relative z-10 mb-3">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      done ? "bg-green-500" : current ? "bg-white ring-2 ring-purple-400/40" : "bg-white/10"
-                    }`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${done ? "bg-green-500" : current ? "bg-white ring-2 ring-purple-400/40" : "bg-white/10"
+                      }`}>
                       {done && <CheckCircle2 className="w-3 h-3 text-white" />}
                       {current && <div className="w-2 h-2 rounded-full bg-black" />}
                     </div>
@@ -530,11 +527,10 @@ function CreativeOrdersSubTab({ artists }: { artists: Artist[] }) {
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
-              className={`text-xs px-3 py-1 rounded-full border transition-all ${
-                filterStatus === s
-                  ? "bg-blue-600 border-blue-600 text-white"
-                  : "border-slate-600 text-slate-400 hover:border-slate-400"
-              }`}
+              className={`text-xs px-3 py-1 rounded-full border transition-all ${filterStatus === s
+                ? "bg-blue-600 border-blue-600 text-white"
+                : "border-slate-600 text-slate-400 hover:border-slate-400"
+                }`}
             >
               {s === "ALL" ? "All" : STATUS_CONFIG[s]?.label ?? s}
               {s !== "ALL" && (
@@ -682,9 +678,9 @@ function MarketplaceOrdersSubTab() {
           <div className="grid grid-cols-4 gap-3 mt-3">
             {[
               { label: "Total Orders", value: orders.length, color: "text-white" },
-              { label: "Pending",   value: orders.filter(o => o.Status === "PENDING").length,   color: "text-yellow-400" },
+              { label: "Pending", value: orders.filter(o => o.Status === "PENDING").length, color: "text-yellow-400" },
               { label: "Delivered", value: orders.filter(o => o.Status === "DELIVERED").length, color: "text-cyan-400" },
-              { label: "Revenue",   value: `$${totalRevenue.toLocaleString()}`,                  color: "text-green-400" },
+              { label: "Revenue", value: `${totalRevenue.toLocaleString("vi-VN")} ₫`, color: "text-green-400" },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-slate-900/60 rounded-xl p-3 border border-white/8 text-center">
                 <p className="text-slate-500 text-xs mb-1">{label}</p>
@@ -700,11 +696,10 @@ function MarketplaceOrdersSubTab() {
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
-              className={`text-xs px-3 py-1 rounded-full border transition-all ${
-                filterStatus === s
-                  ? "bg-purple-600 border-purple-600 text-white"
-                  : "border-slate-600 text-slate-400 hover:border-slate-400"
-              }`}
+              className={`text-xs px-3 py-1 rounded-full border transition-all ${filterStatus === s
+                ? "bg-purple-600 border-purple-600 text-white"
+                : "border-slate-600 text-slate-400 hover:border-slate-400"
+                }`}
             >
               {s === "ALL" ? "All" : MP_STATUS_CONFIG[s]?.label ?? s}
               {s !== "ALL" && (
@@ -756,9 +751,9 @@ function MarketplaceOrdersSubTab() {
                       </span>
                       {order.Price != null && (
                         <><span>·</span>
-                        <span className="flex items-center gap-1 text-green-400">
-                          <DollarSign className="w-3 h-3" />${order.Price.toLocaleString()}
-                        </span></>
+                          <span className="flex items-center gap-1 text-green-400">
+                            <DollarSign className="w-3 h-3" />{order.Price.toLocaleString("vi-VN")} ₫
+                          </span></>
                       )}
                       <span>·</span>
                       <span className="flex items-center gap-1">
@@ -793,22 +788,20 @@ export function OrdersTab({ artists }: { artists: Artist[] }) {
       <div className="flex gap-1 p-1 bg-slate-800/60 border border-white/8 rounded-xl w-fit">
         <button
           onClick={() => setSubTab("creative")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            subTab === "creative"
-              ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
-              : "text-slate-400 hover:text-white"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${subTab === "creative"
+            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
+            : "text-slate-400 hover:text-white"
+            }`}
         >
           <Package className="w-4 h-4" />
           Creative Orders
         </button>
         <button
           onClick={() => setSubTab("marketplace")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            subTab === "marketplace"
-              ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
-              : "text-slate-400 hover:text-white"
-          }`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${subTab === "marketplace"
+            ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
+            : "text-slate-400 hover:text-white"
+            }`}
         >
           <ShoppingBag className="w-4 h-4" />
           Marketplace Orders

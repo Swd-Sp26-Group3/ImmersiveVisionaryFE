@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -45,7 +45,7 @@ const PROCESSING_STEPS: { key: CheckoutStep; label: string }[] = [
   { key: "confirming_payment", label: "Confirming payment…" },
 ];
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
@@ -265,7 +265,7 @@ export default function CheckoutPage() {
                 <div className="border-t border-white/10 pt-2 flex justify-between font-bold">
                   <span className="text-white">Total</span>
                   <span className="text-cyan-400 text-lg">
-                    {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Free"}
+                    {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Free"}
                   </span>
                 </div>
               </div>
@@ -345,7 +345,7 @@ export default function CheckoutPage() {
                     <div className="flex justify-between pt-2 border-t border-white/10 font-semibold">
                       <span className="text-white">Amount</span>
                       <span className="text-cyan-400 text-base">
-                        {asset.Price != null ? `$${asset.Price.toLocaleString()}` : "Free"}
+                        {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Free"}
                       </span>
                     </div>
                   </div>
@@ -366,7 +366,7 @@ export default function CheckoutPage() {
                   className="w-full py-6 text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold rounded-xl shadow-lg shadow-cyan-500/20"
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  Pay {asset.Price != null ? `$${asset.Price.toLocaleString()}` : ""} & Download
+                  Pay {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : ""} & Download
                 </Button>
               </motion.div>
             )}
@@ -427,5 +427,17 @@ export default function CheckoutPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

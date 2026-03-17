@@ -19,9 +19,9 @@ import { OrdersTab } from "./components/OrdersTab";
 
 // ===================== Types =====================
 const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  ACTIVE:    { label: "Active",    color: "bg-green-600"  },
-  INACTIVE:  { label: "Inactive",  color: "bg-slate-600"  },
-  SUSPENDED: { label: "Suspended", color: "bg-red-600"    },
+  ACTIVE: { label: "Active", color: "bg-green-600" },
+  INACTIVE: { label: "Inactive", color: "bg-slate-600" },
+  SUSPENDED: { label: "Suspended", color: "bg-red-600" },
 };
 const getCompanyStatusCfg = (s: string | null | undefined) =>
   s ? (COMPANY_STATUS_CONFIG[s] ?? null) : null;
@@ -43,19 +43,19 @@ interface Asset {
 }
 
 const ASSET_PUBLISH_CONFIG: Record<string, { label: string; color: string }> = {
-  DRAFT:     { label: "Draft",     color: "bg-slate-600"   },
-  PENDING:   { label: "Pending",   color: "bg-yellow-600"  },
-  PUBLISHED: { label: "Published", color: "bg-green-600"   },
-  REJECTED:  { label: "Rejected",  color: "bg-red-600"     },
+  DRAFT: { label: "Draft", color: "bg-slate-600" },
+  PENDING: { label: "Pending", color: "bg-yellow-600" },
+  PUBLISHED: { label: "Published", color: "bg-green-600" },
+  REJECTED: { label: "Rejected", color: "bg-red-600" },
 };
 
 // ===================== Tabs (theo flow diagram) =====================
 const TABS = [
-  { id: "overview",  label: "Overview",          icon: BarChart3  },
-  { id: "orders",    label: "Orders",             icon: Package    },
-  { id: "catalog",   label: "Catalog Mgmt",       icon: Box        },
-  { id: "companies", label: "Companies",          icon: Building2  },
-  { id: "team",      label: "Team",               icon: Users      },
+  { id: "overview", label: "Overview", icon: BarChart3 },
+  { id: "orders", label: "Orders", icon: Package },
+  { id: "catalog", label: "Catalog Mgmt", icon: Box },
+  { id: "companies", label: "Companies", icon: Building2 },
+  { id: "team", label: "Team", icon: Users },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -68,14 +68,14 @@ function AssetEditModal({
   onSave: () => void;
 }) {
   const [form, setForm] = useState({
-    AssetName:   asset.AssetName,
+    AssetName: asset.AssetName,
     Description: asset.Description ?? "",
-    Category:    asset.Category    ?? "",
-    Industry:    asset.Industry    ?? "",
-    Price:       asset.Price?.toString() ?? "",
+    Category: asset.Category ?? "",
+    Industry: asset.Industry ?? "",
+    Price: asset.Price?.toString() ?? "",
   });
   const [saving, setSaving] = useState(false);
-  const [error,  setError]  = useState("");
+  const [error, setError] = useState("");
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
@@ -84,11 +84,11 @@ function AssetEditModal({
       const res = await apiFetch(`/assets/${asset.AssetId}`, {
         method: "PUT",
         body: JSON.stringify({
-          AssetName:   form.AssetName   || undefined,
+          AssetName: form.AssetName || undefined,
           Description: form.Description || null,
-          Category:    form.Category    || null,
-          Industry:    form.Industry    || null,
-          Price:       form.Price ? Number(form.Price) : null,
+          Category: form.Category || null,
+          Industry: form.Industry || null,
+          Price: form.Price ? Number(form.Price) : null,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Update failed");
@@ -121,10 +121,10 @@ function AssetEditModal({
         </div>
         <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
           {[
-            { label: "Asset Name *", key: "AssetName",   placeholder: "e.g. Luxury Bag 3D" },
-            { label: "Category",     key: "Category",    placeholder: "e.g. Fashion" },
-            { label: "Industry",     key: "Industry",    placeholder: "e.g. Retail" },
-            { label: "Price ($)",    key: "Price",       placeholder: "e.g. 299" },
+            { label: "Asset Name *", key: "AssetName", placeholder: "e.g. Luxury Bag 3D" },
+            { label: "Category", key: "Category", placeholder: "e.g. Fashion" },
+            { label: "Industry", key: "Industry", placeholder: "e.g. Retail" },
+            { label: "Price ($)", key: "Price", placeholder: "e.g. 299" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} className="space-y-1.5">
               <label className="text-white text-sm">{label}</label>
@@ -174,38 +174,36 @@ export default function ManagerDashboard() {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   // Assets (Catalog = platform Asset3D list)
-  const [assets, setAssets]           = useState<Asset[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [assetsLoading, setAssetsLoading] = useState(true);
-  const [assetsError,   setAssetsError]   = useState("");
-  const [editingAsset,  setEditingAsset]  = useState<Asset | null>(null);
+  const [assetsError, setAssetsError] = useState("");
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [filterPublish, setFilterPublish] = useState("ALL");
 
   // Companies
-  const [companies, setCompanies]               = useState<Company[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
-  const [companiesError,   setCompaniesError]   = useState("");
-  const [companyModal, setCompanyModal]         = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
+  const [companiesError, setCompaniesError] = useState("");
+  const [companyModal, setCompanyModal] = useState<{ open: boolean; company: Company | null }>({ open: false, company: null });
 
   // Artists
-  const [artists, setArtists]               = useState<Artist[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
   const [artistsLoading, setArtistsLoading] = useState(true);
-  const [artistsError,   setArtistsError]   = useState("");
+  const [artistsError, setArtistsError] = useState("");
 
   // Orders (for stats only)
-  const [orders, setOrders]               = useState<CreativeOrder[]>([]);
+  const [orders, setOrders] = useState<CreativeOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
 
   // Payments (revenue)
-  const [payments, setPayments]               = useState<Payment[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   // ===================== Fetch =====================
   const fetchAssets = () => {
     setAssetsLoading(true); setAssetsError("");
-    // Manager lấy tất cả assets (không chỉ marketplace) — dùng một endpoint admin hoặc filter
-    // Hiện tại dùng /assets/marketplace để xem published, nhưng manager cần thấy cả DRAFT/PENDING
-    // Nếu BE có GET /assets (list all) dùng đó, tạm thời dùng /assets/marketplace
-    apiFetch("/assets/marketplace")
+    // Manager uses GET /assets (all) to see DRAFT, PENDING, PUBLISHED, REJECTED
+    apiFetch("/assets")
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(d => setAssets(d.data ?? d))
       .catch(e => setAssetsError(`Cannot load assets. (${e.message})`))
@@ -257,30 +255,30 @@ export default function ManagerDashboard() {
   }, []);
 
   // ===================== Revenue =====================
-  const paidPayments  = payments.filter(p => p.PaymentStatus === "PAID");
-  const totalRevenue  = paidPayments.reduce((s, p) => s + (p.Amount ?? 0), 0);
+  const paidPayments = payments.filter(p => p.PaymentStatus === "PAID");
+  const totalRevenue = paidPayments.reduce((s, p) => s + (p.Amount ?? 0), 0);
   const revenueByMonth = paidPayments.reduce((acc, p) => {
     if (!p.PaymentDate) return acc;
     const m = new Date(p.PaymentDate).toLocaleString("en-US", { month: "short" });
     acc[m] = (acc[m] ?? 0) + (p.Amount ?? 0);
     return acc;
   }, {} as Record<string, number>);
-  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const chartData = MONTHS.filter(m => revenueByMonth[m]).map(m => ({ month: m, revenue: revenueByMonth[m] }));
-  const fmt = (n: number) => n >= 1e6 ? `$${(n/1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(1)}K` : `$${n.toFixed(0)}`;
+  const fmt = (n: number) => n.toLocaleString("vi-VN") + " ₫";
 
   const orderStatusData = [
-    { name: "New",         value: orders.filter(o => o.Status === "NEW").length,           color: "#f59e0b" },
-    { name: "In Progress", value: orders.filter(o => o.Status === "IN_PRODUCTION").length,  color: "#3b82f6" },
-    { name: "Review",      value: orders.filter(o => o.Status === "REVIEW").length,         color: "#a855f7" },
-    { name: "Completed",   value: orders.filter(o => o.Status === "COMPLETED").length,      color: "#10b981" },
+    { name: "New", value: orders.filter(o => o.Status === "NEW").length, color: "#f59e0b" },
+    { name: "In Progress", value: orders.filter(o => o.Status === "IN_PRODUCTION").length, color: "#3b82f6" },
+    { name: "Review", value: orders.filter(o => o.Status === "REVIEW").length, color: "#a855f7" },
+    { name: "Completed", value: orders.filter(o => o.Status === "COMPLETED").length, color: "#10b981" },
   ].filter(d => d.value > 0);
 
-  const newOrderCount  = orders.filter(o => o.Status === "NEW").length;
-  const activeOrders   = orders.filter(o => !["COMPLETED","DELIVERED","CANCELLED"].includes(o.Status)).length;
+  const newOrderCount = orders.filter(o => o.Status === "NEW").length;
+  const activeOrders = orders.filter(o => !["COMPLETED", "DELIVERED", "CANCELLED"].includes(o.Status)).length;
 
   const filteredAssets = filterPublish === "ALL" ? assets : assets.filter(a => a.PublishStatus === filterPublish);
-  const pendingAssets  = assets.filter(a => a.PublishStatus === "PENDING").length;
+  const pendingAssets = assets.filter(a => a.PublishStatus === "PENDING").length;
 
   return (
     <div className="min-h-screen py-8">
@@ -296,10 +294,10 @@ export default function ManagerDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           {[
             { label: "Total Revenue", value: paymentsLoading ? null : fmt(totalRevenue), sub: `${paidPayments.length} paid`, color: "from-blue-600/20 to-cyan-600/20 border-blue-500/30", icon: DollarSign, iconColor: "text-cyan-400" },
-            { label: "Active Orders", value: ordersLoading ? null : activeOrders,        sub: `${newOrderCount} unassigned`, color: "from-green-600/20 to-emerald-600/20 border-green-500/30", icon: Package, iconColor: "text-green-400" },
-            { label: "Companies",     value: companiesLoading ? null : companies.length, sub: `${companies.filter(c => String(c.Status) === "ACTIVE").length} active`, color: "from-purple-600/20 to-pink-600/20 border-purple-500/30", icon: Building2, iconColor: "text-purple-400" },
-            { label: "Artists",       value: artistsLoading ? null : artists.length,     sub: `${artists.filter(a => a.IsActive).length} active`, color: "from-pink-600/20 to-rose-600/20 border-pink-500/30", icon: Users, iconColor: "text-pink-400" },
-            { label: "Catalog Assets",value: assetsLoading ? null : assets.length,      sub: pendingAssets > 0 ? `${pendingAssets} pending review` : "All reviewed", color: "from-yellow-600/20 to-orange-600/20 border-yellow-500/30", icon: Box, iconColor: "text-yellow-400" },
+            { label: "Active Orders", value: ordersLoading ? null : activeOrders, sub: `${newOrderCount} unassigned`, color: "from-green-600/20 to-emerald-600/20 border-green-500/30", icon: Package, iconColor: "text-green-400" },
+            { label: "Companies", value: companiesLoading ? null : companies.length, sub: `${companies.filter(c => String(c.Status) === "ACTIVE").length} active`, color: "from-purple-600/20 to-pink-600/20 border-purple-500/30", icon: Building2, iconColor: "text-purple-400" },
+            { label: "Artists", value: artistsLoading ? null : artists.length, sub: `${artists.filter(a => a.IsActive).length} active`, color: "from-pink-600/20 to-rose-600/20 border-pink-500/30", icon: Users, iconColor: "text-pink-400" },
+            { label: "Catalog Assets", value: assetsLoading ? null : assets.length, sub: pendingAssets > 0 ? `${pendingAssets} pending review` : "All reviewed", color: "from-yellow-600/20 to-orange-600/20 border-yellow-500/30", icon: Box, iconColor: "text-yellow-400" },
           ].map(({ label, value, sub, color, icon: Icon, iconColor }) => (
             <Card key={label} className={`bg-gradient-to-br ${color}`}>
               <CardHeader className="pb-3">
@@ -312,7 +310,7 @@ export default function ManagerDashboard() {
                 {value === null
                   ? <Loader2 className={`w-6 h-6 ${iconColor} animate-spin`} />
                   : <><div className="text-3xl font-bold text-white">{value}</div>
-                     <p className={`text-xs ${iconColor} mt-1`}>{sub}</p></>
+                    <p className={`text-xs ${iconColor} mt-1`}>{sub}</p></>
                 }
               </CardContent>
             </Card>
@@ -326,11 +324,10 @@ export default function ManagerDashboard() {
               const isActive = activeTab === id;
               return (
                 <button key={id} onClick={() => setActiveTab(id)}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
+                    ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
+                    : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {label}
@@ -366,7 +363,7 @@ export default function ManagerDashboard() {
                         <XAxis dataKey="month" stroke="#94a3b8" />
                         <YAxis stroke="#94a3b8" tickFormatter={fmt} />
                         <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }}
-                          formatter={(v: number | undefined) => [`$${v ?? 0}`, "Revenue"]} />
+                          formatter={(v: any) => [`${v?.toLocaleString("vi-VN") ?? 0} ₫`, "Revenue"]} />
                         <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={{ fill: "#06b6d4" }} />
                       </LineChart>
                     </ResponsiveContainer>
@@ -494,11 +491,10 @@ export default function ManagerDashboard() {
                 <div className="flex flex-wrap gap-2 mt-3">
                   {["ALL", "DRAFT", "PENDING", "PUBLISHED", "REJECTED"].map(s => (
                     <button key={s} onClick={() => setFilterPublish(s)}
-                      className={`text-xs px-3 py-1 rounded-full border transition-all ${
-                        filterPublish === s
-                          ? "bg-cyan-600 border-cyan-600 text-white"
-                          : "border-slate-600 text-slate-400 hover:border-slate-400"
-                      }`}
+                      className={`text-xs px-3 py-1 rounded-full border transition-all ${filterPublish === s
+                        ? "bg-cyan-600 border-cyan-600 text-white"
+                        : "border-slate-600 text-slate-400 hover:border-slate-400"
+                        }`}
                     >
                       {s === "ALL" ? "All" : ASSET_PUBLISH_CONFIG[s]?.label ?? s}
                       {s !== "ALL" && <span className="ml-1 opacity-60">({assets.filter(a => a.PublishStatus === s).length})</span>}
@@ -615,8 +611,8 @@ export default function ManagerDashboard() {
                               {sCfg && <Badge className={`${sCfg.color} text-xs`}>{sCfg.label}</Badge>}
                             </div>
                             <div className="flex items-center gap-3 flex-wrap text-xs">
-                              {company.Email   && <span className="text-slate-400">{company.Email}</span>}
-                              {company.Phone   && <span className="text-slate-500">· {company.Phone}</span>}
+                              {company.Email && <span className="text-slate-400">{company.Email}</span>}
+                              {company.Phone && <span className="text-slate-500">· {company.Phone}</span>}
                               {company.Address && <span className="text-slate-500 truncate">· {company.Address}</span>}
                             </div>
                           </div>
