@@ -19,7 +19,6 @@ const ROLE_BADGE: Record<string, string> = {
   MANAGER: "bg-purple-600/80 text-purple-100",
   ARTIST: "bg-cyan-600/80 text-cyan-100",
   CUSTOMER: "bg-blue-600/80 text-blue-100",
-  SELLER: "bg-green-600/80 text-green-100",
 };
 
 export default function UsersPage() {
@@ -30,8 +29,8 @@ export default function UsersPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const router = useRouter();
 
-  useEffect(() => { 
-    fetchUsers(); 
+  useEffect(() => {
+    fetchUsers();
   }, []);
 
   // GET /api/users — ADMIN/MANAGER only
@@ -91,7 +90,7 @@ export default function UsersPage() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
-          {/* ✅ Create new user */}
+          {/* Create new user */}
           <button
             onClick={() => router.push("/admin-dashboard/users/create")}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg text-sm font-medium transition"

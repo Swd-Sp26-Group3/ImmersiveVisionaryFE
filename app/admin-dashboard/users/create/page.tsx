@@ -5,7 +5,7 @@ import { apiFetch } from "@/lib/api";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 // Roles available in the system (from enums.ts)
-const ROLES = ["ADMIN", "MANAGER", "ARTIST", "CUSTOMER", "SELLER"] as const;
+const ROLES = ["ADMIN", "MANAGER", "ARTIST", "CUSTOMER",] as const;
 type Role = typeof ROLES[number];
 
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
@@ -13,7 +13,6 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
   MANAGER: "Manage orders, catalog, assign tasks to artists",
   ARTIST: "Access artist dashboard, work on assigned orders",
   CUSTOMER: "Browse marketplace, place orders, download files",
-  SELLER: "Approved business account, sell on marketplace",
 };
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -21,7 +20,7 @@ const ROLE_COLORS: Record<Role, string> = {
   MANAGER: "border-purple-500/50 bg-purple-500/10 text-purple-400",
   ARTIST: "border-cyan-500/50 bg-cyan-500/10 text-cyan-400",
   CUSTOMER: "border-blue-500/50 bg-blue-500/10 text-blue-400",
-  SELLER: "border-green-500/50 bg-green-500/10 text-green-400",
+
 };
 
 export default function CreateUserPage() {
@@ -90,21 +89,7 @@ export default function CreateUserPage() {
       // ✅ STEP 2: Nếu role không phải CUSTOMER → cần set role
       // Hiện tại BE chưa có update-role endpoint nên dùng approve cho SELLER
       // Với các role khác → cần BE bổ sung
-      if (form.selectedRole === "SELLER") {
-        // ✅ POST /api/users/:id/approve — đổi sang SELLER
-        const approveRes = await apiFetch(`/users/${newUserId}/approve`, {
-          method: "POST",
-        });
-        if (!approveRes.ok) {
-          const approveData = await approveRes.json();
-          // Tạo thành công nhưng set role thất bại
-          setMessage({
-            type: "error",
-            text: `User created (ID: #${newUserId}) but role set failed: ${approveData.message}. Please edit manually.`,
-          });
-          return;
-        }
-      } else if (form.selectedRole !== "CUSTOMER") {
+      if (form.selectedRole !== "CUSTOMER") {
         // ADMIN / MANAGER / ARTIST — cần BE bổ sung endpoint update role
         // Hiện tại: thông báo để admin biết cần update thủ công
         setMessage({
@@ -253,17 +238,15 @@ export default function CreateUserPage() {
               <button
                 key={role}
                 onClick={() => update("selectedRole", role)}
-                className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all text-left ${
-                  form.selectedRole === role
+                className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all text-left ${form.selectedRole === role
                     ? ROLE_COLORS[role] + " border-opacity-100"
                     : "border-slate-700 hover:border-slate-500 text-slate-400"
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      form.selectedRole === role ? "bg-current" : "bg-slate-600"
-                    }`} />
+                    <div className={`w-2 h-2 rounded-full ${form.selectedRole === role ? "bg-current" : "bg-slate-600"
+                      }`} />
                     <span className="font-semibold text-sm">{role}</span>
                   </div>
                   <p className="text-xs mt-0.5 ml-4 text-slate-400">{ROLE_DESCRIPTIONS[role]}</p>
@@ -295,11 +278,10 @@ export default function CreateUserPage() {
 
         {/* Message */}
         {message && (
-          <div className={`flex items-start gap-2 text-sm rounded-xl px-4 py-3 ${
-            message.type === "success"
+          <div className={`flex items-start gap-2 text-sm rounded-xl px-4 py-3 ${message.type === "success"
               ? "bg-green-500/10 text-green-400 border border-green-500/30"
               : "bg-red-500/10 text-red-400 border border-red-500/30"
-          }`}>
+            }`}>
             {message.type === "success"
               ? <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
               : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
