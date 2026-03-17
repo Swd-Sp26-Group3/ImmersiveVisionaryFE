@@ -46,7 +46,21 @@ export default function OrderProductPage() {
     if (e.target.files) setSelectedFiles(Array.from(e.target.files));
   };
 
-  // Submit custom order → POST /api/products (endpoint có sẵn)
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        let base64 = reader.result as string;
+        // Strip data:mime/type;base64, prefix
+        base64 = base64.split(",")[1] || base64;
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Submit custom order → POST /api/orders
   const handleSubmitCustom = async () => {
     if (!form.projectName.trim()) {
       setSubmitError("Vui lòng nhập tên dự án.");
@@ -61,16 +75,27 @@ export default function OrderProductPage() {
     setSubmitError("");
 
     try {
-      // Dùng POST /api/products — endpoint đã có trong BE
-      const res = await apiFetch("/products", {
+      // Convert selected files to base64 attachments
+      const attachments = await Promise.all(selectedFiles.map(async file => ({
+        FileName: file.name,
+        MimeType: file.type || "application/octet-stream",
+        Base64Data: await fileToBase64(file)
+      })));
+
+      // Call POST /api/orders with the correct schema
+      const res = await apiFetch("/orders", {
         method: "POST",
         body: JSON.stringify({
-          CompanyId: 1,                          // TODO: lấy từ user.companyId khi có
-          ProductName: form.projectName,
-          Description: form.description,
-          Category: form.productType || null,
-          SizeInfo: form.deadline || null,       // tạm dùng SizeInfo lưu deadline
-          ColorInfo: form.budget || null,        // tạm dùng ColorInfo lưu budget
+          ProjectName: form.projectName,
+          ProductType: form.productType || null,
+          Brief: form.description,
+          Budget: form.budget || null,
+          DeliverySpeed: form.deadline || null,
+          ArOptimize: form.arOptimize,
+          Animation: form.animation,
+          MultiVariant: form.multiVariant,
+          SourceFiles: form.sourceFiles,
+          Attachments: attachments,
         }),
       });
 
@@ -80,16 +105,12 @@ export default function OrderProductPage() {
       }
 
       const data = await res.json();
-      // Lưu order mới vào session để order-success đọc
-      sessionStorage.setItem(
-        "customOrder",
-        JSON.stringify(data.data ?? data)
-      );
+      const newOrder = data.data ?? data;
+      
+      sessionStorage.setItem("customOrder", JSON.stringify(newOrder));
 
-      // Redirect về dashboard sau khi gửi thành công
-      router.push(
-        `/order-success?productId=${(data.data ?? data).ProductId}&name=${encodeURIComponent(form.projectName)}`
-      );
+      // Redirect to success page with real order ID
+      router.push(`/order-success?orderId=${newOrder.OrderId}`);
     } catch (err: any) {
       setSubmitError(err.message ?? "Đã có lỗi xảy ra.");
     } finally {

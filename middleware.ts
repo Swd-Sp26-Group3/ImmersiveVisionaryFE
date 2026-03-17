@@ -8,17 +8,17 @@ const PUBLIC_PATHS = ['/', '/login', '/signup', '/marketplace'];
 
 //Khi role cụ verify thành công ở login thì đây là đường dẫn họ có quyền truy cập
 const ROLE_ROUTES: Record<string, string[]> = {
-    ADMIN:    ['/admin-dashboard'],
-    MANAGER:  ['/manager-dashboard'],
-    ARTIST:   ['/artist-dashboard', '/marketplace', '/checkout', '/order', '/order-success'],
+    ADMIN: ['/admin-dashboard'],
+    MANAGER: ['/manager-dashboard'],
+    ARTIST: ['/artist-dashboard', '/marketplace', '/checkout', '/order', '/order-success'],
     CUSTOMER: ['/customer-dashboard', '/homepage', '/marketplace', '/checkout', '/order', '/order-success', '/studio-custom'],
 };
 
 //Khi login thành công thì mỗi role sẽ được tự động điều hướng đến path cụ thể 
 const ROLE_HOME: Record<string, string> = {
-    ADMIN:    '/admin-dashboard',
-    MANAGER:  '/manager-dashboard',
-    ARTIST:   '/artist-dashboard',
+    ADMIN: '/admin-dashboard',
+    MANAGER: '/manager-dashboard',
+    ARTIST: '/artist-dashboard',
     CUSTOMER: '/customer-dashboard',
 };
 
@@ -62,7 +62,7 @@ export async function middleware(req: NextRequest) {
     }
 
     // Không có cả 2 token thì sẽ quay lại login
-    const token        = req.cookies.get("accessToken")?.value;
+    const token = req.cookies.get("accessToken")?.value;
     const refreshToken = req.cookies.get("refreshToken")?.value;
     console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
 
@@ -77,7 +77,6 @@ export async function middleware(req: NextRequest) {
             const { payload } = await jwtVerify(token, secret);
             const role = (payload.role as string)?.toUpperCase();
             console.log("Role:", role);
-
             const allowedPaths = ROLE_ROUTES[role] ?? [];
             const isAllowed = allowedPaths.some((p) => pathname.startsWith(p));
 
@@ -104,7 +103,7 @@ export async function middleware(req: NextRequest) {
 
             if (res.ok) {
                 const data = await res.json();
-                const newAccessToken  = data.accessToken  ?? data.data?.accessToken;
+                const newAccessToken = data.accessToken ?? data.data?.accessToken;
                 const newRefreshToken = data.refreshToken ?? data.data?.refreshToken ?? refreshToken;
 
                 if (newAccessToken) {

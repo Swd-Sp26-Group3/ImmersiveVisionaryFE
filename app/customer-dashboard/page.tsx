@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Package, FileText, Download, Plus, MessageSquare, Bell, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { MOCK_ORDERS, MOCK_PURCHASES, UserProfile } from "./components/types";
+import { MOCK_PURCHASES, UserProfile, ApiOrder } from "./components/types";
 import { OrdersTab } from "./components/OrderTab";
 import { BriefsTab } from "./components/BriefsTab";
 import { PurchasesTab } from "./components/PurchasesTab";
@@ -14,18 +14,20 @@ import { ProfileTab } from "./components/ProfileTab";
 
 // Tab config
 const TABS = [
-  { id: "orders",    label: "Orders",    icon: Package },
-  { id: "briefs",    label: "Briefs",    icon: FileText },
+  { id: "orders", label: "Orders", icon: Package },
+  { id: "briefs", label: "Briefs", icon: FileText },
   { id: "purchases", label: "Purchases", icon: Download },
-  { id: "profile",   label: "Profile",   icon: User },
+  { id: "profile", label: "Profile", icon: User },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
 
 export default function CustomerDashboard() {
-  const [activeTab, setActiveTab]           = useState<TabId>("orders");
-  const [profile, setProfile]               = useState<UserProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("orders");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
   useEffect(() => {
     apiFetch("/users/profile")
@@ -33,10 +35,17 @@ export default function CustomerDashboard() {
       .then((data) => setProfile(data.data ?? data))
       .catch((err) => console.error("Profile fetch error:", err))
       .finally(() => setProfileLoading(false));
+
+    // Fetch real orders from GET /api/orders/my
+    apiFetch("/orders/my")
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => { const arr = d.data ?? d; setOrders(Array.isArray(arr) ? arr : []); })
+      .catch((err) => console.error("Orders fetch error:", err))
+      .finally(() => setOrdersLoading(false));
   }, []);
 
-  const activeOrders    = MOCK_ORDERS.filter((o) => o.status !== "Completed").length;
-  const completedOrders = MOCK_ORDERS.filter((o) => o.status === "Completed").length;
+  const activeOrders = orders.filter((o) => o.Status !== "COMPLETED" && o.Status !== "DELIVERED" && o.Status !== "CANCELLED").length;
+  const completedOrders = orders.filter((o) => o.Status === "COMPLETED" || o.Status === "DELIVERED").length;
 
   return (
     <div className="min-h-screen py-8">
@@ -95,9 +104,9 @@ export default function CustomerDashboard() {
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Active Orders",    value: activeOrders,            sub: "In progress",   subColor: "text-green-400" },
-            { label: "Completed",        value: completedOrders,          sub: "This month",    subColor: "text-gray-400"  },
-            { label: "Total Purchases",  value: MOCK_PURCHASES.length,    sub: "All time",      subColor: "text-gray-400"  },
+            { label: "Active Orders", value: ordersLoading ? "..." : activeOrders, sub: "In progress", subColor: "text-green-400" },
+            { label: "Completed", value: ordersLoading ? "..." : completedOrders, sub: "All time", subColor: "text-gray-400" },
+            { label: "Total Orders", value: ordersLoading ? "..." : orders.length, sub: "All time", subColor: "text-gray-400" },
           ].map(({ label, value, sub, subColor }) => (
             <Card key={label} className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
               <CardHeader className="pb-3">
@@ -153,10 +162,10 @@ export default function CustomerDashboard() {
 
           {/* Tab Content */}
           <div>
-            {activeTab === "orders"    && <OrdersTab />}
-            {activeTab === "briefs"    && <BriefsTab />}
+            {activeTab === "orders" && <OrdersTab />}
+            {activeTab === "briefs" && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
-            {activeTab === "profile"   && <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />}
+            {activeTab === "profile" && <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />}
           </div>
         </div>
 
