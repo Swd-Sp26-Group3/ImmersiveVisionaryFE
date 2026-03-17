@@ -1,16 +1,16 @@
 export type Role = 'ADMIN' | 'MANAGER' | 'ARTIST' | 'CUSTOMER'
 
 export const ROLE_HOME_MAP: Record<Role, string> = {
-    ADMIN:    '/admin-dashboard',
-    MANAGER:  '/manager-dashboard',
-    ARTIST:   '/artist-dashboard',
-    CUSTOMER: '/customer-dashboard',   
+    ADMIN: '/admin-dashboard',
+    MANAGER: '/manager-dashboard',
+    ARTIST: '/artist-dashboard',
+    CUSTOMER: '/customer-dashboard',
 }
 
 export const ROLE_ALLOWED_PATHS: Record<Role, string[]> = {
-    ADMIN:    ['/admin-dashboard', '/dashboard'],
-    MANAGER:  ['/manager-dashboard', '/dashboard'],
-    ARTIST:   [
+    ADMIN: ['/admin-dashboard', '/dashboard'],
+    MANAGER: ['/manager-dashboard', '/dashboard'],
+    ARTIST: [
         '/artist-dashboard',
         '/marketplace',
         '/checkout',

@@ -131,7 +131,6 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
         {!isEditing && (
           <div className="space-y-0 text-sm">
             {[
-              { label: "User ID",      value: `#${profile.UserId}`,                              editable: false },
               { label: "Username",     value: profile.UserName,                                   editable: true  },
               { label: "Email",        value: profile.Email,                                      editable: true  },
               { label: "Phone",        value: profile.Phone ?? "Not set",                        editable: true  },

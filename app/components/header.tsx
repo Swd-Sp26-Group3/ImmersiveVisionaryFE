@@ -20,7 +20,13 @@ export function Header() {
     { name: "Marketplace", path: "/marketplace", requiresAuth: false },
     { name: "Order", path: "/order", requiresAuth: true },
     { name: "Design Studio", path: "/studio-custom", requiresAuth: true },
-  ];
+  ].filter(link => {
+    const isRestrictedRole = user?.role === "MANAGER" || user?.role === "ADMIN";
+    if (isRestrictedRole && (link.path === "/marketplace" || link.path === "/order" || link.path === "/studio-custom" || link.path === "/")) {
+      return false;
+    }
+    return true;
+  });
 
   const handleNav = (path: string, requiresAuth: boolean) => {
     if (requiresAuth && !isAuthenticated) {
@@ -78,7 +84,7 @@ export function Header() {
           {isAuthenticated ? (
             <>
               {/* User info */}
-              <Link href= {dashboardPath}>
+              <Link href={dashboardPath}>
                 <div
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
                   style={{
@@ -168,8 +174,8 @@ export function Header() {
               {isAuthenticated ? (
                 <>
                   <Link
-                    href= {dashboardPath}
-                    onClick={() => setMobileMenuOpen(false)} 
+                    href={dashboardPath}
+                    onClick={() => setMobileMenuOpen(false)}
                   >
                     <span className="text-sm px-2" style={{ color: "#a5b4fc" }}>
                       {user?.name ?? user?.email}

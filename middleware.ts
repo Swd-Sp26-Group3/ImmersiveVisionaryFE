@@ -51,20 +51,47 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
+    // Không có cả 2 token thì sẽ quay lại login
+    const token = req.cookies.get("accessToken")?.value;
+    const refreshToken = req.cookies.get("refreshToken")?.value;
+    console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
+
     //Dùng PUBLIC_PATHS — bao gồm /marketplace và /marketplace/*
     const isPublic = PUBLIC_PATHS.some(
         (p) => pathname === p || pathname.startsWith(p + "/")
     );
 
     if (isPublic) {
-        console.log(" Public path, bỏ qua:", pathname);
+        console.log(" Public path, checking access for logged-in users:", pathname);
+
+        // Even for public paths, if they are logged in as MANAGER, block marketplace
+        if (token || refreshToken) {
+            try {
+                // Try to get role from token if available, otherwise just continue (it's public)
+                const currentToken = token || refreshToken;
+                if (currentToken) {
+                    const { payload } = await jwtVerify(
+                        new TextEncoder().encode(token ? token : "").byteLength > 0 ? token! : (refreshToken ? refreshToken : ""),
+                        secret
+                    ).catch(() => ({ payload: null }));
+
+                    if (payload) {
+                        const role = (payload.role as string)?.toUpperCase();
+                        if ((role === 'MANAGER' || role === 'ADMIN') && (pathname === '/marketplace' || pathname.startsWith('/marketplace/'))) {
+                            console.log(` ${role} trying to access marketplace -> redirecting`);
+                            const redirectPath = role === 'ADMIN' ? '/admin-dashboard' : '/manager-dashboard';
+                            return NextResponse.redirect(new URL(redirectPath, req.url));
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore errors here, let them view public path if verify fails
+                console.log("Verify in public path failed:", err);
+            }
+        }
+
         return NextResponse.next();
     }
-
-    // Không có cả 2 token thì sẽ quay lại login
-    const token = req.cookies.get("accessToken")?.value;
-    const refreshToken = req.cookies.get("refreshToken")?.value;
-    console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
 
     if (!token && !refreshToken) {
         console.log(" Không có token → redirect /login");

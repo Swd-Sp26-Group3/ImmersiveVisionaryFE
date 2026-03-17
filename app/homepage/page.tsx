@@ -9,9 +9,9 @@ import { useRouter } from "next/navigation";
 const W = "max-w-8xl w-full md:px-12 lg:px-20";
 
 export default function HomePage() {
-  const {isAuthenticated} = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const router = useRouter();
-  
+
   const handleNav = (destination: string) => {
     router.push(isAuthenticated ? destination : "/login");
   };
@@ -44,7 +44,7 @@ export default function HomePage() {
       cta: "Start Project",
       link: "/studio-custom",
     },
-  ];
+  ].filter(s => !(s.link === "/marketplace" && isAuthenticated && (user?.role === "MANAGER" || user?.role === "ADMIN")));
 
   const pipelineSteps = [
     { step: "01", title: "Submit Brief", desc: "Share product details and requirements" },
@@ -117,21 +117,22 @@ export default function HomePage() {
                 >
                   Start Custom Project
                 </Button>
-                <Link href="/marketplace">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="font-semibold px-7 text-sm hover:bg-white/5"
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.2)",
-                      color: "white",
-                      background: "transparent",
-                    }}
-                  >
-                    Browse Marketplace
-                  </Button>
-                </Link> 
-              </div>
+                {!(isAuthenticated && (user?.role === "MANAGER" || user?.role === "ADMIN")) && (
+                  <Link href="/marketplace">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="font-semibold px-7 text-sm hover:bg-white/5"
+                      style={{
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        color: "white",
+                        background: "transparent",
+                      }}
+                    >
+                      Browse Marketplace
+                    </Button>
+                  </Link>
+                )}              </div>
 
               {/* Stats */}
               <div className="flex gap-10 sm:gap-16 flex-wrap">
