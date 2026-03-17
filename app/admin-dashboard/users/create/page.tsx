@@ -5,18 +5,17 @@ import { apiFetch } from "@/lib/api";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 // Roles available in the system (from enums.ts)
-const ROLES = ["ADMIN", "MANAGER", "ARTIST", "CUSTOMER",] as const;
+const ROLES = ["MANAGER", "ARTIST", "CUSTOMER",] as const;
 type Role = typeof ROLES[number];
 
 const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  ADMIN: "Full system access, manage all users and settings",
+
   MANAGER: "Manage orders, catalog, assign tasks to artists",
   ARTIST: "Access artist dashboard, work on assigned orders",
   CUSTOMER: "Browse marketplace, place orders, download files",
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  ADMIN: "border-red-500/50 bg-red-500/10 text-red-400",
   MANAGER: "border-purple-500/50 bg-purple-500/10 text-purple-400",
   ARTIST: "border-cyan-500/50 bg-cyan-500/10 text-cyan-400",
   CUSTOMER: "border-blue-500/50 bg-blue-500/10 text-blue-400",
@@ -90,7 +89,7 @@ export default function CreateUserPage() {
       // Hiện tại BE chưa có update-role endpoint nên dùng approve cho SELLER
       // Với các role khác → cần BE bổ sung
       if (form.selectedRole !== "CUSTOMER") {
-        // ADMIN / MANAGER / ARTIST — cần BE bổ sung endpoint update role
+        // MANAGER / ARTIST — cần BE bổ sung endpoint update role
         // Hiện tại: thông báo để admin biết cần update thủ công
         setMessage({
           type: "success",
@@ -239,8 +238,8 @@ export default function CreateUserPage() {
                 key={role}
                 onClick={() => update("selectedRole", role)}
                 className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all text-left ${form.selectedRole === role
-                    ? ROLE_COLORS[role] + " border-opacity-100"
-                    : "border-slate-700 hover:border-slate-500 text-slate-400"
+                  ? ROLE_COLORS[role] + " border-opacity-100"
+                  : "border-slate-700 hover:border-slate-500 text-slate-400"
                   }`}
               >
                 <div>
@@ -279,8 +278,8 @@ export default function CreateUserPage() {
         {/* Message */}
         {message && (
           <div className={`flex items-start gap-2 text-sm rounded-xl px-4 py-3 ${message.type === "success"
-              ? "bg-green-500/10 text-green-400 border border-green-500/30"
-              : "bg-red-500/10 text-red-400 border border-red-500/30"
+            ? "bg-green-500/10 text-green-400 border border-green-500/30"
+            : "bg-red-500/10 text-red-400 border border-red-500/30"
             }`}>
             {message.type === "success"
               ? <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
