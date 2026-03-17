@@ -169,21 +169,33 @@ export default function UserDetailPage() {
     changed: boolean;
   }>({ companyId: null, companyName: null, changed: false });
 
+  // Pending role assignment
+  const [roles, setRoles] = useState<{ RoleId: number; RoleName: string }[]>([]);
+  const [pendingRole, setPendingRole] = useState<{
+    roleId: number | null;
+    roleName: string | null;
+    changed: boolean;
+  }>({ roleId: null, roleName: null, changed: false });
+  const [roleSaving, setRoleSaving] = useState(false);
+
   const [form, setForm] = useState({ UserName: "", Email: "", Phone: "" });
 
-  // ===================== Load user + companies =====================
+  // ===================== Load user + companies + roles =====================
   useEffect(() => {
     if (!id) return;
     Promise.all([
       apiFetch(`/users/${id}`).then(r => r.json()),
       apiFetch("/companies").then(r => r.json()),
+      apiFetch("/admin/roles").then(r => r.json()).catch(() => ({ data: [] })),
     ])
-      .then(([userData, companiesData]) => {
+      .then(([userData, companiesData, rolesData]) => {
         const u: UserProfile = userData.data ?? userData;
         setUser(u);
         setForm({ UserName: u.UserName ?? "", Email: u.Email ?? "", Phone: u.Phone ?? "" });
         setPendingCompany({ companyId: u.CompanyId, companyName: u.CompanyName, changed: false });
+        setPendingRole({ roleId: u.RoleId, roleName: u.RoleName, changed: false });
         setCompanies(companiesData.data ?? companiesData ?? []);
+        setRoles(rolesData.data ?? rolesData ?? []);
       })
       .catch(() => setMessage({ type: "error", text: "Cannot load user data." }))
       .finally(() => setLoading(false));
@@ -268,21 +280,30 @@ export default function UserDetailPage() {
     }
   };
 
-  // ===================== Approve as SELLER =====================
-  const handleApproveBusiness = async () => {
-    if (!confirm("Approve this user as SELLER?")) return;
-    setSaving(true);
+  // ===================== Save Role =====================
+  const handleSaveRole = async () => {
+    if (!pendingRole.changed || !pendingRole.roleId) return;
+    setRoleSaving(true);
     clearMessage();
     try {
-      const res = await apiFetch(`/users/${id}/approve`, { method: "POST" });
+      const res = await apiFetch(`/admin/users/${id}/role`, {
+        method: "PUT",
+        body: JSON.stringify({ roleId: pendingRole.roleId }),
+      });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      setUser(data.data ?? data);
-      setMessage({ type: "success", text: "Account approved as SELLER!" });
+      if (!res.ok) throw new Error(data.message ?? "Role update failed.");
+      const updated: UserProfile = data.user ?? data.data ?? data;
+      setUser(updated);
+      setPendingRole({
+        roleId: updated.RoleId,
+        roleName: updated.RoleName,
+        changed: false,
+      });
+      setMessage({ type: "success", text: "Role updated successfully!" });
     } catch (err: any) {
-      setMessage({ type: "error", text: err.message ?? "Approve failed." });
+      setMessage({ type: "error", text: err.message ?? "Update role failed." });
     } finally {
-      setSaving(false);
+      setRoleSaving(false);
     }
   };
 
@@ -446,6 +467,83 @@ export default function UserDetailPage() {
             </button>
           </div>
 
+          {/* ===== ROLE ASSIGNMENT ===== */}
+          <div className="bg-slate-800/40 border border-white/8 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-white font-semibold text-sm flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-purple-400" />
+                  Role Assignment
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">Change this user's role</p>
+              </div>
+              {pendingRole.changed && (
+                <span className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-2 py-0.5">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+
+            {user.RoleName === "ADMIN" ? (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-sm text-red-400">
+                You cannot modify the role of another ADMIN.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <select
+                    value={pendingRole.roleId ?? ""}
+                    onChange={(e) => {
+                      const newId = Number(e.target.value);
+                      const matchedRole = roles.find(r => r.RoleId === newId);
+                      if (matchedRole) {
+                        setPendingRole({
+                          roleId: matchedRole.RoleId,
+                          roleName: matchedRole.RoleName,
+                          changed: matchedRole.RoleId !== user.RoleId
+                        });
+                      }
+                    }}
+                    className="flex-1 px-4 py-3 rounded-xl bg-slate-900/60 border border-purple-500/20 text-white text-sm focus:outline-none focus:border-purple-500 transition"
+                  >
+                    {roles
+                      .filter(r => r.RoleName !== "ADMIN")
+                      .map(r => (
+                        <option key={r.RoleId} value={r.RoleId}>
+                          {r.RoleName}
+                        </option>
+                      ))
+                    }
+                  </select>
+                </div>
+
+                {pendingRole.changed && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400 bg-yellow-500/5 border border-yellow-500/15 rounded-lg px-3 py-2">
+                    <span className="text-slate-500 line-through">{user.RoleName}</span>
+                    <span className="text-slate-500">→</span>
+                    <span className="text-yellow-300 font-medium">{pendingRole.roleName}</span>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleSaveRole}
+                  disabled={!pendingRole.changed || roleSaving}
+                  className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${
+                    pendingRole.changed
+                      ? "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/15"
+                      : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                  }`}
+                >
+                  {roleSaving ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
+                  ) : (
+                    <><Save className="w-4 h-4" /> Save Role</>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* ===== PROFILE FIELDS ===== */}
           <div className="bg-slate-800/40 border border-white/8 rounded-2xl p-5">
             <p className="text-white font-semibold text-sm mb-4 flex items-center gap-2">
@@ -484,24 +582,11 @@ export default function UserDetailPage() {
               </div>
             </div>
 
-            <div className="bg-yellow-500/8 border border-yellow-500/20 rounded-lg px-3 py-2 text-xs text-yellow-500 mt-4">
-              Role cannot be changed via this form. Use "Approve as SELLER" to promote user.
-            </div>
-
-            <div className="flex gap-3 mt-4">
-              {user.RoleName !== "SELLER" && user.RoleName !== "ADMIN" && (
-                <button
-                  onClick={handleApproveBusiness}
-                  disabled={saving}
-                  className="flex-1 py-2.5 text-sm border border-cyan-500/40 text-cyan-400 rounded-xl hover:bg-cyan-500/10 disabled:opacity-50 transition"
-                >
-                  Approve as SELLER
-                </button>
-              )}
+            <div className="mt-4">
               <button
                 onClick={handleSaveProfile}
                 disabled={saving}
-                className="flex-1 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50 transition flex items-center justify-center gap-2 font-medium"
+                className="w-full py-2.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-xl disabled:opacity-50 transition flex items-center justify-center gap-2 font-medium"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? "Saving…" : "Save Profile"}
