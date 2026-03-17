@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "start": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next start",
     "lint": "eslint"
   },
   "dependencies": {
@@ -39,6 +39,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
+    "joe": "^2.0.2",
     "jose": "^6.2.1",
     "lucide-react": "^0.576.0",
     "motion": "^12.34.4",
@@ -60,7 +61,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "cross-env": "^10.1.0",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.3.0",
     "tailwindcss": "^4",

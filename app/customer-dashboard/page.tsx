@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Package, FileText, Download, Plus, MessageSquare, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { UserProfile } from "./components/types";
+import { MOCK_PURCHASES, UserProfile, ApiOrder } from "./components/types";
 import { OrdersTab } from "./components/OrderTab";
 import { BriefsTab } from "./components/BriefsTab";
 import { PurchasesTab } from "./components/PurchasesTab";
@@ -27,9 +27,11 @@ interface MarketplaceOrder {
 }
 
 export default function CustomerDashboard() {
-  const [activeTab, setActiveTab]           = useState<TabId>("orders");
-  const [profile, setProfile]               = useState<UserProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("orders");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
   // Real purchase stats
   const [purchases, setPurchases]           = useState<MarketplaceOrder[]>([]);
@@ -41,6 +43,13 @@ export default function CustomerDashboard() {
       .then(d => setProfile(d.data ?? d))
       .catch(e => console.error("Profile fetch error:", e))
       .finally(() => setProfileLoading(false));
+
+    // Fetch real orders from GET /api/orders/my
+    apiFetch("/orders/my")
+      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(d => { const arr = d.data ?? d; setOrders(Array.isArray(arr) ? arr : []); })
+      .catch((err) => console.error("Orders fetch error:", err))
+      .finally(() => setOrdersLoading(false));
 
     apiFetch("/marketplace-orders/my")
       .then(r => r.json())
@@ -121,8 +130,11 @@ export default function CustomerDashboard() {
 
         {/* Stats */}
         <div className="grid md:grid-cols-4 gap-4 mb-8">
-          {/* Purchase stats */}
-          {STATS.slice(0, 3).map(({ label, value, sub, subColor }) => (
+          {[
+            { label: "Active Orders", value: ordersLoading ? "..." : activeOrders, sub: "In progress", subColor: "text-green-400" },
+            { label: "Completed", value: ordersLoading ? "..." : completedOrders, sub: "All time", subColor: "text-gray-400" },
+            { label: "Total Orders", value: ordersLoading ? "..." : orders.length, sub: "All time", subColor: "text-gray-400" },
+          ].map(({ label, value, sub, subColor }) => (
             <Card key={label} className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm text-gray-400">{label}</CardTitle>
@@ -180,8 +192,8 @@ export default function CustomerDashboard() {
           </div>
 
           <div>
-            {activeTab === "orders"    && <OrdersTab />}
-            {activeTab === "briefs"    && <BriefsTab />}
+            {activeTab === "orders" && <OrdersTab />}
+            {activeTab === "briefs" && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
             {activeTab === "profile"   && (
               <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />
