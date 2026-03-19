@@ -46,15 +46,9 @@ declare module 'three/addons/loaders/OBJLoader' {
     }
 }
 
-declare module 'three/examples/jsm/loaders/OBJLoader' {
-    export class OBJLoader extends import('three').Loader {
-        constructor(manager?: import('three').LoadingManager);
-        load(
-            url: string,
-            onLoad: (group: import('three').Group) => void,
-            onProgress?: (event: ProgressEvent) => void,
-            onError?: (event: ErrorEvent) => void
-        ): void;
-        parse(data: string): import('three').Group;
-    }
-}
+// ESM Extension Mappings
+declare module 'three/addons/loaders/MTLLoader.js' { export * from 'three/addons/loaders/MTLLoader'; }
+declare module 'three/addons/loaders/OBJLoader.js' { export * from 'three/addons/loaders/OBJLoader'; }
+
+// Legacy paths if needed
+declare module 'three/examples/jsm/loaders/OBJLoader' { export * from 'three/addons/loaders/OBJLoader'; }

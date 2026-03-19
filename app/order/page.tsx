@@ -82,6 +82,18 @@ export default function OrderProductPage() {
         Base64Data: await fileToBase64(file)
       })));
 
+      // Calculate Deadline date based on delivery speed
+      let deadlineDate = new Date();
+      if (form.deadline === "standard") {
+        deadlineDate.setDate(deadlineDate.getDate() + 10);
+      } else if (form.deadline === "express") {
+        deadlineDate.setDate(deadlineDate.getDate() + 5);
+      } else if (form.deadline === "rush") {
+        deadlineDate.setDate(deadlineDate.getDate() + 2);
+      } else {
+        deadlineDate.setDate(deadlineDate.getDate() + 14); // Default 2 weeks
+      }
+
       // Call POST /api/orders with the correct schema
       const res = await apiFetch("/orders", {
         method: "POST",
@@ -95,6 +107,7 @@ export default function OrderProductPage() {
           Animation: form.animation,
           MultiVariant: form.multiVariant,
           SourceFiles: form.sourceFiles,
+          Deadline: deadlineDate.toISOString().split("T")[0], // Send YYYY-MM-DD
           Attachments: attachments,
         }),
       });

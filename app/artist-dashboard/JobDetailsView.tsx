@@ -190,11 +190,31 @@ export function JobDetailView({ order, onBack }: Props) {
             ))}
           </div>
 
-          {/* Brief */}
+          {/* Brief & Feedback */}
           {order.Brief && (
-            <div className="bg-blue-500/5 border border-blue-500/15 rounded-xl p-4 mb-6">
-              <p className="text-slate-400 text-xs uppercase tracking-widest mb-2">Customer Brief</p>
-              <p className="text-white text-sm leading-relaxed">{order.Brief}</p>
+            <div className={`rounded-xl p-4 mb-6 border ${order.Brief.includes("[REVISION FEEDBACK")
+              ? "bg-yellow-500/10 border-yellow-500/30"
+              : "bg-blue-500/5 border-blue-500/15"
+              }`}>
+              {order.Brief.includes("[REVISION FEEDBACK") ? (
+                <>
+                  <p className="text-yellow-500 text-xs uppercase tracking-widest font-bold mb-2">Revision Feedback Required</p>
+                  <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                    {order.Brief.split("Original Brief:")[0].replace(/\[REVISION FEEDBACK.*?\]:/, "").trim()}
+                  </p>
+                  <div className="mt-4 pt-4 border-t border-yellow-500/20">
+                    <p className="text-slate-500 text-[10px] uppercase tracking-widest mb-1">Original Brief</p>
+                    <p className="text-slate-400 text-xs line-clamp-3 italic">
+                      {order.Brief.split("Original Brief:")[1]?.trim() || order.Brief}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-slate-400 text-xs uppercase tracking-widest mb-2">Customer Brief</p>
+                  <p className="text-white text-sm leading-relaxed">{order.Brief}</p>
+                </>
+              )}
             </div>
           )}
 

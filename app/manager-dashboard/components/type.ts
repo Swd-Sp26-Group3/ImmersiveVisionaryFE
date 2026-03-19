@@ -46,7 +46,9 @@ export interface CreativeOrder {
   CompanyId: number;
   ProductId: number;
   PackageId: number;
+  ProjectName: string | null;
   Brief: string | null;
+  Budget: string | null;
   TargetPlatform: string | null;
   Status: CreativeOrderStatus;
   Deadline: string | null;
@@ -59,16 +61,16 @@ export interface CreativeOrder {
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  NEW:          { label: "New",           color: "bg-yellow-600" },
-  IN_PRODUCTION:{ label: "In Production", color: "bg-blue-600"   },
-  REVIEW:       { label: "Review",        color: "bg-purple-600" },
-  COMPLETED:    { label: "Completed",     color: "bg-green-600"  },
-  DELIVERED:    { label: "Delivered",     color: "bg-cyan-600"   },
-  CANCELLED:    { label: "Cancelled",     color: "bg-red-600"    },
+  NEW: { label: "New", color: "bg-yellow-600" },
+  IN_PRODUCTION: { label: "In Production", color: "bg-blue-600" },
+  REVIEW: { label: "Review", color: "bg-purple-600" },
+  COMPLETED: { label: "Completed", color: "bg-green-600" },
+  DELIVERED: { label: "Approved (Waiting Pay)", color: "bg-cyan-600" },
+  CANCELLED: { label: "Cancelled", color: "bg-red-600" },
 };
 
 export const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  ACTIVE:    { label: "Active",    color: "bg-green-600" },
-  INACTIVE:  { label: "Inactive",  color: "bg-slate-600" },
-  SUSPENDED: { label: "Suspended", color: "bg-red-600"   },
+  ACTIVE: { label: "Active", color: "bg-green-600" },
+  INACTIVE: { label: "Inactive", color: "bg-slate-600" },
+  SUSPENDED: { label: "Suspended", color: "bg-red-600" },
 };

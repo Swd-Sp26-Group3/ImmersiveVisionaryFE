@@ -8,8 +8,9 @@ import { Badge } from "@/app/components/ui/badge";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, ShoppingCart, Loader2, AlertCircle,
-  Box, CheckCircle2, Tag, Building2
+  Box, CheckCircle2, Tag, Building2, View, X
 } from "lucide-react";
+import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 
 // Asset3D 
 interface Asset {
@@ -20,6 +21,7 @@ interface Asset {
   Industry: string | null;
   Price: number | null;
   PreviewImage: string | null;
+  Base64Data: string | null;
   PublishStatus: string;
   IsMarketplace: boolean | number;
   OwnerCompanyId: number | null;
@@ -43,6 +45,7 @@ export default function AssetDetailPage() {
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [show3D, setShow3D] = useState(false);
 
   // GET /api/assets/:id
   useEffect(() => {
@@ -108,13 +111,37 @@ export default function AssetDetailPage() {
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="rounded-2xl overflow-hidden border border-blue-500/20 shadow-2xl"
+            className="rounded-2xl overflow-hidden border border-blue-500/20 shadow-2xl relative bg-slate-900/40 min-h-[400px]"
           >
-            <img
-              src={assetImage}
-              alt={asset.AssetName}
-              className="w-full h-80 object-cover"
-            />
+            {show3D && asset?.Base64Data ? (
+              <div className="w-full h-[400px]">
+                <DynamicOBJModelViewer objData={asset.Base64Data} />
+                <button
+                  onClick={() => setShow3D(false)}
+                  className="absolute top-4 right-4 bg-black/60 text-white p-2 rounded-full hover:bg-black/80 transition z-10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="relative group">
+                <img
+                  src={assetImage}
+                  alt={asset.AssetName}
+                  className="w-full h-[400px] object-cover"
+                />
+                {asset?.Base64Data && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      onClick={() => setShow3D(true)}
+                      className="bg-cyan-500 hover:bg-cyan-400 text-white gap-2"
+                    >
+                      <View className="w-4 h-4" /> View 3D Mode
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
 
           {/* Info */}
