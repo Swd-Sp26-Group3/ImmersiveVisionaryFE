@@ -10,12 +10,47 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ApiOrder, ORDER_STATUS_CONFIG, getOrderProgress } from "./types";
+import OBJModelViewer from "../../components/3d/OBJModelViewer";
+import { Eye, FileBox } from "lucide-react";
+
+interface Attachment {
+  AttachmentId: number;
+  FileName: string;
+  MimeType: string;
+  Base64Data: string;
+  CreatedAt: string;
+}
 
 export function BriefsTab() {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<number | null>(null);
+  const [showPreview, setShowPreview] = useState<Attachment | null>(null);
+  const [previewingOrderId, setPreviewingOrderId] = useState<number | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const handlePreview3D = async (orderId: number) => {
+    setLoadingPreview(true);
+    setPreviewingOrderId(orderId);
+    try {
+      const res = await apiFetch(`/orders/${orderId}/attachments`);
+      if (!res.ok) throw new Error("Could not load attachments");
+      const data = await res.json();
+      const attachments: Attachment[] = data.data ?? data;
+      const objFile = attachments.find(a => a.FileName.toLowerCase().endsWith(".obj"));
+      if (objFile) {
+        setShowPreview(objFile);
+      } else {
+        alert("No 3D model found for this order yet.");
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setLoadingPreview(false);
+      setPreviewingOrderId(null);
+    }
+  };
 
   const fetchOrders = () => {
     setLoading(true); setError("");
@@ -142,12 +177,48 @@ export function BriefsTab() {
                   <p className="text-slate-500 text-xs line-clamp-2 mt-1">{order.Brief}</p>
                 )}
 
-                <p className="text-slate-600 text-xs mt-2">
+                <div className="mt-3 flex gap-2">
+                  {(order.Status === "REVIEW" || order.Status === "COMPLETED" || order.Status === "DELIVERED") && (
+                    <Button size="sm" className="bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-600/30 text-xs"
+                      onClick={() => handlePreview3D(order.OrderId)}
+                      disabled={loadingPreview && previewingOrderId === order.OrderId}
+                    >
+                      {loadingPreview && previewingOrderId === order.OrderId ? (
+                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      ) : (
+                        <Eye className="w-3 h-3 mr-1" />
+                      )}
+                      View 3D Preview
+                    </Button>
+                  )}
+                </div>
+
+                <p className="text-slate-600 text-[10px] mt-3">
                   Created {new Date(order.CreatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                 </p>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* 3D Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#0f1729] border border-white/10 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-white/6 flex items-center justify-between">
+              <h3 className="text-white font-semibold flex items-center gap-2">
+                <Eye className="w-4 h-4 text-cyan-400" />
+                3D Preview: {showPreview.FileName}
+              </h3>
+              <button onClick={() => setShowPreview(null)} className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-white/5">
+                Close
+              </button>
+            </div>
+            <div className="p-6">
+              <OBJModelViewer objData={showPreview.Base64Data} />
+            </div>
+          </div>
         </div>
       )}
     </div>
