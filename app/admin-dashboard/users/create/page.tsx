@@ -1,7 +1,7 @@
 'use client';
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 // Roles available in the system (from enums.ts)
@@ -258,16 +258,12 @@ export default function CreateUserPage() {
           </div>
 
           {/* Warning for non-CUSTOMER/SELLER roles */}
-          {form.selectedRole !== "CUSTOMER" && form.selectedRole !== "SELLER" && (
+          {form.selectedRole !== "CUSTOMER" && (
             <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-xs text-yellow-400">
               ⚠️ <strong>{form.selectedRole}</strong> role: User will be created as CUSTOMER first, then you'll need to manually update the role via the Edit User page. This requires a role-update endpoint to be added to the BE.
             </div>
           )}
-          {form.selectedRole === "SELLER" && (
-            <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 text-xs text-green-400">
-              ✅ SELLER: Will be set automatically via <code>/api/users/:id/approve</code>
-            </div>
-          )}
+
           {form.selectedRole === "CUSTOMER" && (
             <div className="mt-3 bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 text-xs text-blue-400">
               ✅ CUSTOMER: Default role, set automatically on register.
