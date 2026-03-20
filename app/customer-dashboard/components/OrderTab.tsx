@@ -7,7 +7,7 @@ import { Progress } from "@/app/components/ui/progress";
 import {
   Loader2, AlertCircle, RefreshCw, XCircle,
   Clock, CheckCircle2, Package, Eye, Send, Check,
-  RotateCcw, Archive, ShoppingBag, ExternalLink
+  RotateCcw, Archive, ShoppingBag, ExternalLink, Download
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { ApiOrder, ORDER_STATUS_CONFIG, getStatusColor, getStatusLabel, getOrderProgress } from "./types";
@@ -151,6 +151,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: any) => void })
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState<number | null>(null);
   const [reviewOrder, setReviewOrder] = useState<ApiOrder | null>(null);
 
   const fetchOrders = () => {
@@ -166,6 +167,40 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: any) => void })
 
   const handleUpdated = (updated: ApiOrder) => {
     setOrders(prev => prev.map(o => o.OrderId === updated.OrderId ? updated : o));
+  };
+
+  const handleDownloadAttachments = async (orderId: number) => {
+    setDownloading(orderId);
+    try {
+      const res = await apiFetch(`/orders/${orderId}/attachments`);
+      if (!res.ok) throw new Error("Failed to fetch attachments");
+      const data = await res.json();
+      const attachments: Attachment[] = data.data ?? [];
+
+      if (attachments.length === 0) {
+        alert("No deliverables found for this order.");
+        return;
+      }
+
+      attachments.forEach((att) => {
+        if (att.Base64Data) {
+          const a = document.createElement("a");
+          let href = att.Base64Data;
+          if (!href.startsWith("data:")) {
+            href = `data:application/octet-stream;base64,${href}`;
+          }
+          a.href = href;
+          a.download = att.FileName || `delivery_${orderId}.obj`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      });
+    } catch (e: any) {
+      alert(e.message ?? "Failed to download deliverables.");
+    } finally {
+      setDownloading(null);
+    }
   };
 
   const handleCancel = async (orderId: number) => {
@@ -282,6 +317,15 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: any) => void })
                 <div className="flex gap-2 flex-shrink-0">
                   {order.Status === "COMPLETED" && (
                     <>
+                      <Button
+                        size="sm"
+                        className="bg-cyan-600 hover:bg-cyan-500 text-white"
+                        onClick={() => handleDownloadAttachments(order.OrderId)}
+                        disabled={downloading === order.OrderId}
+                      >
+                        {downloading === order.OrderId ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
+                        Download Files
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
