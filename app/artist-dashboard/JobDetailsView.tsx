@@ -229,7 +229,7 @@ export function JobDetailView({ order, onBack }: Props) {
                   ${updating ? "opacity-50 pointer-events-none" : ""}
                 `}>
                   {updating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  Upload .OBJ
+                  Upload
                 </label>
               </div>
             </div>
