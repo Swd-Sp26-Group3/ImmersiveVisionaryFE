@@ -66,12 +66,12 @@ export const MOCK_PURCHASES = [
 
 // ── Status config matching BE CreativeOrderStatus enum ──
 export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  NEW:           { label: "New",           color: "text-yellow-300", bg: "bg-yellow-600"  },
-  IN_PRODUCTION: { label: "In Production", color: "text-blue-300",   bg: "bg-blue-600"    },
-  REVIEW:        { label: "Under Review",  color: "text-purple-300", bg: "bg-purple-600"  },
-  COMPLETED:     { label: "Completed",     color: "text-green-300",  bg: "bg-green-600"   },
-  DELIVERED:     { label: "Delivered",     color: "text-cyan-300",   bg: "bg-cyan-600"    },
-  CANCELLED:     { label: "Cancelled",     color: "text-red-300",    bg: "bg-red-600"     },
+  NEW: { label: "New", color: "text-yellow-300", bg: "bg-yellow-600" },
+  IN_PRODUCTION: { label: "In Production", color: "text-blue-300", bg: "bg-blue-600" },
+  REVIEW: { label: "Under Review", color: "text-purple-300", bg: "bg-purple-600" },
+  COMPLETED: { label: "Completed", color: "text-green-300", bg: "bg-green-600" },
+  DELIVERED: { label: "Approved (Waiting Pay)", color: "text-cyan-300", bg: "bg-cyan-600" },
+  CANCELLED: { label: "Cancelled", color: "text-red-300", bg: "bg-red-600" },
 };
 
 export const getStatusLabel = (status: string) =>
@@ -80,13 +80,13 @@ export const getStatusLabel = (status: string) =>
 // ── Progress mapping: derive % from status ──
 export const getOrderProgress = (status: string): number => {
   switch (status) {
-    case "NEW":           return 10;
+    case "NEW": return 10;
     case "IN_PRODUCTION": return 40;
-    case "REVIEW":        return 70;
-    case "COMPLETED":     return 90;
-    case "DELIVERED":     return 100;
-    case "CANCELLED":     return 0;
-    default:              return 0;
+    case "REVIEW": return 70;
+    case "COMPLETED": return 90;
+    case "DELIVERED": return 100;
+    case "CANCELLED": return 0;
+    default: return 0;
   }
 };
 

@@ -47,7 +47,7 @@ async function refreshAccessToken(): Promise<string | null> {
         });
         if (!res.ok) {
             clearTokens();
-            redirectToLogin
+            redirectToLogin();
             return null;
         }
         const data = await res.json();
@@ -96,6 +96,16 @@ export async function apiFetch(
         }
         // Refresh failed – clear tokens and let caller handle it
         clearTokens();
+    }
+
+    if (!res.ok && res.status !== 401) {
+        try {
+            const clone = res.clone();
+            const errData = await clone.json();
+            console.error(`API Error [${res.status}] ${endpoint}:`, errData);
+        } catch {
+            console.error(`API Error [${res.status}] ${endpoint}`);
+        }
     }
 
     return res;

@@ -8,7 +8,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import {
   Eye, UserCheck, Loader2, AlertCircle, CheckCircle2,
   RefreshCw, X, ArrowLeft, Package, ShoppingBag,
-  Building2, DollarSign, Clock, RotateCcw
+  Building2, DollarSign, Clock, RotateCcw, Upload, Plus
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
@@ -148,6 +148,105 @@ function AssignTaskModal({
   );
 }
 
+// ===================== EditOrderModal =====================
+function EditOrderModal({
+  order, onClose, onUpdated,
+}: {
+  order: CreativeOrder;
+  onClose: () => void;
+  onUpdated: (updated: CreativeOrder) => void;
+}) {
+  const [formData, setFormData] = useState({
+    ProjectName: order.ProjectName || "",
+    Budget: order.Budget || "",
+    Brief: order.Brief || "",
+    Deadline: order.Deadline ? order.Deadline.split('T')[0] : "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setSaving(true); setError("");
+    try {
+      const res = await apiFetch(`/orders/${order.OrderId}`, {
+        method: "PUT",
+        body: JSON.stringify(formData),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Failed to save");
+      const data = await res.json();
+      onUpdated(data.data ?? data);
+      onClose();
+    } catch (err: any) {
+      setError(err.message ?? "Update failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-slate-800 border border-blue-500/30 rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <h2 className="text-white font-bold text-lg">Edit Order Details</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-white">Project Name</Label>
+            <input
+              type="text"
+              value={formData.ProjectName}
+              onChange={(e) => setFormData({ ...formData, ProjectName: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-white">Budget / Price (VND)</Label>
+            <input
+              type="text"
+              value={formData.Budget}
+              onChange={(e) => setFormData({ ...formData, Budget: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+              placeholder="e.g. 5.000.000 VND"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-white">Brief / Description</Label>
+            <Textarea
+              value={formData.Brief}
+              onChange={(e) => setFormData({ ...formData, Brief: e.target.value })}
+              rows={4}
+              className="bg-slate-900 border-slate-700 text-white"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-white">Deadline</Label>
+            <input
+              type="date"
+              value={formData.Deadline}
+              onChange={(e) => setFormData({ ...formData, Deadline: e.target.value })}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+            />
+          </div>
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+        </div>
+        <div className="flex gap-3 p-6 border-t border-slate-700">
+          <Button onClick={onClose} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ===================== Creative Order Detail =====================
 function CreativeOrderDetail({
   order: initialOrder, artists, onBack, onOrderUpdated,
@@ -159,6 +258,7 @@ function CreativeOrderDetail({
 }) {
   const [order, setOrder] = useState(initialOrder);
   const [assignModal, setAssignModal] = useState(false);
+  const [editModal, setEditModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState("");
 
@@ -218,6 +318,13 @@ function CreativeOrderDetail({
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={() => setEditModal(true)}
+                variant="outline"
+                className="border-slate-700 text-slate-400 hover:text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" /> Edit Details
+              </Button>
               {order.Status === "NEW" && (
                 <Button onClick={() => setAssignModal(true)} className="bg-gradient-to-r from-blue-600 to-cyan-600">
                   <UserCheck className="w-4 h-4 mr-2" /> Assign to Artist
@@ -247,6 +354,8 @@ function CreativeOrderDetail({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             {[
               { label: "Order ID", value: `#${order.OrderId}` },
+              { label: "Project Name", value: order.ProjectName ?? "Not specified" },
+              { label: "Budget", value: order.Budget ?? "Not specified" },
               { label: "Company", value: order.CompanyName ?? `#${order.CompanyId}` },
               { label: "Product", value: order.ProductName ?? `#${order.ProductId}` },
               { label: "Package", value: order.PackageName ?? `#${order.PackageId}` },
@@ -309,6 +418,88 @@ function CreativeOrderDetail({
           onAssigned={(updated) => { setOrder(updated); onOrderUpdated(updated); setAssignModal(false); }}
         />
       )}
+
+      {editModal && (
+        <EditOrderModal
+          order={order}
+          onClose={() => setEditModal(false)}
+          onUpdated={(updated) => {
+            setOrder(updated);
+            onOrderUpdated(updated);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ===================== Edit Asset Modal =====================
+function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".obj")) {
+      setError("Please select a .obj file.");
+      return;
+    }
+
+    setUploading(true); setError("");
+    try {
+      // Read file as base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Data = await base64Promise;
+
+      const res = await apiFetch(`/assets/${assetId}/versions`, {
+        method: "POST",
+        body: JSON.stringify({
+          FileFormat: "OBJ",
+          FileUrl: file.name, // Just store name as reference if URL not used
+          Base64Data: base64Data, // Save the actual file content
+          PolyCount: 0,
+          TextureSize: "Unknown"
+        }),
+      });
+      if (!res.ok) throw new Error("Upload failed");
+
+      onUpdated();
+      onClose();
+    } catch (err: any) {
+      setError(err.message ?? "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 border border-purple-500/30 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
+          <h2 className="text-white font-bold">Edit Marketplace Asset</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-slate-400 text-sm">Upload a new .obj file to update this asset's 3D model.</p>
+          <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-purple-500/40 transition-colors relative">
+            <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
+            <div className="flex flex-col items-center">
+              {uploading ? <Loader2 className="w-8 h-8 text-purple-400 animate-spin" /> : <Upload className="w-8 h-8 text-slate-500 mb-2" />}
+              <p className="text-white text-sm font-medium">{uploading ? "Uploading..." : "Click to upload .OBJ"}</p>
+            </div>
+          </div>
+          {error && <p className="text-red-400 text-xs bg-red-400/10 p-2 rounded">{error}</p>}
+        </div>
+        <div className="p-4 bg-slate-900/50 rounded-b-2xl text-center">
+          <Button onClick={onClose} variant="ghost" className="text-slate-400">Cancel</Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -324,11 +515,10 @@ function MarketplaceOrderDetail({
   const [order, setOrder] = useState(initialOrder);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [showEditAsset, setShowEditAsset] = useState(false);
 
   const handleDeliver = async () => {
-    // Manager đánh dấu delivered — cần BE endpoint, hiện tại dùng refund endpoint làm ví dụ
-    // Nếu BE có PUT /marketplace-orders/:id/status thì dùng đó
-    // Hiện tại chỉ hiển thị thông tin, không có action deliver riêng
+    // Manager đánh dấu delivered
     setError("Deliver action requires additional BE endpoint (PUT /marketplace-orders/:id/status).");
   };
 
@@ -338,7 +528,6 @@ function MarketplaceOrderDetail({
     try {
       const res = await apiFetch(`/marketplace-orders/${order.MpOrderId}/refund`, { method: "PUT" });
       if (!res.ok) throw new Error((await res.json()).message ?? "Refund failed");
-      const updated = (await res.json()).data ?? order;
       setOrder({ ...order, Status: "REFUNDED" });
       onOrderUpdated({ ...order, Status: "REFUNDED" });
     } catch (err: any) {
@@ -375,6 +564,14 @@ function MarketplaceOrderDetail({
               </div>
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={() => setShowEditAsset(true)}
+                variant="outline"
+                className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Edit Asset (.OBJ)
+              </Button>
               {(order.Status === "PAID" || order.Status === "DELIVERED") && (
                 <Button
                   onClick={handleRefund}
@@ -458,6 +655,14 @@ function MarketplaceOrderDetail({
           </div>
         </CardContent>
       </Card>
+
+      {showEditAsset && (
+        <EditAssetModal
+          assetId={order.AssetId}
+          onClose={() => setShowEditAsset(false)}
+          onUpdated={() => { /* maybe refresh versions if shown */ }}
+        />
+      )}
     </div>
   );
 }

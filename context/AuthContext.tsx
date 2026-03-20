@@ -49,24 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .split("; ")
                 .find(r => r.startsWith("accessToken="))
                 ?.split("=")[1];
-            
+
             const localToken = localStorage.getItem("accessToken");
-            
-            // Nếu cookie bị xóa (đã logout từ tab khác), clear hết
-            if (!cookieToken && localToken) {
-                clearTokens();
+
+            // Nếu local có mà cookie mất (hết hạn), để apiFetch tự refresh.
+            // Chỉ clear nếu chắc chắn user đã logout từ tab khác (cả 2 đều mất)
+            if (!cookieToken && !localToken && user) {
                 setUser(null);
             }
         }, 30_000);
 
-    return () => clearInterval(interval);
+        return () => clearInterval(interval);
     }, []);
 
     const login = async (email: string, password: string) => {
         const loggedInUser = await apiLogin(email, password);
         setUser(loggedInUser);
-        
-        const destination =  getHomeByRole(loggedInUser.role ?? "CUSTOMER");
+
+        const destination = getHomeByRole(loggedInUser.role ?? "CUSTOMER");
         router.push(destination);
     };
 

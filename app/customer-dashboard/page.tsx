@@ -181,8 +181,8 @@ export default function CustomerDashboard() {
                 key={id}
                 onClick={() => setActiveTab(id)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === id
-                    ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
-                    : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
+                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
                   }`}
               >
                 <Icon className="w-4 h-4" />
@@ -198,7 +198,7 @@ export default function CustomerDashboard() {
           </div>
 
           <div>
-            {activeTab === "orders" && <OrdersTab />}
+            {activeTab === "orders" && <OrdersTab onTabChange={setActiveTab} />}
             {activeTab === "briefs" && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
             {activeTab === "profile" && (

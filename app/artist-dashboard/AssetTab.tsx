@@ -2,8 +2,9 @@
 import { useEffect, useState } from "react";
 import {
   Loader2, AlertCircle, RefreshCw, Plus, Box, Send, Clock,
-  ShoppingBag, ArrowRight, Sparkles, X
+  ShoppingBag, ArrowRight, Sparkles, X, Upload, Eye
 } from "lucide-react";
+import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import { Button } from "@/app/components/ui/button";
 import { apiFetch } from "@/lib/api";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
@@ -14,6 +15,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     AssetName: "", Description: "", Category: "",
     Industry: "", Price: "", PreviewImage: "",
   });
+  const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,8 +27,19 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
+    if (!file) { setError("Please upload a .obj file."); return; }
+
     setSaving(true); setError("");
     try {
+      // Read file as base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Data = await base64Promise;
+
       const res = await apiFetch("/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,6 +50,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           Industry: form.Industry || null,
           Price: form.Price ? Number(form.Price) : null,
           PreviewImage: form.PreviewImage || null,
+          Base64Data: base64Data, // Save the actual file content
           AssetType: "MARKETPLACE",
           IsMarketplace: true,
         }),
@@ -76,6 +90,22 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
               />
             </div>
           ))}
+
+          {/* OBJ File Upload */}
+          <div className="space-y-1.5">
+            <label className="text-slate-300 text-xs font-medium">3D Model (.OBJ) *</label>
+            <div className="relative border border-dashed border-white/10 rounded-xl p-4 hover:border-cyan-500/40 transition group cursor-pointer">
+              <input type="file" accept=".obj"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="flex flex-col items-center justify-center gap-1">
+                <Upload className="w-5 h-5 text-slate-500 group-hover:text-cyan-400 transition" />
+                <p className="text-slate-400 text-xs truncate max-w-full px-2">
+                  {file ? file.name : "Click to select .obj file"}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <label className="text-slate-300 text-xs font-medium">Description</label>
             <textarea rows={3} placeholder="Describe this 3D/AR asset..." {...field("Description")}
@@ -115,20 +145,38 @@ function AssetCard({
   onSubmit: (id: number) => void;
   submitting: boolean;
 }) {
+  const [showPreview, setShowPreview] = useState(false);
   const pCfg = PUBLISH_CONFIG[asset.PublishStatus] ?? PUBLISH_CONFIG.DRAFT;
-  const img = asset.PreviewImage
+  const rawImg = asset.PreviewImage
     || CATEGORY_IMAGES[asset.Category ?? "default"]
     || CATEGORY_IMAGES.default;
 
+  // Pre-check for known blocked domains to avoid console error spam (NotSameSite/CORP)
+  const isBlocked = typeof rawImg === "string" && rawImg.includes("kyma.vn");
+  const img = isBlocked ? (CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default) : rawImg;
+
   return (
-    <div className="bg-slate-900/40 border border-white/6 rounded-2xl overflow-hidden hover:border-cyan-500/20 transition-all group">
+    <div className="bg-slate-900/40 border border-white/6 rounded-2xl overflow-hidden hover:border-cyan-500/20 transition-all group relative">
       <div className="aspect-video relative overflow-hidden">
         <img src={img} alt={asset.AssetName}
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            const fallback = CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
+            if (target.src !== fallback) target.src = fallback;
+          }}
           className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0d1526] via-transparent" />
         <span className={`absolute top-2.5 right-2.5 text-xs px-2 py-0.5 rounded-full border font-medium ${pCfg.bg} ${pCfg.color}`}>
           {pCfg.label}
         </span>
+        {asset.Base64Data && (
+          <button
+            onClick={() => setShowPreview(true)}
+            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium gap-2"
+          >
+            <Eye className="w-4 h-4" /> Preview 3D
+          </button>
+        )}
       </div>
 
       <div className="p-4">
@@ -163,7 +211,32 @@ function AssetCard({
             <AlertCircle className="w-3.5 h-3.5" /> Rejected — edit and resubmit
           </div>
         )}
+        {isBlocked && (
+          <p className="mt-2 text-[10px] text-yellow-500/60 leading-tight italic">
+            Note: Original thumbnail blocked by source server security policy. Showed fallback.
+          </p>
+        )}
       </div>
+
+
+      {showPreview && asset.Base64Data && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[60] p-4">
+          <div className="bg-[#0b1220] border border-cyan-500/20 rounded-2xl w-full max-w-2xl overflow-hidden relative shadow-2xl">
+            <div className="p-4 border-b border-white/10 flex justify-between items-center">
+              <h3 className="text-white font-medium">{asset.AssetName} - 3D Preview</h3>
+              <button onClick={() => setShowPreview(false)} className="text-slate-400 hover:text-white transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 h-[500px]">
+              <DynamicOBJModelViewer objData={asset.Base64Data} />
+            </div>
+            <div className="p-4 bg-slate-900/50 text-center">
+              <Button onClick={() => setShowPreview(false)} variant="ghost" className="text-slate-400">Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
