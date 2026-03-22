@@ -5,8 +5,11 @@ import { apiFetch } from "@/lib/api";
 import {
   Loader2, Save, ArrowLeft, AlertCircle, CheckCircle2,
   Building2, ChevronDown, Search, X, UserCheck, Trash2,
-  RefreshCw
+  RefreshCw, Shield
 } from "lucide-react";
+
+// Roles available in the system
+const ROLES = ["ADMIN", "MANAGER", "ARTIST", "CUSTOMER"];
 
 // ===================== Types =====================
 interface UserProfile {
@@ -51,8 +54,8 @@ function CompanySelectorModal({
   );
 
   const STATUS_COLOR: Record<string, string> = {
-    ACTIVE:    "bg-green-500/20 text-green-300 border-green-500/30",
-    INACTIVE:  "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    ACTIVE: "bg-green-500/20 text-green-300 border-green-500/30",
+    INACTIVE: "bg-slate-500/20 text-slate-400 border-slate-500/30",
     SUSPENDED: "bg-red-500/20 text-red-300 border-red-500/30",
   };
 
@@ -117,9 +120,8 @@ function CompanySelectorModal({
                   onClick={() => onSelect(company)}
                   className={`w-full flex items-center gap-3 px-5 py-3 hover:bg-blue-500/10 transition text-left ${isActive ? "bg-blue-500/10" : ""}`}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs ${
-                    isActive ? "bg-cyan-500 text-white" : "bg-blue-500/20 border border-blue-500/30 text-blue-400"
-                  }`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs ${isActive ? "bg-cyan-500 text-white" : "bg-blue-500/20 border border-blue-500/30 text-blue-400"
+                    }`}>
                     {isActive ? <CheckCircle2 className="w-4 h-4" /> : company.CompanyName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -154,12 +156,13 @@ export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [user, setUser]         = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [assigningSaving, setAssigningSaving] = useState(false);
-  const [message, setMessage]   = useState<MessageState>(null);
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [message, setMessage] = useState<MessageState>(null);
   const [showCompanyModal, setShowCompanyModal] = useState(false);
 
   // Pending company assignment (before save)
@@ -170,6 +173,7 @@ export default function UserDetailPage() {
   }>({ companyId: null, companyName: null, changed: false });
 
   const [form, setForm] = useState({ UserName: "", Email: "", Phone: "" });
+  const [selectedRole, setSelectedRole] = useState("CUSTOMER");
 
   // ===================== Load user + companies =====================
   useEffect(() => {
@@ -182,6 +186,7 @@ export default function UserDetailPage() {
         const u: UserProfile = userData.data ?? userData;
         setUser(u);
         setForm({ UserName: u.UserName ?? "", Email: u.Email ?? "", Phone: u.Phone ?? "" });
+        setSelectedRole(u.RoleName);
         setPendingCompany({ companyId: u.CompanyId, companyName: u.CompanyName, changed: false });
         setCompanies(companiesData.data ?? companiesData ?? []);
       })
@@ -208,8 +213,8 @@ export default function UserDetailPage() {
         method: "PUT",
         body: JSON.stringify({
           UserName: form.UserName || undefined,
-          Email:    form.Email    || undefined,
-          Phone:    form.Phone    || undefined,
+          Email: form.Email || undefined,
+          Phone: form.Phone || undefined,
         }),
       });
       const data = await res.json();
@@ -230,7 +235,7 @@ export default function UserDetailPage() {
   // ===================== Assign company =====================
   const handleCompanySelect = (company: Company | null) => {
     setPendingCompany({
-      companyId:   company?.CompanyId ?? null,
+      companyId: company?.CompanyId ?? null,
       companyName: company?.CompanyName ?? null,
       changed: (company?.CompanyId ?? null) !== user?.CompanyId,
     });
@@ -253,13 +258,14 @@ export default function UserDetailPage() {
       const updated: UserProfile = data.data ?? data;
       setUser(updated);
       setPendingCompany({
-        companyId:   updated.CompanyId,
+        companyId: updated.CompanyId,
         companyName: updated.CompanyName,
         changed: false,
       });
-      setMessage({ type: "success", text: pendingCompany.companyId
-        ? `User assigned to "${pendingCompany.companyName}" successfully!`
-        : "Company removed from user successfully!"
+      setMessage({
+        type: "success", text: pendingCompany.companyId
+          ? `User assigned to "${pendingCompany.companyName}" successfully!`
+          : "Company removed from user successfully!"
       });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message ?? "Network error." });
@@ -286,13 +292,37 @@ export default function UserDetailPage() {
     }
   };
 
+  // ===================== Assign Role =====================
+  const handleSaveRole = async () => {
+    if (selectedRole === user?.RoleName) return;
+    setRoleSaving(true);
+    clearMessage();
+    try {
+      const res = await apiFetch(`/users/${id}/role`, {
+        method: "PUT",
+        body: JSON.stringify({ roleName: selectedRole }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Role update failed.");
+      const updated: UserProfile = data.data ?? data;
+      setUser(updated);
+      setSelectedRole(updated.RoleName);
+      setMessage({ type: "success", text: "User role updated successfully!" });
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message ?? "Network error." });
+      setSelectedRole(user?.RoleName ?? "CUSTOMER"); // Revert on failure
+    } finally {
+      setRoleSaving(false);
+    }
+  };
+
   // ===================== Render helpers =====================
   const ROLE_COLOR: Record<string, string> = {
-    ADMIN:    "bg-red-500/20 text-red-300 border border-red-500/30",
-    MANAGER:  "bg-purple-500/20 text-purple-300 border border-purple-500/30",
-    ARTIST:   "bg-blue-500/20 text-blue-300 border border-blue-500/30",
+    ADMIN: "bg-red-500/20 text-red-300 border border-red-500/30",
+    MANAGER: "bg-purple-500/20 text-purple-300 border border-purple-500/30",
+    ARTIST: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
     CUSTOMER: "bg-slate-500/20 text-slate-300 border border-slate-500/30",
-    SELLER:   "bg-green-500/20 text-green-300 border border-green-500/30",
+    SELLER: "bg-green-500/20 text-green-300 border border-green-500/30",
   };
 
   const currentCompany = companies.find(c => c.CompanyId === pendingCompany.companyId);
@@ -331,11 +361,10 @@ export default function UserDetailPage() {
 
         {/* Global message */}
         {message && (
-          <div className={`flex items-start gap-2.5 text-sm rounded-xl px-4 py-3 mb-5 border ${
-            message.type === "success"
-              ? "bg-green-500/10 text-green-400 border-green-500/25"
-              : "bg-red-500/10 text-red-400 border-red-500/25"
-          }`}>
+          <div className={`flex items-start gap-2.5 text-sm rounded-xl px-4 py-3 mb-5 border ${message.type === "success"
+            ? "bg-green-500/10 text-green-400 border-green-500/25"
+            : "bg-red-500/10 text-red-400 border-red-500/25"
+            }`}>
             {message.type === "success"
               ? <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
               : <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />}
@@ -432,11 +461,10 @@ export default function UserDetailPage() {
             <button
               onClick={handleSaveCompany}
               disabled={!pendingCompany.changed || assigningSaving}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${
-                pendingCompany.changed
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/15"
-                  : "bg-slate-700 text-slate-500 cursor-not-allowed"
-              }`}
+              className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${pendingCompany.changed
+                ? "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/15"
+                : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                }`}
             >
               {assigningSaving ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
@@ -444,6 +472,57 @@ export default function UserDetailPage() {
                 <><Building2 className="w-4 h-4" /> Save Company Assignment</>
               )}
             </button>
+          </div>
+
+          {/* ===== ROLE MANAGEMENT (new feature) ===== */}
+          <div className="bg-slate-800/40 border border-white/8 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-white font-semibold text-sm flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-purple-400" />
+                  Role Assignment
+                </p>
+                <p className="text-slate-500 text-xs mt-0.5">Change user access level</p>
+              </div>
+              {selectedRole !== user?.RoleName && (
+                <span className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-full px-2 py-0.5">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+
+            {user.RoleName === "ADMIN" ? (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm text-red-400 font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" /> Admin role cannot be modified.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="w-full px-3 py-3 rounded-xl bg-slate-900 border border-purple-500/25 text-white text-sm focus:outline-none focus:border-purple-500 transition appearance-none"
+                >
+                  {ROLES.filter(r => r !== "ADMIN").map(role => (
+                    <option key={role} value={role}>{role}</option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleSaveRole}
+                  disabled={selectedRole === user.RoleName || roleSaving}
+                  className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition ${selectedRole !== user.RoleName
+                    ? "bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/15"
+                    : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                    }`}
+                >
+                  {roleSaving ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>
+                  ) : (
+                    <><Shield className="w-4 h-4" /> Save Role</>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ===== PROFILE FIELDS ===== */}
@@ -484,20 +563,7 @@ export default function UserDetailPage() {
               </div>
             </div>
 
-            <div className="bg-yellow-500/8 border border-yellow-500/20 rounded-lg px-3 py-2 text-xs text-yellow-500 mt-4">
-              Role cannot be changed via this form. Use "Approve as SELLER" to promote user.
-            </div>
-
             <div className="flex gap-3 mt-4">
-              {user.RoleName !== "SELLER" && user.RoleName !== "ADMIN" && (
-                <button
-                  onClick={handleApproveBusiness}
-                  disabled={saving}
-                  className="flex-1 py-2.5 text-sm border border-cyan-500/40 text-cyan-400 rounded-xl hover:bg-cyan-500/10 disabled:opacity-50 transition"
-                >
-                  Approve as SELLER
-                </button>
-              )}
               <button
                 onClick={handleSaveProfile}
                 disabled={saving}

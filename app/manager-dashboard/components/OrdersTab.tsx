@@ -288,7 +288,7 @@ function CreativeOrderDetail({
   ];
 
   const NEXT_STATUS_MAP: Partial<Record<CreativeOrderStatus, CreativeOrderStatus>> = {
-    NEW: "IN_PRODUCTION", IN_PRODUCTION: "REVIEW", REVIEW: "COMPLETED", COMPLETED: "DELIVERED",
+    NEW: "IN_PRODUCTION", IN_PRODUCTION: "REVIEW", REVIEW: "COMPLETED",
   };
   const nextStatus = NEXT_STATUS_MAP[order.Status];
   const stageIdx = STAGES.findIndex(s => s.key === order.Status);
@@ -457,7 +457,7 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
       reader.readAsDataURL(file);
       const base64Data = await base64Promise;
 
-      const res = await apiFetch(`/assets/${assetId}/versions`, {
+      const res = await apiFetch(`/asset-versions/${assetId}`, {
         method: "POST",
         body: JSON.stringify({
           FileFormat: "OBJ",

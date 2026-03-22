@@ -101,7 +101,9 @@ export async function apiFetch(
     if (!res.ok && res.status !== 401) {
         try {
             const clone = res.clone();
-            const errData = await clone.json();
+            const textData = await clone.text();
+            console.error(`API Error RawText [${res.status}] ${endpoint}:`, textData);
+            const errData = JSON.parse(textData);
             console.error(`API Error [${res.status}] ${endpoint}:`, errData);
         } catch {
             console.error(`API Error [${res.status}] ${endpoint}`);

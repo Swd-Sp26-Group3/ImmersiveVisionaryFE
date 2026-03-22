@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Download, Loader2, AlertCircle, Building2, RefreshCw,
-  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye,
+  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye, Upload,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -76,6 +76,44 @@ function AssetEditModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".obj")) {
+      setError("Please select a .obj file.");
+      return;
+    }
+
+    setUploading(true); setError("");
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Data = await base64Promise;
+
+      const res = await apiFetch(`/assets/${asset.AssetId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          Base64Data: base64Data
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Upload failed [${res.status}]: ${text}`);
+      }
+
+      alert("3D Model uploaded successfully!");
+    } catch (err: any) {
+      setError(err.message ?? "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
@@ -146,6 +184,19 @@ function AssetEditModal({
               className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500 resize-none"
             />
           </div>
+
+          {/* Upload Section */}
+          <div className="space-y-1.5 pt-4 border-t border-slate-700 mt-4">
+            <label className="text-white text-sm">Update 3D Model (.obj)</label>
+            <div className="border-2 border-dashed border-slate-600 hover:border-cyan-500/50 rounded-xl p-4 text-center transition-colors relative">
+              <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
+              <div className="flex flex-col items-center">
+                {uploading ? <Loader2 className="w-6 h-6 text-cyan-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
+                <p className="text-white text-xs font-medium">{uploading ? "Uploading..." : "Click to upload replacement .OBJ"}</p>
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
