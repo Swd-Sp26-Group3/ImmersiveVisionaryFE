@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -17,18 +17,53 @@ interface EditForm {
   UserName: string;
   Email: string;
   Phone: string;
+  CompanyId: number | null;
+}
+
+interface Company {
+  CompanyId: number;
+  CompanyName: string;
 }
 
 export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabProps) {
-  const [isEditing, setIsEditing]   = useState(false);
-  const [saving, setSaving]         = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
-  const [errorMsg, setErrorMsg]     = useState("");
-  const [form, setForm]             = useState<EditForm>({ UserName: "", Email: "", Phone: "" });
+  const [errorMsg, setErrorMsg] = useState("");
+  const [form, setForm] = useState<EditForm>({ UserName: "", Email: "", Phone: "", CompanyId: null });
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      setLoadingCompanies(true);
+      try {
+        const res = await apiFetch("/companies");
+        if (res.ok) {
+          const data = await res.json();
+          setCompanies(data.data ?? data);
+        } else if (res.status === 403) {
+          // Customers might not be allowed to list ALL companies
+          console.warn("Permission denied to fetch companies list.");
+          setCompanies([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch companies:", err);
+      } finally {
+        setLoadingCompanies(false);
+      }
+    };
+    fetchCompanies();
+  }, []);
 
   const handleStartEdit = () => {
     if (!profile) return;
-    setForm({ UserName: profile.UserName, Email: profile.Email, Phone: profile.Phone ?? "" });
+    setForm({
+      UserName: profile.UserName,
+      Email: profile.Email,
+      Phone: profile.Phone ?? "",
+      CompanyId: profile.CompanyId
+    });
     setSuccessMsg("");
     setErrorMsg("");
     setIsEditing(true);
@@ -51,8 +86,9 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           UserName: form.UserName || undefined,
-          Email:    form.Email    || undefined,
-          Phone:    form.Phone    || undefined,
+          Email: form.Email || undefined,
+          Phone: form.Phone || undefined,
+          CompanyId: form.CompanyId || null,
         }),
       });
 
@@ -131,12 +167,12 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
         {!isEditing && (
           <div className="space-y-0 text-sm">
             {[
-              { label: "Username",     value: profile.UserName,                                   editable: true  },
-              { label: "Email",        value: profile.Email,                                      editable: true  },
-              { label: "Phone",        value: profile.Phone ?? "Not set",                        editable: true  },
-              { label: "Role",         value: profile.RoleName,                                   editable: false },
-              { label: "Company",      value: profile.CompanyName ?? "Not assigned",              editable: false },
-              { label: "Member since", value: new Date(profile.CreatedAt).toLocaleDateString(),   editable: false },
+              { label: "Username", value: profile.UserName, editable: true },
+              { label: "Email", value: profile.Email, editable: true },
+              { label: "Phone", value: profile.Phone ?? "Not set", editable: true },
+              { label: "Role", value: profile.RoleName, editable: false },
+              { label: "Company", value: profile.CompanyName ?? "Not assigned", editable: false },
+              { label: "Member since", value: new Date(profile.CreatedAt).toLocaleDateString(), editable: false },
             ].map(({ label, value, editable }) => (
               <div key={label} className="flex justify-between items-center py-2.5 border-b border-slate-700/50 last:border-0">
                 <span className="text-gray-400">{label}</span>
@@ -153,15 +189,15 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
           <div className="space-y-4">
             <div className="grid gap-4">
               {[
-                { key: "UserName", label: "Username",     type: "text",  placeholder: "Enter username"     },
-                { key: "Email",    label: "Email",         type: "email", placeholder: "Enter email"        },
-                { key: "Phone",    label: "Phone",         type: "text",  placeholder: "Enter phone number" },
+                { key: "UserName", label: "Username", type: "text", placeholder: "Enter username" },
+                { key: "Email", label: "Email", type: "email", placeholder: "Enter email" },
+                { key: "Phone", label: "Phone", type: "text", placeholder: "Enter phone number" },
               ].map(({ key, label, type, placeholder }) => (
                 <div key={key} className="space-y-1.5">
                   <label className="text-xs text-gray-400 uppercase tracking-wide">{label}</label>
                   <Input
                     type={type}
-                    value={form[key as keyof EditForm]}
+                    value={form[key as keyof EditForm] ?? ""}
                     onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                     className="bg-slate-700/50 border-slate-600 text-white focus:border-purple-500"
                     placeholder={placeholder}
@@ -169,11 +205,29 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
                 </div>
               ))}
 
+              {/* Company Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Assign Company</label>
+                <select
+                  value={form.CompanyId ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, CompanyId: e.target.value ? Number(e.target.value) : null }))}
+                  className="w-full h-10 px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white text-sm focus:outline-none focus:border-purple-500 transition-colors"
+                >
+                  <option value="" className="bg-slate-800">Select a company...</option>
+                  {companies.map((c) => (
+                    <option key={c.CompanyId} value={c.CompanyId} className="bg-slate-800">
+                      {c.CompanyName}
+                    </option>
+                  ))}
+                </select>
+                {loadingCompanies && <p className="text-[10px] text-slate-500 italic">Refreshing company list...</p>}
+              </div>
+
               {/* Read-only fields */}
               <div className="pt-2 space-y-2.5 text-sm border-t border-slate-700/50">
                 {[
-                  { label: "Role",         value: profile.RoleName },
-                  { label: "Company",      value: profile.CompanyName ?? "Not assigned" },
+                  { label: "Role", value: profile.RoleName },
+                  { label: "Company", value: profile.CompanyName ?? "Not assigned" },
                   { label: "Member since", value: new Date(profile.CreatedAt).toLocaleDateString() },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between">

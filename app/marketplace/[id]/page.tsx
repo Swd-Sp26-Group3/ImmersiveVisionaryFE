@@ -28,14 +28,7 @@ interface Asset {
   CreatedAt: string;
 }
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=800",
-  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=800",
-  "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=800",
-  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
-  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=800",
-  default: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800",
-};
+const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=800";
 
 export default function AssetDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,9 +82,7 @@ export default function AssetDetailPage() {
     </div>
   );
 
-  const assetImage = asset.PreviewImage ||
-    CATEGORY_IMAGES[asset.Category ?? "default"] ||
-    CATEGORY_IMAGES.default;
+  const assetImage = asset.PreviewImage || DEFAULT_ASSET_IMAGE;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] py-16 text-white">

@@ -55,9 +55,22 @@ export function BriefsTab() {
   const fetchOrders = () => {
     setLoading(true); setError("");
     apiFetch("/orders/my")
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          if (r.status === 400 && (text.includes("company") || text.includes("User is not associated"))) {
+            return { data: [] };
+          }
+          throw new Error(text);
+        }
+        return r.json();
+      })
       .then(d => { const arr = d.data ?? d; setOrders(Array.isArray(arr) ? arr : []); })
-      .catch(e => setError(`Cannot load briefs. (${e.message})`))
+      .catch(e => {
+        if (!e.message.includes("User is not associated")) {
+          setError(`Cannot load briefs. (${e.message})`);
+        }
+      })
       .finally(() => setLoading(false));
   };
 

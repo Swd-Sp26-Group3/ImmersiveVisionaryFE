@@ -22,8 +22,12 @@ interface MarketplaceOrder {
   Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
   CreatedAt: string;
   AssetName?: string | null;
+  Category?: string | null;
+  Industry?: string | null;
   BuyerCompanyName?: string | null;
   SellerCompanyName?: string | null;
+  BuyerEmail?: string | null;
+  BuyerPhone?: string | null;
 }
 
 const MP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -555,7 +559,7 @@ function MarketplaceOrderDetail({
               <div className="flex items-center gap-2 mb-1">
                 <ShoppingBag className="w-4 h-4 text-purple-400" />
                 <CardTitle className="text-white text-xl">
-                  {order.AssetName ?? `Asset #${order.AssetId}`}
+                  {order.AssetName || "3D Marketplace Asset"}
                 </CardTitle>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -594,20 +598,42 @@ function MarketplaceOrderDetail({
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            {[
-              { label: "Order ID", value: `#${order.MpOrderId}` },
-              { label: "Asset ID", value: `#${order.AssetId}` },
-              { label: "Buyer", value: order.BuyerCompanyName ?? `Company #${order.BuyerCompanyId}` },
-              { label: "Seller", value: order.SellerCompanyName ?? `Company #${order.SellerCompanyId}` },
-              { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
-              { label: "Created", value: new Date(order.CreatedAt).toLocaleDateString() },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                <p className="text-slate-400 text-xs mb-1">{label}</p>
-                <p className="text-white font-medium">{value}</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Asset Detail Section */}
+            <div className="space-y-4">
+              <p className="text-purple-400 text-xs font-bold uppercase tracking-widest">Asset Information</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  { label: "Asset Name", value: order.AssetName || "3D Asset" },
+                  { label: "Category", value: order.Category || "3D/AR" },
+                  { label: "Industry", value: order.Industry || "Generic" },
+                  { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
+                    <p className="text-slate-400 text-xs mb-1">{label}</p>
+                    <p className="text-white font-medium">{value}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Buyer Detail Section */}
+            <div className="space-y-4">
+              <p className="text-blue-400 text-xs font-bold uppercase tracking-widest">Buyer Information</p>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  { label: "Company", value: order.BuyerCompanyName || `ID: ${order.BuyerCompanyId}` },
+                  { label: "Email", value: order.BuyerEmail || "Not provided" },
+                  { label: "Phone", value: order.BuyerPhone || "—" },
+                  { label: "Order Ref", value: `#${order.MpOrderId}` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
+                    <p className="text-slate-400 text-xs mb-1">{label}</p>
+                    <p className="text-white font-medium">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* MP Order status steps */}

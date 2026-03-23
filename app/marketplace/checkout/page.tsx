@@ -30,14 +30,7 @@ type CheckoutStep =
   | "done"
   | "error";
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=600",
-  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=600",
-  "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=600",
-  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=600",
-  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=600",
-  default: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600",
-};
+const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600";
 
 const PROCESSING_STEPS: { key: CheckoutStep; label: string }[] = [
   { key: "creating_order", label: "Creating order…" },
@@ -124,6 +117,7 @@ function CheckoutContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         AssetId: Number(assetId),
+        MpOrderId: mpOrderId,
         Amount: asset.Price,
         PaymentType: "ASSET",
       }),
@@ -213,7 +207,7 @@ function CheckoutContent() {
     </div>
   );
 
-  const coverImage = asset.PreviewImage || CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
+  const coverImage = asset.PreviewImage || DEFAULT_ASSET_IMAGE;
   const isProcessing = ["creating_order", "creating_payment", "confirming_payment"].includes(step);
   const curProcIdx = PROCESSING_STEPS.findIndex(s => s.key === step);
 

@@ -46,13 +46,31 @@ export default function CustomerDashboard() {
 
     // Fetch real orders from GET /api/orders/my
     apiFetch("/orders/my")
-      .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+      .then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          if (r.status === 400 && (text.includes("company") || text.includes("User is not associated"))) {
+            return { data: [] };
+          }
+          throw new Error(text);
+        }
+        return r.json();
+      })
       .then(d => { const arr = d.data ?? d; setOrders(Array.isArray(arr) ? arr : []); })
-      .catch((err) => console.error("Orders fetch error:", err))
+      .catch((err) => console.error("Orders fetch error (Expected if new user):", err))
       .finally(() => setOrdersLoading(false));
 
     apiFetch("/marketplace-orders/my")
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          if (r.status === 400 && (text.includes("company") || text.includes("Buyer company not found"))) {
+            return { data: [] };
+          }
+          return { data: [] }; // fallback for marketplace orders
+        }
+        return r.json();
+      })
       .then(d => setPurchases(Array.isArray(d.data ?? d) ? (d.data ?? d) : []))
       .catch(() => setPurchases([]))
       .finally(() => setPurchasesLoading(false));
