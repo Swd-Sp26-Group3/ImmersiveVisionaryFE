@@ -20,6 +20,8 @@ interface MarketplaceOrder {
   Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
   CreatedAt: string;
   AssetName?: string | null;
+  Category?: string | null;
+  Industry?: string | null;
   SellerCompanyName?: string | null;
 }
 
@@ -185,9 +187,9 @@ function OrderDetail({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <Box className="w-4 h-4 text-cyan-400" />
-                <h2 className="text-white font-bold text-xl">{order.AssetName ?? `Asset #${order.AssetId}`}</h2>
+                <h2 className="text-white font-bold text-xl">{order.AssetName || "3D Marketplace Asset"}</h2>
               </div>
-              <p className="text-slate-500 text-sm">Order #{order.MpOrderId}</p>
+              <p className="text-slate-500 text-sm">Order Reference: #{order.MpOrderId}</p>
             </div>
             <Badge className={`${cfg.bgColor} ${cfg.color} ${cfg.borderColor} border text-xs px-3 py-1 flex items-center gap-1.5`}>
               {cfg.icon} {cfg.label}
@@ -197,11 +199,13 @@ function OrderDetail({
           {/* Info */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
             {[
-              { label: "Order ID", value: `#${order.MpOrderId}` },
-              { label: "Asset ID", value: `#${order.AssetId}` },
-              { label: "Seller", value: order.SellerCompanyName ?? `#${order.SellerCompanyId}` },
-              { label: "Amount", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
-              { label: "Placed", value: new Date(order.CreatedAt).toLocaleDateString() },
+              { label: "Order Ref", value: `#${order.MpOrderId}` },
+              { label: "Asset Name", value: order.AssetName || "3D Asset" },
+              { label: "Category", value: order.Category || "3D/AR Content" },
+              { label: "Industry", value: order.Industry || "Generic" },
+              { label: "Seller", value: order.SellerCompanyName || "Marketplace Provider" },
+              { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
+              { label: "Purchase Date", value: new Date(order.CreatedAt).toLocaleDateString() },
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900/50 border border-white/6 rounded-xl p-3">
                 <p className="text-slate-500 text-xs mb-1">{label}</p>
@@ -305,9 +309,22 @@ export function PurchasesTab() {
   const fetchOrders = () => {
     setLoading(true); setError("");
     apiFetch("/marketplace-orders/my")
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(async r => {
+        if (!r.ok) {
+          const text = await r.text();
+          if (r.status === 400 && (text.includes("company") || text.includes("Buyer company not found"))) {
+            return { data: [] };
+          }
+          throw new Error(text);
+        }
+        return r.json();
+      })
       .then(d => setOrders(Array.isArray(d.data ?? d) ? (d.data ?? d) : []))
-      .catch(e => setError(`Cannot load purchases. (${e.message})`))
+      .catch(e => {
+        if (!e.message.includes("company")) {
+          setError(`Cannot load purchases. (${e.message})`);
+        }
+      })
       .finally(() => setLoading(false));
   };
 
@@ -407,7 +424,7 @@ export function PurchasesTab() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-medium truncate">
-                    {order.AssetName ?? `Asset #${order.AssetId}`}
+                    {order.AssetName || "3D Marketplace Asset"}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
                     <span>Order #{order.MpOrderId}</span>

@@ -58,7 +58,7 @@ export async function login(email: string, password: string): Promise<User> {
     setTokens(accessToken, refreshToken);
 
     // Persist user info so AuthContext can hydrate from localStorage
-    const userObj: User = 
+    const userObj: User =
     {
         id: data.user?.userId ?? "",
         email: data.user?.email ?? email,
@@ -71,7 +71,8 @@ export async function login(email: string, password: string): Promise<User> {
 export async function register(
     email: string,
     password: string,
-    userName?: string
+    userName?: string,
+    phone?: string
 ): Promise<void> {
     const res = await fetch("/api/auth/register", {
         method: "POST",
@@ -81,7 +82,7 @@ export async function register(
             Email: email,
             PasswordHash: password,
             ConfirmPassword: password,
-            Phone: null,
+            Phone: phone || null,
             CompanyId: null,
         }),
     });

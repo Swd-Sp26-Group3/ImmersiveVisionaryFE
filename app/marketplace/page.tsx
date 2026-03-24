@@ -25,19 +25,9 @@ interface Asset {
   CreatedAt: string;
 }
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  Cosmetics: "https://images.unsplash.com/photo-1704621354138-e124277356f2?w=400",
-  Fashion: "https://images.unsplash.com/photo-1746730921484-897eff445c9a?w=400",
-  "Food & Beverage": "https://images.unsplash.com/photo-1761076879115-97f22dc68755?w=400",
-  Electronics: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
-  "Home Decor": "https://images.unsplash.com/photo-1767958465025-75c050ab10c4?w=400",
-  default: "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400",
-};
+const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400";
 
-const getAssetImage = (asset: Asset) =>
-  asset.PreviewImage ||
-  CATEGORY_IMAGES[asset.Category ?? "default"] ||
-  CATEGORY_IMAGES.default;
+const getAssetImage = (asset: Asset) => asset.PreviewImage || DEFAULT_ASSET_IMAGE;
 
 export default function MarketPlacePage() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -52,7 +42,17 @@ export default function MarketPlacePage() {
   useEffect(() => {
     apiFetch("/assets/marketplace")
       .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-      .then((data) => setAssets(data.data ?? data))
+      .then((data) => {
+        const rawAssets = data.data ?? data;
+        // Filter out assets without a category or where Category contains technical/formatting strings
+        const validAssets = rawAssets.filter((a: Asset) =>
+          a.Category &&
+          typeof a.Category === "string" &&
+          a.Category.trim() !== "" &&
+          !a.Category.includes("CATEGORY_IMAGES")
+        );
+        setAssets(validAssets);
+      })
       .catch((e) => setError(`Cannot load marketplace assets. (${e.message})`))
       .finally(() => setLoading(false));
   }, []);

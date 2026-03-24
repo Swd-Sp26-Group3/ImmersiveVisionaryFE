@@ -2,17 +2,28 @@
 import { useState } from "react";
 import Link from "next/link";
 import styles from "./SignIn.module.css";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { Suspense } from "react";
 
 export default function SignInPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white italic">Loading sign in...</div>}>
+            <SignInContent />
+        </Suspense>
+    );
+}
+
+function SignInContent() {
+    const router = useRouter();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const router = useRouter();
     const [errorMessage, setErrorMessage] = useState('');
     const { login } = useAuth();
+    const searchParams = useSearchParams();
+    const fromSignup = searchParams.get("from") === "signup";
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -24,6 +35,9 @@ export default function SignInPage() {
         setIsLoading(true);
         try {
             await login(email, password);
+            if (fromSignup) {
+                router.push("/customer-dashboard?tab=profile");
+            }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng thử lại.';
             setErrorMessage(message);

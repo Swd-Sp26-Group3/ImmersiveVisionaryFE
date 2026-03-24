@@ -6,7 +6,8 @@ import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import Link from "next/link";
-import { register } from "@/lib/authService";
+import { register, login } from "@/lib/authService";
+import { Phone } from "lucide-react";
 
 export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +16,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [phone, setPhone] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -23,7 +25,7 @@ export default function SignUpPage() {
     e.preventDefault();
     setErrorMessage("");
 
-    if (!userName ||!email || !password || !confirmPassword) {
+    if (!userName || !email || !password || !confirmPassword) {
       setErrorMessage("Vui lòng nhập đầy đủ thông tin.");
       return;
     }
@@ -38,8 +40,9 @@ export default function SignUpPage() {
 
     setIsLoading(true);
     try {
-      await register(email, password, userName);
-      router.push("/login");
+      await register(email, password, userName, phone);
+      // Navigate to login after successful register
+      router.push("/login?from=signup");
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Đăng ký thất bại. Vui lòng thử lại.";
@@ -102,6 +105,24 @@ export default function SignUpPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
                   required
+                />
+              </div>
+            </div>
+
+            {/* Phone Field */}
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-gray-300 text-sm font-medium">
+                Phone Number
+              </Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="0123456890"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
                 />
               </div>
             </div>

@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Download, Loader2, AlertCircle, Building2, RefreshCw,
-  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye,
+  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye, Upload,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -28,8 +28,12 @@ const getCompanyStatusCfg = (s: string | null | undefined) =>
 
 interface Payment {
   PaymentId: number; OrderId: number | null; AssetId: number | null;
+  MpOrderId: number | null;
   CompanyId: number; Amount: number; PaymentType: string | null;
   PaymentStatus: "PENDING" | "PAID" | "FAILED"; PaymentDate: string | null;
+  CompanyName?: string | null; ProjectName?: string | null; AssetName?: string | null;
+  CompanyEmail?: string | null; CompanyPhone?: string | null;
+  OrderStatus?: string | null; MpOrderStatus?: string | null;
 }
 
 // Asset3D — đây mới là "platform assets" trong Catalog Management
@@ -76,6 +80,44 @@ function AssetEditModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".obj")) {
+      setError("Please select a .obj file.");
+      return;
+    }
+
+    setUploading(true); setError("");
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(file);
+      const base64Data = await base64Promise;
+
+      const res = await apiFetch(`/assets/${asset.AssetId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          Base64Data: base64Data
+        }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Upload failed [${res.status}]: ${text}`);
+      }
+
+      alert("3D Model uploaded successfully!");
+    } catch (err: any) {
+      setError(err.message ?? "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
@@ -146,6 +188,19 @@ function AssetEditModal({
               className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500 resize-none"
             />
           </div>
+
+          {/* Upload Section */}
+          <div className="space-y-1.5 pt-4 border-t border-slate-700 mt-4">
+            <label className="text-white text-sm">Update 3D Model (.obj)</label>
+            <div className="border-2 border-dashed border-slate-600 hover:border-cyan-500/50 rounded-xl p-4 text-center transition-colors relative">
+              <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
+              <div className="flex flex-col items-center">
+                {uploading ? <Loader2 className="w-6 h-6 text-cyan-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
+                <p className="text-white text-xs font-medium">{uploading ? "Uploading..." : "Click to upload replacement .OBJ"}</p>
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -255,18 +310,50 @@ export default function ManagerDashboard() {
   }, []);
 
   // ===================== Revenue =====================
-  const paidPayments = payments.filter(p => p.PaymentStatus === "PAID");
-  const totalRevenue = paidPayments.reduce((s, p) => s + (p.Amount ?? 0), 0);
-  const revenueByMonth = paidPayments.reduce((acc, p) => {
-    if (!p.PaymentDate) return acc;
-    const m = new Date(p.PaymentDate).toLocaleString("en-US", { month: "short" });
-    acc[m] = (acc[m] ?? 0) + (p.Amount ?? 0);
-    return acc;
-  }, {} as Record<string, number>);
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const chartData = MONTHS.filter(m => revenueByMonth[m]).map(m => ({ month: m, revenue: revenueByMonth[m] }));
-  const fmt = (n: number) => n.toLocaleString("vi-VN") + " ₫";
+  const paidPayments = useMemo(() => {
+    return payments.filter((p: Payment) => {
+      // 1. Must be PAID on the payment record itself
+      if (p.PaymentStatus !== "PAID") return false;
 
+      // 2. For Creative Orders, typically count when finalized (or as requested: PAID/DELIVERED/COMPLETED)
+      if (p.OrderId) {
+        // If we don't have OrderStatus (fallback case), allow it
+        if (!p.OrderStatus) return true;
+        return ["PAID", "DELIVERED", "COMPLETED"].includes(p.OrderStatus);
+      }
+
+      // 3. For Marketplace Orders
+      if (p.MpOrderId) {
+        if (!p.MpOrderStatus) return true;
+        return ["PAID", "DELIVERED"].includes(p.MpOrderStatus);
+      }
+
+      return true;
+    });
+  }, [payments]);
+  const totalRevenue = useMemo(() =>
+    paidPayments.reduce((acc: number, p: Payment) => acc + (Number(p.Amount) || 0), 0)
+    , [paidPayments]);
+
+  const revenueByMonth = useMemo(() => {
+    return paidPayments.reduce((acc: Record<string, number>, p: Payment) => {
+      if (!p.PaymentDate) return acc;
+      const m = new Date(p.PaymentDate).toLocaleString("en-US", { month: "short" });
+      acc[m] = (acc[m] ?? 0) + (Number(p.Amount) || 0);
+      return acc;
+    }, {} as Record<string, number>);
+  }, [paidPayments]);
+
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const chartData = useMemo(() =>
+    MONTHS.map(m => ({ month: m, revenue: revenueByMonth[m] || 0 }))
+    , [revenueByMonth]);
+
+  const fmt = (n: any) => {
+    const num = Number(n);
+    if (isNaN(num)) return "0 ₫";
+    return num.toLocaleString("vi-VN") + " ₫";
+  };
   const orderStatusData = [
     { name: "New", value: orders.filter(o => o.Status === "NEW").length, color: "#f59e0b" },
     { name: "In Progress", value: orders.filter(o => o.Status === "IN_PRODUCTION").length, color: "#3b82f6" },
@@ -416,31 +503,47 @@ export default function ManagerDashboard() {
                     <p className="text-center text-slate-500 py-8">No paid transactions yet</p>
                   ) : (
                     <div className="space-y-2">
-                      {paidPayments.slice(0, 8).map(p => (
-                        <div key={p.PaymentId} className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-blue-500/10">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                              <DollarSign className="w-4 h-4 text-green-400" />
+                      {paidPayments.slice(0, 10).map((p: Payment) => (
+                        <div key={p.PaymentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all gap-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                              <DollarSign className="w-5 h-5 text-green-400" />
                             </div>
-                            <div>
-                              <p className="text-white text-sm font-medium">
-                                Payment #{p.PaymentId}
-                                {p.PaymentType && <span className="ml-2 text-xs text-slate-400">({p.PaymentType})</span>}
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold truncate flex items-center gap-2">
+                                {p.CompanyName || "Individual Buyer"}
+                                {p.CompanyEmail && <span className="text-[10px] text-slate-500 font-normal">({p.CompanyEmail})</span>}
                               </p>
-                              <p className="text-slate-500 text-xs">
-                                {p.OrderId ? `Order #${p.OrderId}` : p.AssetId ? `Asset #${p.AssetId}` : "—"}
-                                {p.PaymentDate && <span className="ml-2">{new Date(p.PaymentDate).toLocaleDateString()}</span>}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-400">
+                                <span className="text-cyan-400 font-medium tracking-tight">PAY-{p.PaymentId}</span>
+                                <span className="flex items-center gap-1">
+                                  {p.PaymentType === 'ASSET' ? <Box className="w-3 h-3" /> : <Package className="w-3 h-3" />}
+                                  {p.ProjectName || p.AssetName || (p.PaymentType === 'ASSET' ? 'Marketplace Asset' : 'Creative Project')}
+                                </span>
+                                <span className="text-slate-500 font-mono">
+                                  {p.OrderId ? `CR-${p.OrderId}` : p.MpOrderId ? `MP-${p.MpOrderId}` : "—"}
+                                </span>
+                                {(p.OrderStatus || p.MpOrderStatus) && (
+                                  <Badge variant="outline" className="h-4 text-[9px] border-slate-700 text-slate-500 uppercase">
+                                    {p.OrderStatus || p.MpOrderStatus}
+                                  </Badge>
+                                )}
+                                {p.PaymentDate && <span>{new Date(p.PaymentDate).toLocaleDateString("vi-VN")}</span>}
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge className="bg-green-600/80 text-xs">PAID</Badge>
-                            <span className="text-green-400 font-semibold text-sm">{fmt(p.Amount)}</span>
+                          <div className="flex items-center justify-between md:justify-end gap-4 ml-0 md:ml-4 border-t md:border-t-0 border-slate-700/50 pt-3 md:pt-0">
+                            <div className="flex flex-col items-end">
+                              <span className="text-green-400 font-bold text-lg">{fmt(p.Amount)}</span>
+                              <Badge className="bg-green-600/20 text-green-400 border border-green-600/30 text-[10px] uppercase tracking-wider py-0 px-2 h-5">
+                                Success
+                              </Badge>
+                            </div>
                           </div>
                         </div>
                       ))}
-                      {paidPayments.length > 8 && (
-                        <p className="text-center text-slate-500 text-xs pt-2">+{paidPayments.length - 8} more</p>
+                      {paidPayments.length > 10 && (
+                        <p className="text-center text-slate-500 text-xs pt-2">+{paidPayments.length - 10} more transactions</p>
                       )}
                     </div>
                   )}

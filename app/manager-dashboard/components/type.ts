@@ -65,7 +65,7 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   IN_PRODUCTION: { label: "In Production", color: "bg-blue-600" },
   REVIEW: { label: "Review", color: "bg-purple-600" },
   COMPLETED: { label: "Completed", color: "bg-green-600" },
-  DELIVERED: { label: "Approved (Waiting Pay)", color: "bg-cyan-600" },
+  DELIVERED: { label: "Delivered", color: "bg-cyan-600" },
   CANCELLED: { label: "Cancelled", color: "bg-red-600" },
 };
 

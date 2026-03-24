@@ -101,10 +101,26 @@ export async function apiFetch(
     if (!res.ok && res.status !== 401) {
         try {
             const clone = res.clone();
-            const errData = await clone.json();
-            console.error(`API Error [${res.status}] ${endpoint}:`, errData);
-        } catch {
-            console.error(`API Error [${res.status}] ${endpoint}`);
+            const textData = await clone.text();
+
+            // Check if this is an expected "forbidden" or "not associated" case (e.g. for CUSTOMER role)
+            const isExpectedEmptyState = (res.status === 400 || res.status === 403) && (
+                textData.toLowerCase().includes("company") ||
+                textData.toLowerCase().includes("not associated") ||
+                textData.toLowerCase().includes("not allowed to access this resource")
+            );
+
+            if (!isExpectedEmptyState) {
+                console.error(`API Error RawText [${res.status}] ${endpoint}:`, textData);
+                try {
+                    const errData = JSON.parse(textData);
+                    console.error(`API Error [${res.status}] ${endpoint}:`, errData);
+                } catch {
+                    console.error(`API Error [${res.status}] ${endpoint}`);
+                }
+            }
+        } catch (e) {
+            console.error(`API Error [${res.status}] ${endpoint}`, e);
         }
     }
 
