@@ -58,6 +58,8 @@ export interface CreativeOrder {
   CompanyName: string | null;
   ProductName: string | null;
   PackageName: string | null;
+  BuyerName?: string | null;
+  BuyerPhone?: string | null;
 }
 
 export const STATUS_CONFIG: Record<string, { label: string; color: string }> = {

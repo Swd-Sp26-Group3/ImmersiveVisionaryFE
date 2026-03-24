@@ -28,6 +28,7 @@ interface MarketplaceOrder {
   SellerCompanyName?: string | null;
   BuyerEmail?: string | null;
   BuyerPhone?: string | null;
+  BuyerName?: string | null;
 }
 
 const MP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -373,6 +374,18 @@ function CreativeOrderDetail({
                 <p className="text-white font-medium">{value}</p>
               </div>
             ))}
+            {order.BuyerName && (
+              <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
+                <p className="text-slate-400 text-xs mb-1">Buyer Name</p>
+                <p className="text-white font-medium">{order.BuyerName}</p>
+              </div>
+            )}
+            {order.BuyerPhone && (
+              <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
+                <p className="text-slate-400 text-xs mb-1">Buyer Phone</p>
+                <p className="text-white font-medium">{order.BuyerPhone}</p>
+              </div>
+            )}
           </div>
 
           {order.Brief && (
@@ -622,9 +635,10 @@ function MarketplaceOrderDetail({
               <p className="text-blue-400 text-xs font-bold uppercase tracking-widest">Buyer Information</p>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 {[
+                  { label: "Buyer Name", value: order.BuyerName || "—" },
+                  { label: "Phone", value: order.BuyerPhone || "—" },
                   { label: "Company", value: order.BuyerCompanyName || `ID: ${order.BuyerCompanyId}` },
                   { label: "Email", value: order.BuyerEmail || "Not provided" },
-                  { label: "Phone", value: order.BuyerPhone || "—" },
                   { label: "Order Ref", value: `#${order.MpOrderId}` },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
@@ -802,7 +816,7 @@ function CreativeOrdersSubTab({ artists }: { artists: Artist[] }) {
                   <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-slate-400">
                     <span>#{order.OrderId}</span>
                     <span>·</span>
-                    <span>{order.CompanyName ?? `Company #${order.CompanyId}`}</span>
+                    <span>{order.BuyerName || order.CompanyName || `Company #${order.CompanyId}`}</span>
                     {order.PackageName && <><span>·</span><span>{order.PackageName}</span></>}
                     <span>·</span>
                     <span>{new Date(order.CreatedAt).toLocaleDateString()}</span>
@@ -978,7 +992,7 @@ function MarketplaceOrdersSubTab() {
                       <span>·</span>
                       <span className="flex items-center gap-1">
                         <Building2 className="w-3 h-3" />
-                        {order.BuyerCompanyName ?? `Buyer #${order.BuyerCompanyId}`}
+                        {order.BuyerName || (order.BuyerCompanyName ?? `Buyer #${order.BuyerCompanyId}`)}
                       </span>
                       {order.Price != null && (
                         <><span>·</span>

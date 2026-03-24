@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Download, Loader2, AlertCircle, Building2, RefreshCw,
-  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye, Upload,
+  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye, Upload, User, Phone,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -34,6 +34,8 @@ interface Payment {
   CompanyName?: string | null; ProjectName?: string | null; AssetName?: string | null;
   CompanyEmail?: string | null; CompanyPhone?: string | null;
   OrderStatus?: string | null; MpOrderStatus?: string | null;
+  BuyerName?: string | null;
+  BuyerPhone?: string | null;
 }
 
 // Asset3D — đây mới là "platform assets" trong Catalog Management
@@ -511,8 +513,10 @@ export default function ManagerDashboard() {
                             </div>
                             <div className="min-w-0">
                               <p className="text-white font-semibold truncate flex items-center gap-2">
-                                {p.CompanyName || "Individual Buyer"}
-                                {p.CompanyEmail && <span className="text-[10px] text-slate-500 font-normal">({p.CompanyEmail})</span>}
+                                {p.BuyerName || p.CompanyName || "Individual Buyer"}
+                                {p.BuyerName && p.CompanyName && <span className="text-[10px] text-slate-500 font-normal">({p.CompanyName})</span>}
+                                {p.CompanyEmail && <span className="text-[10px] text-slate-500 font-normal ml-1">({p.CompanyEmail})</span>}
+                                {p.BuyerPhone && <span className="text-[10px] text-slate-500 font-normal ml-1">({p.BuyerPhone})</span>}
                               </p>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-400">
                                 <span className="text-cyan-400 font-medium tracking-tight">PAY-{p.PaymentId}</span>
@@ -784,20 +788,24 @@ export default function ManagerDashboard() {
       </div>
 
       {/* Modals */}
-      {companyModal.open && (
-        <CompanyModal
-          company={companyModal.company}
-          onClose={() => setCompanyModal({ open: false, company: null })}
-          onSave={() => { setCompanyModal({ open: false, company: null }); fetchCompanies(); }}
-        />
-      )}
-      {editingAsset && (
-        <AssetEditModal
-          asset={editingAsset}
-          onClose={() => setEditingAsset(null)}
-          onSave={() => { setEditingAsset(null); fetchAssets(); }}
-        />
-      )}
-    </div>
+      {
+        companyModal.open && (
+          <CompanyModal
+            company={companyModal.company}
+            onClose={() => setCompanyModal({ open: false, company: null })}
+            onSave={() => { setCompanyModal({ open: false, company: null }); fetchCompanies(); }}
+          />
+        )
+      }
+      {
+        editingAsset && (
+          <AssetEditModal
+            asset={editingAsset}
+            onClose={() => setEditingAsset(null)}
+            onSave={() => { setEditingAsset(null); fetchAssets(); }}
+          />
+        )
+      }
+    </div >
   );
 }
