@@ -4,26 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app
 import { Input } from "@/app/components/ui/input";
 import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
-import { Search, Filter, Eye, Star, Play, Loader2, AlertCircle } from "lucide-react";
+import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
+import { ErrorState } from "@/app/components/ui/error-state";
+import { Search, Filter, Eye, Star, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api";
-
-// Asset3D schema từ DB
-interface Asset {
-  AssetId: number;
-  AssetName: string;
-  Description: string | null;
-  Category: string | null;
-  Industry: string | null;
-  Price: number | null;
-  PreviewImage: string | null;
-  PublishStatus: string;
-  IsMarketplace: boolean | number;
-  OwnerCompanyId: number | null;
-  CreatedAt: string;
-}
+import type { Asset } from "@/lib/types";
 
 const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400";
 
@@ -38,24 +26,27 @@ export default function MarketPlacePage() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // GET /api/assets/marketplace — IsMarketplace=1, PublishStatus='PUBLISHED'
-  useEffect(() => {
+  const fetchAssets = () => {
+    setLoading(true);
+    setError("");
     apiFetch("/assets/marketplace")
       .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
       .then((data) => {
-        const rawAssets = data.data ?? data;
-        // Filter out assets without a category or where Category contains technical/formatting strings
-        const validAssets = rawAssets.filter((a: Asset) =>
-          a.Category &&
-          typeof a.Category === "string" &&
-          a.Category.trim() !== "" &&
-          !a.Category.includes("CATEGORY_IMAGES")
+        const rawAssets: Asset[] = data.data ?? data;
+        const validAssets = rawAssets.filter(
+          (a) =>
+            a.Category &&
+            typeof a.Category === "string" &&
+            a.Category.trim() !== "" &&
+            !a.Category.includes("CATEGORY_IMAGES")
         );
         setAssets(validAssets);
       })
       .catch((e) => setError(`Cannot load marketplace assets. (${e.message})`))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchAssets(); }, []);
 
   const categories = [
     "All",
@@ -77,34 +68,28 @@ export default function MarketPlacePage() {
       router.push(`/login?redirect=/marketplace/checkout?productId=${asset.AssetId}`);
       return;
     }
-    // Cache asset vào sessionStorage để checkout không cần fetch lại
     sessionStorage.setItem("checkoutProduct", JSON.stringify(asset));
     router.push(`/marketplace/checkout?productId=${asset.AssetId}`);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] flex items-center justify-center">
-      <div className="text-center">
-        <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-4" />
-        <p className="text-slate-400">Loading marketplace...</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen -mt-25 pt-25 flex items-center justify-center" style={{ background: "var(--gradient-page)" }}>
+        <LoadingSpinner size="lg" color="cyan" label="Loading marketplace..." />
       </div>
-    </div>
-  );
+    );
+  }
 
-  if (error) return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] flex items-center justify-center">
-      <div className="text-center">
-        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <p className="text-red-400 mb-4">{error}</p>
-        <Button onClick={() => window.location.reload()} className="bg-gradient-to-r from-blue-600 to-cyan-600">
-          Retry
-        </Button>
+  if (error) {
+    return (
+      <div className="min-h-screen -mt-25 pt-25 flex items-center justify-center" style={{ background: "var(--gradient-page)" }}>
+        <ErrorState message={error} onRetry={fetchAssets} />
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0b1220] via-[#0e1628] to-[#0a1120] py-16">
+    <div className="min-h-screen py-16" style={{ background: "var(--gradient-page)" }}>
       <div className="max-w-7xl mx-auto px-6">
 
         {/* Header */}
@@ -116,9 +101,7 @@ export default function MarketPlacePage() {
             Browse our collection of professional 3D models and AR experiences across industries
           </p>
           {!isAuthenticated && (
-            <p className="mt-3 text-sm text-yellow-400/80">
-              ℹ️ Login to purchase assets
-            </p>
+            <p className="mt-3 text-sm text-yellow-400/80">ℹ️ Login to purchase assets</p>
           )}
         </div>
 
@@ -143,9 +126,10 @@ export default function MarketPlacePage() {
                 onClick={() => setSelectedCategory(category)}
                 className={
                   selectedCategory === category
-                    ? "bg-gradient-to-r from-blue-600 to-cyan-600"
+                    ? "text-white"
                     : "border-blue-500/30 hover:border-cyan-500/50 text-slate-300"
                 }
+                style={selectedCategory === category ? { background: "var(--gradient-accent)" } : {}}
               >
                 {category}
               </Button>
@@ -153,7 +137,7 @@ export default function MarketPlacePage() {
           </div>
         </div>
 
-        {/* Count */}
+        {/* Count + filter */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-400">
             {filteredItems.length} {filteredItems.length === 1 ? "asset" : "assets"} found
@@ -222,7 +206,8 @@ export default function MarketPlacePage() {
                     </span>
                     <div className="flex gap-2">
                       <Button
-                        size="sm" variant="outline"
+                        size="sm"
+                        variant="outline"
                         className="border-blue-500/50 text-slate-300"
                         onClick={() => handleViewDetail(asset.AssetId)}
                       >
@@ -231,7 +216,8 @@ export default function MarketPlacePage() {
                       <Button
                         size="sm"
                         onClick={() => handlePurchase(asset)}
-                        className="bg-gradient-to-r from-blue-600 to-cyan-600"
+                        style={{ background: "var(--gradient-accent)" }}
+                        className="text-white"
                       >
                         {isAuthenticated ? "Purchase" : "Login to buy"}
                       </Button>
@@ -248,7 +234,8 @@ export default function MarketPlacePage() {
             <p className="text-gray-400 text-lg">No assets found matching your criteria.</p>
             <Button
               onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }}
-              variant="outline" className="mt-4 border-blue-500/50 text-slate-300"
+              variant="outline"
+              className="mt-4 border-blue-500/50 text-slate-300"
             >
               Clear Filters
             </Button>

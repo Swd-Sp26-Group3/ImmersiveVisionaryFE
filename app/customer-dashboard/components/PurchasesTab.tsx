@@ -1,37 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/app/components/ui/button";
-import { Badge } from "@/app/components/ui/badge";
+import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
+import { EmptyState } from "@/app/components/ui/empty-state";
+import { ErrorState } from "@/app/components/ui/error-state";
+import { StatusBadge } from "@/app/components/ui/status-badge";
+import { FilterPills } from "@/app/components/ui/filter-pills";
+import { InfoGrid } from "@/app/components/ui/info-grid";
+import { Modal } from "@/app/components/ui/modal";
+import { useConfirm } from "@/app/components/ui/confirm-dialog";
 import { motion } from "framer-motion";
 import {
-  ShoppingBag, Loader2, AlertCircle, RefreshCw,
-  Box, DollarSign, Clock, ChevronRight, CheckCircle2,
-  RotateCcw, Download, ExternalLink, CreditCard
+  ShoppingBag, Box, DollarSign, Clock, ChevronRight, CheckCircle2,
+  RotateCcw, Download, CreditCard, Loader2, AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
+import type { MarketplaceOrder, AssetVersion } from "@/lib/types";
 
-interface MarketplaceOrder {
-  MpOrderId: number;
-  AssetId: number;
-  BuyerCompanyId: number;
-  SellerCompanyId: number;
-  Price: number | null;
-  Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
-  CreatedAt: string;
-  AssetName?: string | null;
-  Category?: string | null;
-  Industry?: string | null;
-  SellerCompanyName?: string | null;
-}
-
-interface AssetVersion {
-  VersionId: number;
-  FileFormat: "GLB" | "USDZ" | "FBX" | "WEBAR";
-  FileUrl: string | null;
-}
-
-// Status theo đúng flow của doc
+// ── Status config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<string, {
   label: string; color: string; bgColor: string; borderColor: string;
   description: string; canDownload: boolean; icon: React.ReactNode;
@@ -40,40 +27,44 @@ const STATUS_CONFIG: Record<string, {
     label: "Pending Payment",
     color: "text-yellow-300", bgColor: "bg-yellow-500/15", borderColor: "border-yellow-500/30",
     description: "Order placed — payment not yet confirmed. If you just paid, please refresh.",
-    canDownload: false,
-    icon: <Clock className="w-3.5 h-3.5" />,
+    canDownload: false, icon: <Clock className="w-3.5 h-3.5" />,
   },
   PAID: {
     label: "Paid — Ready to Download",
     color: "text-green-300", bgColor: "bg-green-500/15", borderColor: "border-green-500/30",
     description: "Payment confirmed. Your asset is ready for download now.",
-    canDownload: true,
-    icon: <CheckCircle2 className="w-3.5 h-3.5" />,
+    canDownload: true, icon: <CheckCircle2 className="w-3.5 h-3.5" />,
   },
   DELIVERED: {
     label: "Delivered",
     color: "text-cyan-300", bgColor: "bg-cyan-500/15", borderColor: "border-cyan-500/30",
     description: "Asset delivered and available for download.",
-    canDownload: true,
-    icon: <Download className="w-3.5 h-3.5" />,
+    canDownload: true, icon: <Download className="w-3.5 h-3.5" />,
   },
   REFUNDED: {
     label: "Refunded",
     color: "text-red-300", bgColor: "bg-red-500/15", borderColor: "border-red-500/30",
     description: "This order has been refunded.",
-    canDownload: false,
-    icon: <RotateCcw className="w-3.5 h-3.5" />,
+    canDownload: false, icon: <RotateCcw className="w-3.5 h-3.5" />,
   },
 };
 
 const FORMAT_COLOR: Record<string, string> = {
-  GLB: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  USDZ: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  FBX: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  GLB:   "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  USDZ:  "bg-purple-500/20 text-purple-300 border-purple-500/30",
+  FBX:   "bg-blue-500/20 text-blue-300 border-blue-500/30",
   WEBAR: "bg-green-500/20 text-green-300 border-green-500/30",
 };
 
-// ── Order Detail Panel ────────────────────────────────────────────────
+const FILTER_OPTIONS = [
+  { value: "ALL",       label: "All" },
+  { value: "PENDING",   label: "Pending" },
+  { value: "PAID",      label: "Paid" },
+  { value: "DELIVERED", label: "Delivered" },
+  { value: "REFUNDED",  label: "Refunded" },
+];
+
+// ── Order Detail Panel ────────────────────────────────────────────────────────
 function OrderDetail({
   order, onBack, onRefunded,
 }: {
@@ -86,17 +77,17 @@ function OrderDetail({
   const [refunding, setRefunding] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
+  const { confirm, ConfirmDialogComponent } = useConfirm();
 
   const cfg = STATUS_CONFIG[order.Status];
 
-  // Load versions nếu đã paid
   useEffect(() => {
     if (!cfg.canDownload) return;
     setVLoading(true);
     apiFetch(`/asset-versions/${order.AssetId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setVersions(d.data ?? d); })
-      .catch(() => { })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setVersions(d.data ?? d); })
+      .catch(() => {})
       .finally(() => setVLoading(false));
   }, [order.AssetId, cfg.canDownload]);
 
@@ -107,57 +98,55 @@ function OrderDetail({
       if (!res.ok) throw new Error(data.message);
       const url = data.data?.downloadUrl ?? data.downloadUrl;
       if (url) window.open(url, "_blank");
-      else alert("Download URL not available.");
-    } catch (err: any) {
-      setError(`Download failed: ${err.message}`);
+      else toast.warning("Download URL not available.");
+    } catch (err: unknown) {
+      setError(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
   const handleRefund = async () => {
-    if (!confirm("Request a refund for this order?")) return;
-    setRefunding(true); setError("");
+    const ok = await confirm({
+      title: "Request Refund",
+      message: "Are you sure you want to request a refund for this order?",
+      confirmLabel: "Request Refund",
+      variant: "warning",
+    });
+    if (!ok) return;
+    setRefunding(true);
+    setError("");
     try {
       const res = await apiFetch(`/marketplace-orders/${order.MpOrderId}/refund`, { method: "PUT" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Refund failed");
       onRefunded(data.data ?? data);
-    } catch (err: any) {
-      setError(err.message ?? "Refund failed.");
+      toast.success("Refund request submitted.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Refund failed.");
     } finally {
       setRefunding(false);
     }
   };
 
   const handlePayNow = async () => {
-    setPaying(true); setError("");
+    setPaying(true);
+    setError("");
     try {
-      // 1. Tạo payment record
       const payRes = await apiFetch("/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          AssetId: order.AssetId,
-          OrderId: null,
-          Amount: order.Price,
-          PaymentType: "ASSET",
-        }),
+        body: JSON.stringify({ AssetId: order.AssetId, OrderId: null, Amount: order.Price, PaymentType: "ASSET" }),
       });
       const payData = await payRes.json();
       if (!payRes.ok) throw new Error(payData.message ?? "Failed to create payment");
       const pid = payData.data?.PaymentId ?? payData.paymentId;
 
-      // 2. Tạo VNPay URL
       const vnpRes = await apiFetch("/payments/create-vnpay-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentId: pid,
-          returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL || "http://localhost:3000/marketplace/checkout/vnpay-return"
+          returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL,
         }),
-      });
-      console.log("VNPay Payment Initiation:", {
-        paymentId: pid,
-        returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL
       });
       const vnpData = await vnpRes.json();
       if (vnpRes.ok && vnpData.paymentUrl) {
@@ -165,12 +154,22 @@ function OrderDetail({
       } else {
         throw new Error(vnpData.message ?? "Failed to create VNPay URL");
       }
-    } catch (err: any) {
-      setError(err.message ?? "Payment initiation failed.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Payment initiation failed.");
     } finally {
       setPaying(false);
     }
   };
+
+  const infoItems = [
+    { label: "Order Ref",      value: `#${order.MpOrderId}` },
+    { label: "Asset Name",     value: order.AssetName || "3D Asset" },
+    { label: "Category",       value: order.Category || "3D/AR Content" },
+    { label: "Industry",       value: order.Industry || "Generic" },
+    { label: "Seller",         value: order.SellerCompanyName || "Marketplace Provider" },
+    { label: "Price",          value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
+    { label: "Purchase Date",  value: new Date(order.CreatedAt).toLocaleDateString() },
+  ];
 
   return (
     <div className="space-y-4">
@@ -178,10 +177,9 @@ function OrderDetail({
         ← Back to My Purchases
       </button>
 
-      <div className="rounded-2xl border border-white/10 bg-slate-800/40 overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500" />
+      <div className="rounded-2xl border border-white/10 bg-[var(--surface-2)] overflow-hidden">
+        <div className="h-1" style={{ background: "var(--gradient-accent)" }} />
         <div className="p-6 space-y-5">
-
           {/* Header */}
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
@@ -191,28 +189,12 @@ function OrderDetail({
               </div>
               <p className="text-slate-500 text-sm">Order Reference: #{order.MpOrderId}</p>
             </div>
-            <Badge className={`${cfg.bgColor} ${cfg.color} ${cfg.borderColor} border text-xs px-3 py-1 flex items-center gap-1.5`}>
+            <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-medium ${cfg.bgColor} ${cfg.color} ${cfg.borderColor}`}>
               {cfg.icon} {cfg.label}
-            </Badge>
+            </span>
           </div>
 
-          {/* Info */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-            {[
-              { label: "Order Ref", value: `#${order.MpOrderId}` },
-              { label: "Asset Name", value: order.AssetName || "3D Asset" },
-              { label: "Category", value: order.Category || "3D/AR Content" },
-              { label: "Industry", value: order.Industry || "Generic" },
-              { label: "Seller", value: order.SellerCompanyName || "Marketplace Provider" },
-              { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
-              { label: "Purchase Date", value: new Date(order.CreatedAt).toLocaleDateString() },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-900/50 border border-white/6 rounded-xl p-3">
-                <p className="text-slate-500 text-xs mb-1">{label}</p>
-                <p className="text-white font-medium">{value}</p>
-              </div>
-            ))}
-          </div>
+          <InfoGrid items={infoItems} cols={3} />
 
           {/* Status description */}
           <div className={`rounded-xl ${cfg.bgColor} ${cfg.borderColor} border p-3 flex gap-2 text-xs ${cfg.color}`}>
@@ -220,19 +202,21 @@ function OrderDetail({
             <span>{cfg.description}</span>
           </div>
 
-          {/* Pay Now Button for PENDING */}
+          {/* Pay Now for PENDING */}
           {order.Status === "PENDING" && (
-            <Button onClick={handlePayNow} disabled={paying}
-              className="w-full bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 text-white font-semibold py-6 rounded-xl shadow-lg shadow-orange-500/20">
-              {paying ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
-              ) : (
-                <><CreditCard className="w-4 h-4 mr-2" />Pay Now ({order.Price?.toLocaleString("vi-VN")} ₫)</>
-              )}
+            <Button
+              onClick={handlePayNow}
+              disabled={paying}
+              className="w-full text-white font-semibold py-6 rounded-xl shadow-lg"
+              style={{ background: "linear-gradient(135deg,#eab308,#ea580c)", boxShadow: "0 4px 20px rgba(234,88,12,0.2)" }}
+            >
+              {paying
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
+                : <><CreditCard className="w-4 h-4 mr-2" />Pay Now ({order.Price?.toLocaleString("vi-VN")} ₫)</>}
             </Button>
           )}
 
-          {/* ── Download section — only when PAID/DELIVERED ── */}
+          {/* Download section */}
           {cfg.canDownload && (
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -240,28 +224,33 @@ function OrderDetail({
               </p>
               {vLoading ? (
                 <div className="flex items-center gap-2 text-slate-400 text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Loading files…
+                  <LoadingSpinner size="sm" color="slate" /> Loading files…
                 </div>
               ) : versions.length === 0 ? (
-                <div className="rounded-xl bg-slate-900/50 border border-white/8 p-4 text-center">
+                <div className="rounded-xl bg-slate-900/50 border border-white/[0.08] p-4 text-center">
                   <p className="text-slate-500 text-sm">No files uploaded yet.</p>
                   <p className="text-slate-600 text-xs mt-1">Contact support if this persists.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {versions.map(v => (
-                    <div key={v.VersionId}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-900/50 border border-white/8 hover:border-cyan-500/30 transition">
+                  {versions.map((v) => (
+                    <div
+                      key={v.VersionId}
+                      className="flex items-center justify-between p-3 rounded-xl bg-slate-900/50 border border-white/[0.08] hover:border-cyan-500/30 transition"
+                    >
                       <div className="flex items-center gap-3">
-                        <Badge className={`text-xs border ${FORMAT_COLOR[v.FileFormat] ?? "bg-slate-500/20 text-slate-300 border-slate-500/30"}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${FORMAT_COLOR[v.FileFormat] ?? "bg-slate-500/20 text-slate-300 border-slate-500/30"}`}>
                           {v.FileFormat}
-                        </Badge>
+                        </span>
                         <span className="text-slate-400 text-xs">v{v.VersionId}</span>
                       </div>
                       {v.FileUrl ? (
-                        <Button size="sm"
+                        <Button
+                          size="sm"
                           onClick={() => handleDownload(v.VersionId)}
-                          className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs px-3">
+                          className="text-xs px-3 text-white"
+                          style={{ background: "var(--gradient-accent)" }}
+                        >
                           <Download className="w-3.5 h-3.5 mr-1" /> Download
                         </Button>
                       ) : (
@@ -283,23 +272,26 @@ function OrderDetail({
 
           {/* Refund */}
           {(order.Status === "PAID" || order.Status === "DELIVERED") && (
-            <Button onClick={handleRefund} disabled={refunding} variant="outline"
-              className="w-full border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400 hover:bg-red-500/5">
+            <Button
+              onClick={handleRefund}
+              disabled={refunding}
+              variant="outline"
+              className="w-full border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400 hover:bg-red-500/5"
+            >
               {refunding
                 ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
-                : <><RotateCcw className="w-4 h-4 mr-2" />Request Refund</>
-              }
+                : <><RotateCcw className="w-4 h-4 mr-2" />Request Refund</>}
             </Button>
           )}
         </div>
       </div>
+      {ConfirmDialogComponent}
     </div>
   );
 }
 
-// ── Main PurchasesTab ─────────────────────────────────────────────────
+// ── Main PurchasesTab ─────────────────────────────────────────────────────────
 export function PurchasesTab() {
-  const router = useRouter();
   const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -307,9 +299,10 @@ export function PurchasesTab() {
   const [filter, setFilter] = useState("ALL");
 
   const fetchOrders = () => {
-    setLoading(true); setError("");
+    setLoading(true);
+    setError("");
     apiFetch("/marketplace-orders/my")
-      .then(async r => {
+      .then(async (r) => {
         if (!r.ok) {
           const text = await r.text();
           if (r.status === 400 && (text.includes("company") || text.includes("Buyer company not found"))) {
@@ -319,19 +312,15 @@ export function PurchasesTab() {
         }
         return r.json();
       })
-      .then(d => setOrders(Array.isArray(d.data ?? d) ? (d.data ?? d) : []))
-      .catch(e => {
-        if (!e.message.includes("company")) {
-          setError(`Cannot load purchases. (${e.message})`);
-        }
-      })
+      .then((d) => setOrders(Array.isArray(d.data ?? d) ? (d.data ?? d) : []))
+      .catch((e) => { if (!e.message.includes("company")) setError(`Cannot load purchases. (${e.message})`); })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchOrders(); }, []);
 
   const handleRefunded = (updated: MarketplaceOrder) => {
-    setOrders(prev => prev.map(o => o.MpOrderId === updated.MpOrderId ? updated : o));
+    setOrders((prev) => prev.map((o) => (o.MpOrderId === updated.MpOrderId ? updated : o)));
     setSelected(updated);
   };
 
@@ -339,9 +328,15 @@ export function PurchasesTab() {
     return <OrderDetail order={selected} onBack={() => setSelected(null)} onRefunded={handleRefunded} />;
   }
 
-  const filtered = filter === "ALL" ? orders : orders.filter(o => o.Status === filter);
-  const paidCount = orders.filter(o => o.Status === "PAID" || o.Status === "DELIVERED").length;
-  const pendingCount = orders.filter(o => o.Status === "PENDING").length;
+  const filtered = filter === "ALL" ? orders : orders.filter((o) => o.Status === filter);
+  const paidCount = orders.filter((o) => o.Status === "PAID" || o.Status === "DELIVERED").length;
+  const pendingCount = orders.filter((o) => o.Status === "PENDING").length;
+
+  // Counts for filter pills
+  const counts = FILTER_OPTIONS.reduce((acc, opt) => {
+    if (opt.value !== "ALL") acc[opt.value] = orders.filter((o) => o.Status === opt.value).length;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div className="space-y-4">
@@ -365,67 +360,51 @@ export function PurchasesTab() {
             </span>
           )}
           <button onClick={fetchOrders} className="p-2 text-slate-400 hover:text-white transition rounded-lg hover:bg-white/5">
-            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <RotateCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex flex-wrap gap-2">
-        {["ALL", "PENDING", "PAID", "DELIVERED", "REFUNDED"].map(s => (
-          <button key={s} onClick={() => setFilter(s)}
-            className={`text-xs px-3 py-1 rounded-full border transition-all ${filter === s
-              ? "bg-purple-600 border-purple-600 text-white"
-              : "border-white/10 text-slate-500 hover:text-slate-300 hover:border-white/20"
-              }`}
-          >
-            {s === "ALL" ? "All" : STATUS_CONFIG[s]?.label.split(" ")[0] ?? s}
-            {s !== "ALL" && <span className="ml-1 opacity-50">({orders.filter(o => o.Status === s).length})</span>}
-          </button>
-        ))}
-      </div>
+      <FilterPills options={FILTER_OPTIONS} value={filter} onChange={setFilter} counts={counts} />
 
       {/* List */}
       {loading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
-        </div>
+        <LoadingSpinner size="md" color="purple" fullPage />
       ) : error ? (
-        <div className="flex flex-col items-center py-16 gap-3">
-          <AlertCircle className="w-8 h-8 text-red-400" />
-          <p className="text-red-400 text-sm">{error}</p>
-          <button onClick={fetchOrders} className="text-slate-400 hover:text-white text-sm">Retry</button>
-        </div>
+        <ErrorState message={error} onRetry={fetchOrders} />
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <ShoppingBag className="w-12 h-12 text-slate-700 mx-auto mb-3" />
-          <p className="text-slate-400 font-medium mb-1">No purchases yet</p>
-          <p className="text-slate-600 text-sm mb-5">Browse the marketplace to find 3D/AR assets</p>
-          <button onClick={() => router.push("/marketplace")}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-sm font-medium rounded-xl hover:from-cyan-400 hover:to-blue-500 transition">
-            <ShoppingBag className="w-4 h-4" /> Browse Marketplace
-          </button>
-        </div>
+        <EmptyState
+          icon={ShoppingBag}
+          title="No purchases yet"
+          description="Browse the marketplace to find 3D/AR assets"
+          action={
+            <button
+              onClick={() => window.location.href = "/marketplace"}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-xl transition"
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <ShoppingBag className="w-4 h-4" /> Browse Marketplace
+            </button>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((order, i) => {
             const cfg = STATUS_CONFIG[order.Status];
             return (
-              <motion.div key={order.MpOrderId}
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+              <motion.div
+                key={order.MpOrderId}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
                 onClick={() => setSelected(order)}
                 className="flex items-center gap-4 p-4 rounded-xl bg-slate-800/50 border border-blue-500/20 hover:border-purple-500/30 transition-all cursor-pointer group"
               >
-                {/* Icon */}
                 <div className={`w-10 h-10 rounded-xl ${cfg.bgColor} ${cfg.borderColor} border flex items-center justify-center flex-shrink-0`}>
                   <Box className={`w-5 h-5 ${cfg.color}`} />
                 </div>
-
-                {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">
-                    {order.AssetName || "3D Marketplace Asset"}
-                  </p>
+                  <p className="text-white font-medium truncate">{order.AssetName || "3D Marketplace Asset"}</p>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
                     <span>Order #{order.MpOrderId}</span>
                     {order.Price != null && (
@@ -440,13 +419,11 @@ export function PurchasesTab() {
                     </span>
                   </div>
                 </div>
-
-                {/* Status + actions */}
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <Badge className={`text-xs ${cfg.bgColor} ${cfg.color} ${cfg.borderColor} border flex items-center gap-1`}>
+                  <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border font-medium ${cfg.bgColor} ${cfg.color} ${cfg.borderColor}`}>
                     {cfg.icon}
                     <span className="hidden sm:inline">{cfg.label.split(" ")[0]}</span>
-                  </Badge>
+                  </span>
                   {cfg.canDownload && (
                     <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
                       <Download className="w-3.5 h-3.5 text-cyan-400" />

@@ -1,6 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 @import "./styles/theme.css";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @utility container {
   margin-inline: auto;
@@ -15,6 +15,7 @@
 }
 
 :root {
+  /* ── Legacy aliases (keep for backward-compat) ── */
   --bg-primary: #090d1f;
   --bg-secondary: #0E1320;
   --bg-card: #111827;
@@ -29,14 +30,36 @@
   --text-muted: #64748B;
   --border-color: rgba(255, 255, 255, 0.06);
   --border-hover: rgba(124, 58, 237, 0.4);
+
+  /* ── Design tokens (use these in components) ── */
+
+  /* Surfaces — layered dark backgrounds */
+  --surface-1: #090d1f;    /* page background */
+  --surface-2: #0d1526;    /* card / panel */
+  --surface-3: #111827;    /* elevated card */
+  --surface-4: #0f1729;    /* modal / overlay panel */
+
+  /* Gradients */
+  --gradient-brand:  linear-gradient(135deg, #7c3aed, #4f46e5);  /* purple-indigo */
+  --gradient-accent: linear-gradient(135deg, #06b6d4, #3b82f6);  /* cyan-blue */
+  --gradient-success: linear-gradient(135deg, #16a34a, #059669); /* green */
+  --gradient-page:   linear-gradient(to bottom, #090d1f 0%, #0e1628 40%, #0a1120 100%);
+
+  /* Borders */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-medium:  rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.20);
 }
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--surface-1);
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--surface-1);
+  color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;

@@ -6,7 +6,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Package, FileText, Download, Plus, MessageSquare, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
-import { MOCK_PURCHASES, UserProfile, ApiOrder } from "./components/types";
+import { UserProfile, ApiOrder } from "./components/types";
 import { OrdersTab } from "./components/OrderTab";
 import { BriefsTab } from "./components/BriefsTab";
 import { PurchasesTab } from "./components/PurchasesTab";
@@ -216,7 +216,7 @@ export default function CustomerDashboard() {
           </div>
 
           <div>
-            {activeTab === "orders" && <OrdersTab onTabChange={setActiveTab} />}
+            {activeTab === "orders" && <OrdersTab onTabChange={(tab) => setActiveTab(tab as TabId)} />}
             {activeTab === "briefs" && <BriefsTab />}
             {activeTab === "purchases" && <PurchasesTab />}
             {activeTab === "profile" && (
