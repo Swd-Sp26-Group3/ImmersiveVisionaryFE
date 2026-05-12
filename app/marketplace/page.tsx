@@ -68,7 +68,13 @@ export default function MarketPlacePage() {
       router.push(`/login?redirect=/marketplace/checkout?productId=${asset.AssetId}`);
       return;
     }
-    sessionStorage.setItem("checkoutProduct", JSON.stringify(asset));
+    // Only store lightweight metadata — Base64Data can be MB-sized and exceed sessionStorage quota
+    const { Base64Data: _, ...checkoutPayload } = asset;
+    try {
+      sessionStorage.setItem("checkoutProduct", JSON.stringify(checkoutPayload));
+    } catch {
+      sessionStorage.removeItem("checkoutProduct"); // full → checkout will fetch from API
+    }
     router.push(`/marketplace/checkout?productId=${asset.AssetId}`);
   };
 
