@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import { Menu, X, LogOut, User } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getHomeByRole } from "@/lib/roleRoutes";
 
@@ -12,6 +12,15 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const dashboardPath = getHomeByRole(user?.role ?? "CUSTOMER");
 
@@ -40,14 +49,19 @@ export function Header() {
     await logout();
   };
 
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const shouldBeTransparent = isAuthPage && !scrolled;
+  
   return (
     <header
-      className="sticky top-0 z-50 w-full border-b border-purple-500/10 bg-[#0f1729]/90 backdrop-blur-lg"
-      style={{
+      className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
+        shouldBeTransparent ? "bg-transparent border-transparent" : "bg-[#0f1729]/90 backdrop-blur-lg border-purple-500/10"
+      }`}
+      style={!shouldBeTransparent ? {
         background: "rgba(8,11,20,0.85)",
         backdropFilter: "blur(20px)",
         borderBottom: "1px solid rgba(255,255,255,0.06)",
-      }}
+      } : {}}
     >
       <div className="max-w-8xl w-full px-8 md:px-12 lg:px-16 flex h-25 items-center justify-between">
         {/* Logo */}

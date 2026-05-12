@@ -1,13 +1,13 @@
 /* ── Page shell ─────────────────────────────────────────── */
 .page {
     min-height: 100vh;
-    background-color: var(--bg-primary);
+    background: linear-gradient(180deg, #0f1729 0%, #1a1f3a 50%, #0f1729 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
     overflow: hidden;
-    padding: 2rem 1rem;
+    padding: 8rem 1rem 2rem;
 }
 
 /* Background glow blobs */

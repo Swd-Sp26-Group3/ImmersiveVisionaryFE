@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Header } from "./components/header";
 import { Footer } from "./components/Footer";
+import { MainWrapper } from "./components/MainWrapper";
 import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({
@@ -25,14 +26,13 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} antialiased`}
-        style={{ background: "#090d1f" }}
         suppressHydrationWarning
       >
         <AuthProvider>
           <Header />
-          <main className="pt-16">
+          <MainWrapper>
             {children}
-          </main>
+          </MainWrapper>
           <Footer />
         </AuthProvider>
       </body>
