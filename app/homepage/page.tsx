@@ -297,7 +297,7 @@ export default function HomePage() {
         className="py-16 md:py-24"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <div className="w-full max-w-6xl mx-auto px-4 md:px-8 flex flex-col md:flex-row justify-center md:justify-end">
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-8 flex justify-center">
           <div
             className="text-center rounded-2xl px-6 md:px-12 lg:px-16 py-12 md:py-20 w-full md:max-w-[750px] flex flex-col items-center justify-center"
             style={{
