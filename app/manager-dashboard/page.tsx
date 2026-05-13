@@ -398,7 +398,7 @@ export default function ManagerDashboard() {
               <CardContent>
                 {value === null
                   ? <Loader2 className={`w-6 h-6 ${iconColor} animate-spin`} />
-                  : <><div className="text-3xl font-bold text-white">{value}</div>
+                  : <><div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words leading-tight">{value}</div>
                     <p className={`text-xs ${iconColor} mt-1`}>{sub}</p></>
                 }
               </CardContent>
@@ -408,12 +408,12 @@ export default function ManagerDashboard() {
 
         {/* Tab nav */}
         <div className="space-y-6">
-          <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-fit flex-wrap">
+          <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-full sm:w-fit flex-wrap sm:flex-nowrap overflow-x-auto">
             {TABS.map(({ id, label, icon: Icon }) => {
               const isActive = activeTab === id;
               return (
                 <button key={id} onClick={() => setActiveTab(id)}
-                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
+                  className={`relative flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
                     ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
                     : "text-slate-400 hover:text-white hover:bg-slate-700/50"
                     }`}

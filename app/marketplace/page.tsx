@@ -96,11 +96,11 @@ export default function MarketPlacePage() {
 
   return (
     <div className="min-h-screen py-16" style={{ background: "var(--gradient-page)" }}>
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-6">
 
         {/* Header */}
         <div className="text-center mb-14">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-white via-cyan-200 to-blue-300 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-white via-cyan-200 to-blue-300 bg-clip-text text-transparent">
             3D/AR Content Marketplace
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
@@ -154,7 +154,7 @@ export default function MarketPlacePage() {
         </div>
 
         {/* Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredItems.map((asset, index) => (
             <motion.div
               key={asset.AssetId}

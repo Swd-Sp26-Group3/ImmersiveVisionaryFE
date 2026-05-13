@@ -82,6 +82,12 @@ button {
   border: none;
   outline: none;
   font-family: inherit;
+  touch-action: manipulation;
+}
+
+a, button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 img { display: block; max-width: 100%; }
+

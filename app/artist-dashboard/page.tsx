@@ -80,10 +80,10 @@ export default function ArtistDashboard() {
         </div>
 
         {/* Tab nav */}
-        <div className="flex gap-1 p-1 bg-slate-800/50 border border-white/8 rounded-xl w-fit mb-6">
+        <div className="flex gap-1 p-1 bg-slate-800/50 border border-white/8 rounded-xl w-full sm:w-fit mb-6 overflow-x-auto">
           {TABS.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                 activeTab === id
                   ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
                   : "text-slate-400 hover:text-white"

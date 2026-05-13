@@ -68,18 +68,18 @@ export function Header() {
       }`}
       style={shouldBeTransparent ? {} : { background: "rgba(8,11,20,0.85)" }}
     >
-      <div className="max-w-8xl w-full px-8 md:px-12 lg:px-16 flex h-25 items-center justify-between">
+      <div className="max-w-8xl mx-auto w-full px-4 sm:px-6 md:px-10 lg:px-16 flex h-16 md:h-20 items-center justify-between">
 
         {/* Logo */}
-        <div className="flex-1">
-          <Link href="/" className="ml-40 flex items-center gap-2.5 w-fit group">
+        <div className="flex-1 min-w-0">
+          <Link href="/" className="flex items-center gap-2 w-fit group">
             <div
-              className="flex items-center justify-center w-10 h-10 rounded-lg text-white text-sm font-bold transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
+              className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-lg text-white text-sm font-bold flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
               style={{ background: "var(--gradient-brand)" }}
             >
               ✦
             </div>
-            <span className="text-white font-semibold text-base tracking-tight w-8 transition-opacity duration-200 group-hover:opacity-80">
+            <span className="text-white font-semibold text-sm md:text-base tracking-tight transition-opacity duration-200 group-hover:opacity-80">
               Immersive Visionary
             </span>
           </Link>

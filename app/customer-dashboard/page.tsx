@@ -120,7 +120,7 @@ export default function CustomerDashboard() {
       <div className="container mx-auto px-4">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
             {profileLoading ? (
               <div className="flex items-center gap-2 mb-2">
@@ -154,7 +154,7 @@ export default function CustomerDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           {[
             { label: "Active Orders", value: ordersLoading ? "..." : activeOrders, sub: "In progress", subColor: "text-green-400" },
             { label: "Completed", value: ordersLoading ? "..." : completedOrders, sub: "All time", subColor: "text-gray-400" },
@@ -193,7 +193,7 @@ export default function CustomerDashboard() {
 
         {/* Tabs */}
         <div className="space-y-6">
-          <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-fit">
+          <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-full sm:w-fit overflow-x-auto">
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}

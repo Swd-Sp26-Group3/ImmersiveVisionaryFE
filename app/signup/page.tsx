@@ -53,7 +53,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 pt-32 pb-12 bg-gradient-to-b from-[#0f1729] via-[#1a1f3a] to-[#0f1729]">
+    <div className="min-h-screen flex items-center justify-center px-4 pt-20 sm:pt-28 md:pt-32 pb-12 bg-gradient-to-b from-[#0f1729] via-[#1a1f3a] to-[#0f1729]">
       <div className="w-full max-w-[440px]">
         {/* Header */}
         <div className="text-center mb-8">

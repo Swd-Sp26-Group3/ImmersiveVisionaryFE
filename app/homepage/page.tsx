@@ -6,7 +6,7 @@ import { Button } from "../components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
-const W = "max-w-8xl w-full md:px-12 lg:px-20";
+const W = "max-w-8xl w-full px-4 sm:px-6 md:px-12 lg:px-20";
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
@@ -184,7 +184,7 @@ export default function HomePage() {
 
       {/* ── Our Services ── */}
       <section
-        className="py-24 h-[750px]"
+        className="py-12 md:py-24"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className={W}>
@@ -197,7 +197,7 @@ export default function HomePage() {
               Complete 3D/AR production pipeline from concept to delivery
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 px-24 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-0 py-10 md:py-16">
             {services.map((svc, i) => (
               <motion.div
                 key={i}
@@ -260,7 +260,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 h-[160px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {pipelineSteps.map((item, i) => (
               <motion.div
                 key={i}
@@ -268,7 +268,7 @@ export default function HomePage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.3 }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="rounded-2xl p-7"
+                className="rounded-2xl p-5 md:p-7"
                 style={{
                   background: "rgba(20, 25, 55, 0.85)",
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -294,12 +294,12 @@ export default function HomePage() {
 
       {/* ── CTA ── */}
       <section
-        className="py-40 justify-end"
+        className="py-16 md:py-24"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
-        <div className="w-full max-w-6xl px-4 py-4 flex justify-end">
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-8 flex flex-col md:flex-row justify-center md:justify-end">
           <div
-            className="text-center rounded-2xl px-6 md:px-12 lg:px-16 h-[450px] w-[750px] flex flex-col items-center justify-center"
+            className="text-center rounded-2xl px-6 md:px-12 lg:px-16 py-12 md:py-20 w-full md:max-w-[750px] flex flex-col items-center justify-center"
             style={{
               background: "linear-gradient(135deg, #3a1fa0 0%, #3730a3 100%)",
               border: "1px solid rgba(139,92,246,0.35)",
