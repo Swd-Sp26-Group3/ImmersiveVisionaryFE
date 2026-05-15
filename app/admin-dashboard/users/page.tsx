@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
-import { AlertCircle, Edit, Loader2, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
+import { AlertCircle, AlertTriangle, Edit, Loader2, RefreshCw, Search, Trash2, UserPlus } from "lucide-react";
 
 interface User {
   UserId: number;
@@ -75,6 +75,8 @@ export default function UsersPage() {
     return matchSearch && matchRole;
   });
 
+  const unassignedCustomers = users.filter((u) => u.RoleName === "CUSTOMER" && !u.CompanyName);
+
   return (
     <div>
       {/* Header */}
@@ -101,6 +103,25 @@ export default function UsersPage() {
           </button>
         </div>
       </div>
+
+      {/* Unassigned Users Alert */}
+      {!loading && unassignedCustomers.length > 0 && (
+        <div className="mb-6 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-amber-400 font-medium text-sm">Action Required: Unassigned Customers</h3>
+            <p className="text-amber-300/80 text-xs mt-1">
+              There {unassignedCustomers.length === 1 ? "is" : "are"} {unassignedCustomers.length} customer account{unassignedCustomers.length === 1 ? "" : "s"} missing a company assignment. They cannot place orders until an admin updates their profile.
+            </p>
+          </div>
+          <button 
+            onClick={() => { setSearch(""); setRoleFilter("CUSTOMER"); }}
+            className="text-xs px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg transition"
+          >
+            Filter List
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-3 mb-5">
@@ -157,9 +178,13 @@ export default function UsersPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${ROLE_BADGE[user.RoleName] ?? "bg-slate-600 text-white"}`}>
                       {user.RoleName}
                     </span>
-                    {user.CompanyName && (
+                    {user.CompanyName ? (
                       <span className="text-xs text-slate-500 truncate">• {user.CompanyName}</span>
-                    )}
+                    ) : user.RoleName === "CUSTOMER" ? (
+                      <span className="text-[10px] flex items-center gap-1 text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">
+                        <AlertCircle className="w-3 h-3" /> Needs Company
+                      </span>
+                    ) : null}
                   </div>
                   <p className="text-slate-400 text-xs mt-0.5">{user.Email}</p>
                 </div>

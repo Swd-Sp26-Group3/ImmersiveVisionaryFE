@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { Button } from "@/app/components/ui/button";
 import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
@@ -20,6 +21,7 @@ import OBJModelViewer from "../../components/3d/OBJModelViewer";
 import { toast } from "sonner";
 
 export function BriefsTab() {
+  const router = useRouter();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -117,14 +119,13 @@ export function BriefsTab() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
-          <Link href="/order">
-            <Button
-              className="text-sm text-white"
-              style={{ background: "var(--gradient-accent)" }}
-            >
-              <Plus className="w-4 h-4 mr-1" /> New Brief
-            </Button>
-          </Link>
+          <Button
+            onClick={() => router.push("/order")}
+            className="text-sm text-white"
+            style={{ background: "var(--gradient-accent)" }}
+          >
+            <Plus className="w-4 h-4 mr-1" /> New Brief
+          </Button>
         </div>
       </div>
 
@@ -139,11 +140,13 @@ export function BriefsTab() {
           title="No custom orders yet"
           description="Submit a brief to get started with custom 3D/AR production"
           action={
-            <Link href="/order">
-              <Button className="text-white" style={{ background: "var(--gradient-accent)" }}>
-                <Plus className="w-4 h-4 mr-2" /> Create First Brief
-              </Button>
-            </Link>
+            <Button 
+              onClick={() => router.push("/order")}
+              className="text-white" 
+              style={{ background: "var(--gradient-accent)" }}
+            >
+              <Plus className="w-4 h-4 mr-2" /> Create First Brief
+            </Button>
           }
         />
       ) : (

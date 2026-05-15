@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
@@ -158,6 +159,7 @@ function ReviewModal({
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void }) {
+  const router = useRouter();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -201,14 +203,33 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
       if (!res.ok) throw new Error("Failed to fetch attachments");
       const attachments: Attachment[] = (await res.json()).data ?? [];
       if (attachments.length === 0) { toast.warning("No deliverables found for this order."); return; }
+      
       attachments.forEach((att) => {
         if (att.Base64Data) {
-          const a = document.createElement("a");
-          a.href = att.Base64Data.startsWith("data:") ? att.Base64Data : `data:application/octet-stream;base64,${att.Base64Data}`;
-          a.download = att.FileName || `delivery_${orderId}.obj`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          try {
+            // Remove data:mime/type;base64, if present
+            const base64Data = att.Base64Data.includes(',') ? att.Base64Data.split(',')[1] : att.Base64Data;
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: "application/octet-stream" });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = att.FileName || `delivery_${orderId}.obj`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          } catch (err) {
+            console.error("Failed to decode base64 data:", err);
+            toast.error("Failed to process file for download.");
+          }
         }
       });
     } catch (e: unknown) {
@@ -251,11 +272,13 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
         title="No orders yet"
         description="Place your first custom order to get started"
         action={
-          <a href="/order">
-            <Button style={{ background: "var(--gradient-accent)" }} className="text-white">
-              Place New Order
-            </Button>
-          </a>
+          <Button 
+            onClick={() => router.push("/order")}
+            style={{ background: "var(--gradient-accent)" }} 
+            className="text-white"
+          >
+            Place New Order
+          </Button>
         }
       />
     );

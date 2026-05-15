@@ -50,6 +50,20 @@ function CheckoutContent() {
   const [step, setStep] = useState<CheckoutStep>("review");
   const [errorMsg, setErrorMsg] = useState("");
   const [mpOrderId, setMpOrderId] = useState<number | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [hasCompany, setHasCompany] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    apiFetch("/users/profile")
+      .then(res => res.json())
+      .then(data => {
+        const p = data.data ?? data;
+        setHasCompany(!!p.CompanyId);
+      })
+      .catch(err => console.error("Failed to fetch profile", err))
+      .finally(() => setProfileLoading(false));
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -189,9 +203,31 @@ function CheckoutContent() {
     }
   };
 
-  if (loading) return (
+  if (loading || profileLoading) return (
     <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
       <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+    </div>
+  );
+
+  if (hasCompany === false) return (
+    <div className="min-h-screen bg-[#080d1a] flex items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 text-center space-y-6">
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto" />
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-white">Missing Company Information</h2>
+            <p className="text-slate-300 text-sm">
+              You must assign a company to your profile before purchasing any assets.
+            </p>
+          </div>
+          <Button 
+            onClick={() => router.push("/customer-dashboard?tab=profile")}
+            className="w-full bg-red-600 hover:bg-red-700 text-white"
+          >
+            Go to Profile to Update Company
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 

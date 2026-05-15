@@ -34,12 +34,12 @@ export interface UserProfile {
 
 // ── Status config matching BE CreativeOrderStatus enum ─────────────────────────
 export const ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; borderColor?: string }> = {
-  NEW:           { label: "New",                      color: "text-yellow-300", bg: "bg-yellow-500/15", borderColor: "border-yellow-500/30"  },
-  IN_PRODUCTION: { label: "In Production",            color: "text-blue-300",   bg: "bg-blue-500/15",   borderColor: "border-blue-500/30"    },
-  REVIEW:        { label: "Under Review",             color: "text-purple-300", bg: "bg-purple-500/15", borderColor: "border-purple-500/30"  },
-  COMPLETED:     { label: "Completed",                color: "text-green-300",  bg: "bg-green-500/15",  borderColor: "border-green-500/30"   },
-  DELIVERED:     { label: "Approved (Waiting Pay)",   color: "text-cyan-300",   bg: "bg-cyan-500/15",   borderColor: "border-cyan-500/30"    },
-  CANCELLED:     { label: "Cancelled",                color: "text-red-300",    bg: "bg-red-500/15",    borderColor: "border-red-500/30"     },
+  NEW:           { label: "Mới (New)",                    color: "text-blue-100", bg: "bg-blue-600/20", borderColor: "border-blue-500/30"  },
+  IN_PRODUCTION: { label: "Đang xử lý (In Production)",   color: "text-blue-200", bg: "bg-blue-500/20", borderColor: "border-blue-400/30"  },
+  REVIEW:        { label: "Đang đánh giá (Under Review)", color: "text-blue-300", bg: "bg-blue-400/20", borderColor: "border-blue-300/30"  },
+  COMPLETED:     { label: "Đã hoàn thành (Completed)",    color: "text-blue-400", bg: "bg-blue-700/30", borderColor: "border-blue-500/40"  },
+  DELIVERED:     { label: "Chờ thanh toán (Waiting Pay)", color: "text-blue-50",  bg: "bg-blue-800/40", borderColor: "border-blue-500/50"  },
+  CANCELLED:     { label: "Đã hủy (Cancelled)",           color: "text-slate-300",bg: "bg-slate-500/20", borderColor: "border-slate-500/30" },
 };
 
 export const getStatusLabel = (status: string) =>
