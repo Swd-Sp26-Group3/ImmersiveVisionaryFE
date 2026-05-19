@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const client = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY ?? "",
-  defaultHeaders: {
-    "HTTP-Referer": "https://immersivevisionary.com",
-    "X-Title": "Immersive Visionary Support",
-  },
-});
-
 const SYSTEM_PROMPT =
   "You are a helpful customer support AI for Immersive Visionary, a premium 3D and AR production studio. " +
   "Keep your answers concise, professional, and helpful. " +
@@ -44,9 +35,21 @@ function isSkippableError(err: unknown): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENROUTER_API_KEY) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
     return NextResponse.json({ error: "API key not configured" }, { status: 500 });
   }
+
+  // Instantiate client here (inside handler) so it only runs when the key is confirmed present.
+  // Initializing at module load with apiKey="" would throw "Missing credentials" on Vercel.
+  const client = new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey,
+    defaultHeaders: {
+      "HTTP-Referer": "https://immersivevisionary.com",
+      "X-Title": "Immersive Visionary Support",
+    },
+  });
 
   const { messages }: { messages: ORMessage[] } = await req.json();
 
