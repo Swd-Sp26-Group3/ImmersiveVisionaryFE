@@ -43,7 +43,7 @@ export function Header() {
     { name: "Introduction", path: "/",             requiresAuth: false },
     { name: "Marketplace",  path: "/marketplace",  requiresAuth: false },
     { name: "Order",        path: "/order",         requiresAuth: true  },
-    { name: "Design Studio",path: "/studio-custom", requiresAuth: true  },
+    { name: "Support",      path: "/support",       requiresAuth: true  },
   ].filter((link) => {
     if (RESTRICTED_ROLES.includes(user?.role ?? "") && NAV_RESTRICTED_PATHS.includes(link.path)) {
       return false;
