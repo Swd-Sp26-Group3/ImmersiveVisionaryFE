@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, LogOut, User, ChevronRight, Sparkles } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -74,10 +75,19 @@ export function Header() {
         <div className="flex-1 min-w-0">
           <Link href="/" className="flex items-center gap-2 w-fit group">
             <div
-              className="flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-lg text-white text-sm font-bold flex-shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3"
-              style={{ background: "var(--gradient-brand)" }}
+              className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-0.5"
+              style={{
+                filter: "drop-shadow(0 0 8px rgba(139,92,246,0.4))",
+              }}
             >
-              ✦
+              <Image
+                src="/imvrs-logo.png"
+                alt="IMVRS Logo"
+                width={40}
+                height={40}
+                className="object-cover w-8 h-8 md:w-10 md:h-10 rounded-[10px]"
+                priority
+              />
             </div>
             <span className="text-white font-semibold text-sm md:text-base tracking-tight transition-opacity duration-200 group-hover:opacity-80">
               Immersive Visionary

@@ -2,6 +2,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { Box, Facebook, Linkedin, Twitter, Phone, Mail } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 export function Footer() {
   const { user, isAuthenticated } = useAuth();
@@ -14,11 +15,23 @@ export function Footer() {
 
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="flex items-center gap-2 text-lg font-semibold mb-4 w-fit">
-              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600">
-                <Box className="w-5 h-5 text-white" />
+            <Link href="/" className="flex items-center gap-2 text-lg font-semibold mb-4 w-fit group">
+              <div
+                className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-0.5"
+                style={{
+                  filter: "drop-shadow(0 0 8px rgba(139,92,246,0.4))",
+                }}
+              >
+                <Image
+                  src="/imvrs-logo.png"
+                  alt="IMVRS Logo"
+                  width={36}
+                  height={36}
+                  className="object-cover w-7 h-7 md:w-9 md:h-9 rounded-[10px]"
+                  priority
+                />
               </div>
-              <span className="text-white">Immersive Visionary</span>
+              <span className="text-white transition-opacity duration-200 group-hover:opacity-80">Immersive Visionary</span>
             </Link>
             <p className="text-gray-400 text-sm mb-6 max-w-sm leading-relaxed">
               Transform your advertising with enterprise-grade 3D modeling and AR production. From concept to immersive reality.
@@ -39,7 +52,9 @@ export function Footer() {
                 <Linkedin className="w-4 h-4" />
               </a>
               <a
-                href="#"
+                href="https://www.facebook.com/Immersivis"
+                target="_blank"
+                rel="noreferrer"
                 aria-label="Facebook"
                 className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
               >
