@@ -8,5 +8,9 @@ export function buildApiUrl(endpoint: string): string {
     const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const baseUrl = getApiBaseUrl();
 
-    return `${baseUrl}${normalizedEndpoint}`;
+    const apiPath = normalizedEndpoint.startsWith("/api/")
+        ? normalizedEndpoint
+        : `/api${normalizedEndpoint}`;
+
+    return `${baseUrl}${apiPath}`;
 }
