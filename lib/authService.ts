@@ -1,4 +1,5 @@
 import { apiFetch, clearTokens, setTokens } from "./api";
+import { buildApiUrl } from "./apiBase";
 
 export interface User {
     id: string;
@@ -30,7 +31,7 @@ function extractAuthData(data: Record<string, unknown>): AuthResponse {
 }
 
 export async function login(email: string, password: string): Promise<User> {
-    const res = await fetch("/api/auth/login", {
+    const res = await fetch(buildApiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ Email: email, PasswordHash: password }),
@@ -74,7 +75,7 @@ export async function register(
     userName?: string,
     phone?: string
 ): Promise<void> {
-    const res = await fetch("/api/auth/register", {
+    const res = await fetch(buildApiUrl("/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { buildApiUrl } from "@/lib/apiBase";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 
@@ -122,7 +123,7 @@ export async function middleware(req: NextRequest) {
     // Access token hết hạn thì Thử refresh token
     if (refreshToken) {
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/refresh-token`, {
+            const res = await fetch(buildApiUrl("/auth/refresh-token"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ refreshToken }),

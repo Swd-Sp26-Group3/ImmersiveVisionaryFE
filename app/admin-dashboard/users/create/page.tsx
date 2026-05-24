@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
+import { buildApiUrl } from "@/lib/apiBase";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 // Roles available in the system (from enums.ts)
@@ -66,7 +67,7 @@ export default function CreateUserPage() {
     try {
       // ✅ STEP 1: Register user via POST /api/auth/register
       // BE tạo với role CUSTOMER mặc định
-      const registerRes = await fetch("/api/auth/register", {
+      const registerRes = await fetch(buildApiUrl("/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

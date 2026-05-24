@@ -1,4 +1,4 @@
-const BASE_URL = "/api";
+import { buildApiUrl } from "./apiBase";
 
 function getAccessToken(): string | null {
     if (typeof window === "undefined") return null;
@@ -40,7 +40,7 @@ async function refreshAccessToken(): Promise<string | null> {
     }
 
     try {
-        const res = await fetch(`${BASE_URL}/auth/refresh-token`, {
+        const res = await fetch(buildApiUrl("/auth/refresh-token"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ refreshToken }),
@@ -85,7 +85,7 @@ export async function apiFetch(
         headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${BASE_URL}${endpoint}`, { ...options, headers });
+    const res = await fetch(buildApiUrl(endpoint), { ...options, headers });
 
     // If 401, try to refresh and retry once
     if (res.status === 401 && retry) {
