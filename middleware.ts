@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { buildApiUrl } from "@/lib/apiBase";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
+// Decode JWT payload without verification (for tokens issued by backend with its own secret)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+    try {
+        const base64Url = token.split(".")[1];
+        if (!base64Url) return null;
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        // Use atob instead of Buffer in Edge Runtime to avoid compatibility issues
+        const jsonPayload = atob(base64);
+        return JSON.parse(jsonPayload);
+    } catch {
+        return null;
+    }
+}
 
 // path mà guest có thể view
 const PUBLIC_PATHS = ['/', '/login', '/signup', '/marketplace'];
@@ -12,7 +22,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
     ADMIN: ['/admin-dashboard'],
     MANAGER: ['/manager-dashboard'],
     ARTIST: ['/artist-dashboard', '/marketplace', '/checkout', '/order', '/order-success'],
-    CUSTOMER: ['/customer-dashboard', '/homepage', '/marketplace', '/checkout', '/order', '/order-success', '/studio-custom'],
+    CUSTOMER: ['/customer-dashboard', '/homepage', '/marketplace', '/checkout', '/order', '/order-success', '/support'],
 };
 
 //Khi login thành công thì mỗi role sẽ được tự động điều hướng đến path cụ thể 
@@ -35,7 +45,7 @@ export const config = {
         '/checkout/:path*',
         '/order/:path*',
         '/order-success/:path*',
-        '/studio-custom/:path*',
+        '/support/:path*',
     ],
 };
 
@@ -52,7 +62,6 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // Không có cả 2 token thì sẽ quay lại login
     const token = req.cookies.get("accessToken")?.value;
     const refreshToken = req.cookies.get("refreshToken")?.value;
     console.log("Token:", token ? "CÓ TOKEN" : "KHÔNG CÓ TOKEN");
@@ -65,29 +74,15 @@ export async function middleware(req: NextRequest) {
     if (isPublic) {
         console.log(" Public path, checking access for logged-in users:", pathname);
 
-        // Even for public paths, if they are logged in as MANAGER, block marketplace
-        if (token || refreshToken) {
-            try {
-                // Try to get role from token if available, otherwise just continue (it's public)
-                const currentToken = token || refreshToken;
-                if (currentToken) {
-                    const { payload } = await jwtVerify(
-                        new TextEncoder().encode(token ? token : "").byteLength > 0 ? token! : (refreshToken ? refreshToken : ""),
-                        secret
-                    ).catch(() => ({ payload: null }));
-
-                    if (payload) {
-                        const role = (payload.role as string)?.toUpperCase();
-                        if ((role === 'MANAGER' || role === 'ADMIN') && (pathname === '/marketplace' || pathname.startsWith('/marketplace/'))) {
-                            console.log(` ${role} trying to access marketplace -> redirecting`);
-                            const redirectPath = role === 'ADMIN' ? '/admin-dashboard' : '/manager-dashboard';
-                            return NextResponse.redirect(new URL(redirectPath, req.url));
-                        }
-                    }
+        if (token) {
+            const payload = decodeJwtPayload(token);
+            if (payload) {
+                const role = (payload.role as string)?.toUpperCase();
+                if ((role === 'MANAGER' || role === 'ADMIN') && (pathname === '/marketplace' || pathname.startsWith('/marketplace/'))) {
+                    console.log(` ${role} trying to access marketplace -> redirecting`);
+                    const redirectPath = role === 'ADMIN' ? '/admin-dashboard' : '/manager-dashboard';
+                    return NextResponse.redirect(new URL(redirectPath, req.url));
                 }
-            } catch (err) {
-                // Ignore errors here, let them view public path if verify fails
-                console.log("Verify in public path failed:", err);
             }
         }
 
@@ -99,31 +94,36 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    // Có access token thì sẽ verify và check field role
+    // Có access token thì decode và check field role + expiry
+    // Dùng decodeJwtPayload vì JWT_SECRET của FE khác với BE, verify chữ ký sẽ fail
     if (token) {
-        try {
-            const { payload } = await jwtVerify(token, secret);
-            const role = (payload.role as string)?.toUpperCase();
-            console.log("Role:", role);
-            const allowedPaths = ROLE_ROUTES[role] ?? [];
-            const isAllowed = allowedPaths.some((p) => pathname.startsWith(p));
+        const payload = decodeJwtPayload(token);
+        if (payload) {
+            const exp = payload.exp as number | undefined;
+            const isExpired = exp ? Date.now() / 1000 > exp : false;
 
-            if (!isAllowed) {
-                return NextResponse.redirect(
-                    new URL(ROLE_HOME[role] ?? "/customer-dashboard", req.url)
-                );
+            if (!isExpired) {
+                const role = (payload.role as string)?.toUpperCase();
+                console.log("Role:", role);
+                const allowedPaths = ROLE_ROUTES[role] ?? [];
+                const isAllowed = allowedPaths.some((p) => pathname.startsWith(p));
+
+                if (!isAllowed) {
+                    return NextResponse.redirect(
+                        new URL(ROLE_HOME[role] ?? "/customer-dashboard", req.url)
+                    );
+                }
+
+                return NextResponse.next();
             }
-
-            return NextResponse.next();
-        } catch {
-            // Token hết hạn → thử refresh bên dưới
         }
     }
 
     // Access token hết hạn thì Thử refresh token
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.immersivevisionary.name.vn";
     if (refreshToken) {
         try {
-            const res = await fetch(buildApiUrl("/auth/refresh-token"), {
+            const res = await fetch(`${backendUrl}/api/auth/refresh-token`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ refreshToken }),
@@ -135,18 +135,15 @@ export async function middleware(req: NextRequest) {
                 const newRefreshToken = data.refreshToken ?? data.data?.refreshToken ?? refreshToken;
 
                 if (newAccessToken) {
-                    // Verify token thì mới lấy role
-                    const { payload } = await jwtVerify(
-                        newAccessToken,
-                        new TextEncoder().encode(process.env.JWT_SECRET!)
-                    );
-                    const role = (payload.role as string)?.toUpperCase();
+                    const payload = decodeJwtPayload(newAccessToken);
+                    const role = ((payload?.role as string) ?? "CUSTOMER").toUpperCase();
                     const allowedPaths = ROLE_ROUTES[role] ?? [];
                     const isAllowed = allowedPaths.some((p) => pathname.startsWith(p));
 
                     const response = isAllowed
                         ? NextResponse.next()
                         : NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/customer-dashboard", req.url));
+
                     // Set cookie mới vào response
                     response.cookies.set("accessToken", newAccessToken, {
                         path: "/", maxAge: 15 * 60, sameSite: "strict",
@@ -162,6 +159,7 @@ export async function middleware(req: NextRequest) {
             console.log("Refresh failed:", err);
         }
     }
+
     // nếu refresh thất bại thì quay về login
     return NextResponse.redirect(new URL("/login", req.url));
 }

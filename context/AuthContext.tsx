@@ -67,7 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(loggedInUser);
 
         const destination = getHomeByRole(loggedInUser.role ?? "CUSTOMER");
-        router.push(destination);
+        // Dùng window.location.href thay vì router.push để force full page reload
+        // → đảm bảo cookie vừa set qua document.cookie được gửi kèm request lên middleware
+        window.location.href = destination;
     };
 
     const logout = async () => {

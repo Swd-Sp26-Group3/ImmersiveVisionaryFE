@@ -7,7 +7,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { getHomeByRole } from "@/lib/roleRoutes";
 
-const NAV_RESTRICTED_PATHS = ["/marketplace", "/order", "/studio-custom", "/"];
+const NAV_RESTRICTED_PATHS = ["/marketplace", "/order", "/"];
 const RESTRICTED_ROLES = ["MANAGER", "ADMIN"];
 
 export function Header() {
@@ -47,6 +47,9 @@ export function Header() {
     { name: "Support",      path: "/support",       requiresAuth: true  },
   ].filter((link) => {
     if (RESTRICTED_ROLES.includes(user?.role ?? "") && NAV_RESTRICTED_PATHS.includes(link.path)) {
+      return false;
+    }
+    if (link.path === "/support" && user?.role && user.role.toUpperCase() !== "CUSTOMER") {
       return false;
     }
     return true;

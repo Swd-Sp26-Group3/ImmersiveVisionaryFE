@@ -24,7 +24,6 @@ export const ROLE_ALLOWED_PATHS: Record<Role, string[]> = {
         '/checkout',
         '/order',
         '/order-success',
-        '/studio-custom',
     ],
 }
 
