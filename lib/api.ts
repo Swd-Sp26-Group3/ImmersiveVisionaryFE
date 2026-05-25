@@ -98,31 +98,54 @@ export async function apiFetch(
         clearTokens();
     }
 
-    if (!res.ok && res.status !== 401) {
-        try {
-            const clone = res.clone();
-            const textData = await clone.text();
-
-            // Check if this is an expected "forbidden" or "not associated" case (e.g. for CUSTOMER role)
-            const isExpectedEmptyState = (res.status === 400 || res.status === 403) && (
-                textData.toLowerCase().includes("company") ||
-                textData.toLowerCase().includes("not associated") ||
-                textData.toLowerCase().includes("not allowed to access this resource")
-            );
-
-            if (!isExpectedEmptyState) {
-                console.error(`API Error RawText [${res.status}] ${endpoint}:`, textData);
-                try {
-                    const errData = JSON.parse(textData);
-                    console.error(`API Error [${res.status}] ${endpoint}:`, errData);
-                } catch {
-                    console.error(`API Error [${res.status}] ${endpoint}`);
-                }
-            }
-        } catch (e) {
-            console.error(`API Error [${res.status}] ${endpoint}`, e);
-        }
-    }
-
     return res;
 }
+
+async function request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+): Promise<T> {
+    const response = await apiFetch(endpoint, options);
+    if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`API Error (${response.status}) on ${endpoint}:`, errorBody);
+        try {
+            const errorJson = JSON.parse(errorBody);
+            throw new Error(errorJson.message || `Request failed with status ${response.status}`);
+        } catch {
+            throw new Error(errorBody || `Request failed with status ${response.status}`);
+        }
+    }
+    const data = await response.json();
+    return data as T;
+}
+
+const api = {
+    async get<T>(endpoint: string, token?: string): Promise<T> {
+        return request<T>(endpoint, {
+            method: 'GET',
+        });
+    },
+
+    async post<T>(endpoint: string, body: any, token?: string): Promise<T> {
+        return request<T>(endpoint, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    async put<T>(endpoint:string, body: any, token?: string): Promise<T> {
+        return request<T>(endpoint, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+        });
+    },
+
+    async delete<T>(endpoint: string, token?: string): Promise<T> {
+        return request<T>(endpoint, {
+            method: 'DELETE',
+        });
+    },
+};
+
+export default api;
