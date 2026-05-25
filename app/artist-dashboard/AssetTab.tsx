@@ -34,16 +34,48 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       setForm((p) => ({ ...p, [key]: e.target.value })),
   });
 
-  // Khi user chọn ảnh preview → đọc thành data URL rồi lưu vào form.PreviewImage
+  // Khi user chọn ảnh preview → nén ảnh bằng Canvas trước khi convert sang Base64
   const handlePreviewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const imgFile = e.target.files?.[0];
     if (!imgFile) return;
     setPreviewImgFile(imgFile);
+
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setPreviewImgDataUrl(dataUrl);
-      setForm((p) => ({ ...p, PreviewImage: dataUrl }));
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        // Khởi tạo Canvas để resize và nén ảnh
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        // Tính toán tỉ lệ scale giữ nguyên aspect ratio
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Nén thành định dạng JPEG chất lượng 70%
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          setPreviewImgDataUrl(compressedDataUrl);
+          setForm((p) => ({ ...p, PreviewImage: compressedDataUrl }));
+        }
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(imgFile);
   };
