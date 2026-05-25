@@ -121,28 +121,28 @@ async function request<T>(
 }
 
 const api = {
-    async get<T>(endpoint: string): Promise<T> {
-        return request<T>(buildApiUrl(endpoint), {
+    async get<T>(endpoint: string, token?: string): Promise<T> {
+        return request<T>(endpoint, {
             method: 'GET',
         });
     },
 
-    async post<T>(endpoint: string, body: any): Promise<T> {
-        return request<T>(buildApiUrl(endpoint), {
+    async post<T>(endpoint: string, body: any, token?: string): Promise<T> {
+        return request<T>(endpoint, {
             method: 'POST',
             body: JSON.stringify(body),
         });
     },
 
-    async put<T>(endpoint:string, body: any): Promise<T> {
-        return request<T>(buildApiUrl(endpoint), {
+    async put<T>(endpoint:string, body: any, token?: string): Promise<T> {
+        return request<T>(endpoint, {
             method: 'PUT',
             body: JSON.stringify(body),
         });
     },
 
-    async delete<T>(endpoint: string): Promise<T> {
-        return request<T>(buildApiUrl(endpoint), {
+    async delete<T>(endpoint: string, token?: string): Promise<T> {
+        return request<T>(endpoint, {
             method: 'DELETE',
         });
     },
