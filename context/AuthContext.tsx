@@ -1,6 +1,7 @@
 "use client";
 import {
     createContext,
+
     useContext,
     useEffect,
     useState,
@@ -14,7 +15,6 @@ import {
     getUserFromStorage,
 } from "@/lib/authService";
 import { getHomeByRole } from "@/lib/roleRoutes";
-import { useRouter } from "next/navigation";
 
 interface AuthContextType {
     user: User | null;
@@ -33,7 +33,6 @@ const clearTokens = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -65,12 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (email: string, password: string) => {
         const loggedInUser = await apiLogin(email, password);
         setUser(loggedInUser);
-
         const destination = getHomeByRole(loggedInUser.role ?? "CUSTOMER");
-        // Dùng router.push thay vì window.location.href để navigate trong SPA,
-        // tránh full browser reload → Next.js không phải lazy-compile route lần đầu.
-        // Cookie đã được set qua document.cookie trước khi gọi hàm này nên middleware vẫn nhận đúng.
-        router.push(destination);
+        // Hard navigation: buộc browser reload hoàn toàn để middleware đọc cookie mới
+        // Dùng replace để không để lại /login trong history
+        window.location.replace(destination);
     };
 
     const logout = async () => {
@@ -80,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // ignore API error, vẫn logout local
         } finally {
             setUser(null);
-            router.push("/login");
+            // Hard navigation: buộc browser reload hoàn toàn để cookie cũ
+            // không còn được cache trong request headers của middleware
+            window.location.replace("/login");
         }
     };
 
