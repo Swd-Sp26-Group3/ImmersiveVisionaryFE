@@ -152,7 +152,6 @@ export function BriefsTab() {
       ) : (
         <div className="space-y-3">
           {orders.map((order) => {
-            const cfg = ORDER_STATUS_CONFIG[order.Status] ?? { label: order.Status, color: "text-slate-300", bg: "bg-slate-500/15" };
             const progress = getOrderProgress(order.Status);
             return (
               <div
@@ -175,7 +174,7 @@ export function BriefsTab() {
                         {order.ProjectName || order.ProductName || `Order #${order.OrderId}`}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <StatusBadge status={order.Status} config={cfg} />
+                        <StatusBadge status={order.Status} config={ORDER_STATUS_CONFIG} />
                         <span className="text-slate-500 text-xs">#{order.OrderId}</span>
                         {order.Budget && <span className="text-green-400 text-xs">{order.Budget}</span>}
                         {order.DeliverySpeed && <span className="text-yellow-400 text-xs">{order.DeliverySpeed}</span>}
