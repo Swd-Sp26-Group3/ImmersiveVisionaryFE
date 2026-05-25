@@ -26,5 +26,18 @@ export function buildApiUrl(endpoint: string): string {
     if (typeof window === "undefined") {
         return `${getApiBaseUrl()}${apiPath}`;
     }
+    // In production or when NEXT_PUBLIC_API_URL is set, use absolute URL on the client
+    const clientBase = process.env.NEXT_PUBLIC_API_URL?.trim();
+    if (clientBase && clientBase.length > 0) {
+        const base = clientBase.endsWith("/") ? clientBase.slice(0, -1) : clientBase;
+        // Avoid double /api if base already contains it
+        if (base.endsWith("/api")) {
+            // base already includes /api, append the endpoint without duplicating
+            const withoutLeading = normalizedEndpoint.startsWith("/") ? normalizedEndpoint.slice(1) : normalizedEndpoint;
+            return `${base}/${withoutLeading}`;
+        }
+        return `${base}${apiPath}`;
+    }
+
     return apiPath;
 }

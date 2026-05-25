@@ -87,33 +87,7 @@ export default function CustomerDashboard() {
     (o) => o.Status === "COMPLETED" || o.Status === "DELIVERED"
   ).length;
 
-  const STATS = [
-    {
-      label: "Total Purchases",
-      value: purchasesLoading ? null : totalPurchases,
-      sub: "All time",
-      subColor: "text-gray-400",
-    },
-    {
-      label: "Pending",
-      value: purchasesLoading ? null : pendingPurchases,
-      sub: "Awaiting confirmation",
-      subColor: "text-yellow-400",
-    },
-    {
-      label: "Delivered",
-      value: purchasesLoading ? null : deliveredCount,
-      sub: "Ready to download",
-      subColor: "text-cyan-400",
-    },
-    {
-      label: "Member Since",
-      value: null, // rendered separately
-      sub: profile?.RoleName ?? "Customer",
-      subColor: "text-gray-400",
-      isMember: true,
-    },
-  ];
+  // Removed unused STATS array — stats are rendered inline below
 
   return (
     <div className="min-h-screen py-8">

@@ -55,8 +55,9 @@ export function CompanyModal({ company, onClose, onSave }: CompanyModalProps) {
       });
       if (!res.ok) throw new Error((await res.json()).message);
       onSave();
-    } catch (err: any) {
-      setError(err.message ?? "Save failed.");
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e?.message ?? "Save failed.");
     } finally {
       setSaving(false);
     }

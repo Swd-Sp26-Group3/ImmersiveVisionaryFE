@@ -14,7 +14,7 @@ import {
   FileText, Plus, XCircle, Clock, CheckCircle2, Package,
   Eye, Loader2, RefreshCw,
 } from "lucide-react";
-import Link from "next/link";
+// Link not used here
 import { ApiOrder, ORDER_STATUS_CONFIG, getOrderProgress } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../../components/3d/OBJModelViewer";
@@ -175,7 +175,7 @@ export function BriefsTab() {
                         {order.ProjectName || order.ProductName || `Order #${order.OrderId}`}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <StatusBadge status={order.Status} config={ORDER_STATUS_CONFIG} />
+                        <StatusBadge status={order.Status} config={cfg} />
                         <span className="text-slate-500 text-xs">#{order.OrderId}</span>
                         {order.Budget && <span className="text-green-400 text-xs">{order.Budget}</span>}
                         {order.DeliverySpeed && <span className="text-yellow-400 text-xs">{order.DeliverySpeed}</span>}

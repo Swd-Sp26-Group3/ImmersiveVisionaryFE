@@ -5,10 +5,8 @@ import { Button } from "@/app/components/ui/button";
 import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
 import { EmptyState } from "@/app/components/ui/empty-state";
 import { ErrorState } from "@/app/components/ui/error-state";
-import { StatusBadge } from "@/app/components/ui/status-badge";
 import { FilterPills } from "@/app/components/ui/filter-pills";
 import { InfoGrid } from "@/app/components/ui/info-grid";
-import { Modal } from "@/app/components/ui/modal";
 import { useConfirm } from "@/app/components/ui/confirm-dialog";
 import { motion } from "framer-motion";
 import {
