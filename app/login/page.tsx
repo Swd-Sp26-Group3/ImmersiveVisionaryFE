@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import styles from "./SignIn.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -20,10 +20,20 @@ function SignInContent() {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isRedirecting, setIsRedirecting] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const { login } = useAuth();
     const searchParams = useSearchParams();
     const fromSignup = searchParams.get("from") === "signup";
+
+    // Pre-warm all dashboard routes so they are compiled BEFORE login completes
+    // This eliminates the compile delay after successful authentication
+    useEffect(() => {
+        router.prefetch('/customer-dashboard');
+        router.prefetch('/manager-dashboard');
+        router.prefetch('/admin-dashboard');
+        router.prefetch('/artist-dashboard');
+    }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,13 +45,15 @@ function SignInContent() {
         setIsLoading(true);
         try {
             await login(email, password);
+            // Login API succeeded — show redirect overlay immediately
+            // so user sees feedback while Next.js compiles the dashboard route
+            setIsRedirecting(true);
             if (fromSignup) {
                 router.push("/customer-dashboard?tab=profile");
             }
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng thử lại.';
             setErrorMessage(message);
-        } finally {
             setIsLoading(false);
         }
     };
@@ -49,6 +61,53 @@ function SignInContent() {
 
     return (
         <div className={styles.page}>
+            {/* Full-screen redirect overlay — shown after login API succeeds
+                while Next.js compiles and navigates to the dashboard route */}
+            {isRedirecting && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: '24px',
+                }}>
+                    {/* Animated logo mark */}
+                    <div style={{
+                        width: 64, height: 64, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 28, animation: 'spin 1.5s linear infinite',
+                        boxShadow: '0 0 40px rgba(124,58,237,0.6)',
+                    }}>✦</div>
+                    <div style={{ textAlign: 'center' }}>
+                        <p style={{ color: '#e2e8f0', fontSize: '1.1rem', fontWeight: 600, marginBottom: 4 }}>
+                            Đang chuyển hướng...
+                        </p>
+                        <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                            Đăng nhập thành công
+                        </p>
+                    </div>
+                    {/* Progress bar */}
+                    <div style={{
+                        width: 200, height: 3,
+                        background: 'rgba(255,255,255,0.1)',
+                        borderRadius: 8, overflow: 'hidden',
+                    }}>
+                        <div style={{
+                            height: '100%', borderRadius: 8,
+                            background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
+                            animation: 'progress 1.5s ease-in-out infinite',
+                        }} />
+                    </div>
+                    <style>{`
+                        @keyframes spin { to { transform: rotate(360deg); } }
+                        @keyframes progress {
+                            0% { width: 0%; margin-left: 0; }
+                            50% { width: 100%; margin-left: 0; }
+                            100% { width: 0%; margin-left: 100%; }
+                        }
+                    `}</style>
+                </div>
+            )}
             {/* Background glow blobs */}
             <div className={styles.glowLeft} />
             <div className={styles.glowRight} />
@@ -160,10 +219,12 @@ function SignInContent() {
 
                             <button
                                 type="submit"
-                                className={`${styles.submitBtn} ${isLoading ? styles.loading : ""}`}
-                                disabled={isLoading}
+                                className={`${styles.submitBtn} ${(isLoading || isRedirecting) ? styles.loading : ""}`}
+                                disabled={isLoading || isRedirecting}
                             >
-                                {isLoading ? (
+                                {isRedirecting ? (
+                                    <>✓ Đang vào trang...</>
+                                ) : isLoading ? (
                                     <span className={styles.spinner} />
                                 ) : (
                                     "Sign In"
