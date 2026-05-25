@@ -21,23 +21,13 @@ export function buildApiUrl(endpoint: string): string {
         ? normalizedEndpoint
         : `/api${normalizedEndpoint}`;
 
-    // Server-side (middleware/SSR): cần URL tuyệt đối
-    // Client-side (browser): dùng relative path → Next.js rewrite proxy xử lý
+    // Server-side (middleware/SSR): cần URL tuyệt đối để gọi thẳng backend
     if (typeof window === "undefined") {
         return `${getApiBaseUrl()}${apiPath}`;
     }
-    // In production or when NEXT_PUBLIC_API_URL is set, use absolute URL on the client
-    const clientBase = process.env.NEXT_PUBLIC_API_URL?.trim();
-    if (clientBase && clientBase.length > 0) {
-        const base = clientBase.endsWith("/") ? clientBase.slice(0, -1) : clientBase;
-        // Avoid double /api if base already contains it
-        if (base.endsWith("/api")) {
-            // base already includes /api, append the endpoint without duplicating
-            const withoutLeading = normalizedEndpoint.startsWith("/") ? normalizedEndpoint.slice(1) : normalizedEndpoint;
-            return `${base}/${withoutLeading}`;
-        }
-        return `${base}${apiPath}`;
-    }
 
+    // Client-side (browser): LUÔN dùng relative path /api/...
+    // → request đi qua Next.js rewrite proxy trên Vercel server → không bị CORS
+    // NEXT_PUBLIC_API_URL chỉ dùng server-side, không expose ra browser
     return apiPath;
 }

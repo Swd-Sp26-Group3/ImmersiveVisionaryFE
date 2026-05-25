@@ -23,20 +23,19 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    // In production, the frontend should make absolute URL calls to the API domain.
-    // The rewrite configuration is only for local development to proxy requests
-    // and avoid CORS issues. We are removing it to prevent it from interfering
-    // with production builds on Vercel.
-    if (process.env.NODE_ENV === "production") {
-      return [];
-    }
-
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${BACKEND_URL}/api/:path*`,
-      },
-    ];
+    // afterFiles: only matched if no native Next.js route handles the request.
+    // → /api/chat (Next.js Route Handler) is served directly by Next.js.
+    // → All other /api/* paths are proxied to the backend — avoids CORS in browser.
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        {
+          source: "/api/:path*",
+          destination: `${BACKEND_URL}/api/:path*`,
+        },
+      ],
+      fallback: [],
+    };
   },
 };
 
