@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { Box, Facebook, Linkedin, Twitter, Phone, Mail } from "lucide-react";
+import { Box, Facebook, Mail } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -38,20 +38,6 @@ export function Footer() {
             </p>
             <div className="flex gap-3">
               <a
-                href="#"
-                aria-label="Twitter"
-                className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-              >
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                aria-label="LinkedIn"
-                className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-              >
-                <Linkedin className="w-4 h-4" />
-              </a>
-              <a
                 href="https://www.facebook.com/Immersivis"
                 target="_blank"
                 rel="noreferrer"
@@ -83,6 +69,13 @@ export function Footer() {
               )}
               {isAuthenticated && !isRestricted && (
                 <li>
+                  <Link href="/order" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                    Order
+                  </Link>
+                </li>
+              )}
+              {isAuthenticated && user?.role?.toUpperCase() === "CUSTOMER" && (
+                <li>
                   <Link href="/support" className="text-gray-400 hover:text-indigo-400 transition-colors">
                     Support
                   </Link>
@@ -111,36 +104,17 @@ export function Footer() {
             <ul className="space-y-3 text-sm text-gray-400">
               <li>
                 <a
-                  href="mailto:support@immersivevisionary.com"
+                  href="mailto:khoalen205@gmail.com"
                   className="flex items-center gap-2 hover:text-indigo-400 transition-colors group"
                 >
                   <Mail className="w-4 h-4 text-purple-500 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
-                  support@immersivevisionary.com
+                  khoalen205@gmail.com
                 </a>
               </li>
-              <li>
-                <a
-                  href="https://zalo.me/0900000000"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 hover:text-indigo-400 transition-colors group"
-                >
-                  <span className="w-4 h-4 text-xs font-bold text-blue-400 group-hover:text-indigo-400 flex-shrink-0 leading-none">Z</span>
-                  Zalo: +84 9xx xxx xxx
-                </a>
+              <li className="flex items-start gap-2 text-gray-500">
+                <span className="mt-0.5">📍</span>
+                <span>Lô E2a-7, Đường D1, Khu Công nghệ cao, Phường Tăng Nhơn Phú, TP. Hồ Chí Minh</span>
               </li>
-              <li>
-                <a
-                  href="https://wa.me/84900000000"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 hover:text-indigo-400 transition-colors group"
-                >
-                  <Phone className="w-4 h-4 text-green-500 group-hover:text-indigo-400 transition-colors flex-shrink-0" />
-                  WhatsApp: +84 9xx xxx xxx
-                </a>
-              </li>
-              <li className="text-gray-500">Ho Chi Minh City, Vietnam</li>
             </ul>
           </div>
 

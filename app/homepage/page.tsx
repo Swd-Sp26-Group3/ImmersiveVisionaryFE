@@ -42,7 +42,7 @@ export default function HomePage() {
       title: "Custom Production",
       description: "Full-service 3D/AR production from your physical products. Photography to final AR-ready files.",
       cta: "Start Project",
-      link: "/studio-custom",
+      link: "/support",
     },
   ].filter(s => !(s.link === "/marketplace" && isAuthenticated && (user?.role === "MANAGER" || user?.role === "ADMIN")));
 
@@ -107,7 +107,7 @@ export default function HomePage() {
               {/* Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 mb-16">
                 <Button
-                  onClick={() => handleNav("/studio-custom")}
+                  onClick={() => handleNav("/support")}
                   size="lg"
                   className="text-white font-semibold px-7 text-sm hover:opacity-90 transition-opacity"
                   style={{
@@ -314,7 +314,7 @@ export default function HomePage() {
             </p>
 
             <Button
-              onClick={() => handleNav("/studio-custom")}
+              onClick={() => handleNav("/support")}
               size="lg"
               className="font-semibold px-10 py-6 text-base hover:opacity-90 transition"
               style={{

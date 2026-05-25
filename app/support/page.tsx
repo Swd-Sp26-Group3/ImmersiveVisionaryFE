@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Send, MessageSquare, Phone, Mail, User, Bot, Loader2, Sparkles, ChevronRight } from "lucide-react";
+import { Send, MessageSquare, Mail, User, Bot, Loader2, Sparkles, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 
 
@@ -103,7 +103,7 @@ export default function SupportPage() {
           How can we help you?
         </h1>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          Chat with our intelligent AI assistant for immediate answers, or reach out to our human team via Zalo, WhatsApp, or Email.
+          Chat with our intelligent AI assistant for immediate answers, or reach out to our team via Email.
         </p>
       </motion.div>
 
@@ -229,40 +229,14 @@ export default function SupportPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               
-              <a href="https://zalo.me/0900000000" target="_blank" rel="noreferrer" className="block">
-                <div className="group flex items-center gap-4 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 hover:bg-blue-500/10 transition-all cursor-pointer">
-                  <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
-                    <span className="font-bold text-lg">Z</span>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-white font-medium">Message on Zalo</h4>
-                    <p className="text-gray-400 text-sm">+84 9xx xxx xxx</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
-                </div>
-              </a>
-
-              <a href="https://wa.me/84900000000" target="_blank" rel="noreferrer" className="block">
-                <div className="group flex items-center gap-4 p-4 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all cursor-pointer">
-                  <div className="w-12 h-12 rounded-full bg-green-600/20 flex items-center justify-center text-green-400 group-hover:scale-110 transition-transform">
-                    <Phone className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="text-white font-medium">WhatsApp</h4>
-                    <p className="text-gray-400 text-sm">+84 9xx xxx xxx</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
-                </div>
-              </a>
-
-              <a href="mailto:support@immersivevisionary.com" className="block">
+              <a href="mailto:khoalen205@gmail.com" className="block">
                 <div className="group flex items-center gap-4 p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all cursor-pointer">
                   <div className="w-12 h-12 rounded-full bg-purple-600/20 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform">
                     <Mail className="w-6 h-6" />
                   </div>
                   <div className="flex-1">
                     <h4 className="text-white font-medium">Email Us</h4>
-                    <p className="text-gray-400 text-sm">support@immersive...com</p>
+                    <p className="text-gray-400 text-sm">khoalen205@gmail.com</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
                 </div>

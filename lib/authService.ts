@@ -34,7 +34,7 @@ export async function login(email: string, password: string): Promise<User> {
     const res = await fetch(buildApiUrl("/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ Email: email, PasswordHash: password }),
+        body: JSON.stringify({ Email: email, Password: password }),
     });
 
     const text = await res.text();
