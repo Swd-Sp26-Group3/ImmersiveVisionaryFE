@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { buildApiUrl } from "@/lib/apiBase";
 import { ArrowLeft, UserPlus, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { motion } from "motion/react";
 
 // Roles available in the system (from enums.ts)
 const ROLES = ["ADMIN", "MANAGER", "ARTIST", "CUSTOMER", "SELLER"] as const;
@@ -18,11 +19,11 @@ const ROLE_DESCRIPTIONS: Record<Role, string> = {
 };
 
 const ROLE_COLORS: Record<Role, string> = {
-  ADMIN: "border-red-500/50 bg-red-500/10 text-red-400",
-  MANAGER: "border-purple-500/50 bg-purple-500/10 text-purple-400",
-  ARTIST: "border-cyan-500/50 bg-cyan-500/10 text-cyan-400",
-  CUSTOMER: "border-blue-500/50 bg-blue-500/10 text-blue-400",
-  SELLER: "border-green-500/50 bg-green-500/10 text-green-400",
+  ADMIN: "border-rose-500/30 text-rose-400 bg-rose-500/5 hover:border-rose-500/50",
+  MANAGER: "border-purple-500/30 text-purple-400 bg-purple-500/5 hover:border-purple-500/50",
+  ARTIST: "border-cyan-500/30 text-cyan-400 bg-cyan-500/5 hover:border-cyan-500/50",
+  CUSTOMER: "border-sky-500/30 text-sky-400 bg-sky-500/5 hover:border-sky-500/50",
+  SELLER: "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 hover:border-emerald-500/50",
 };
 
 export default function CreateUserPage() {
@@ -65,8 +66,6 @@ export default function CreateUserPage() {
     setMessage(null);
 
     try {
-      // ✅ STEP 1: Register user via POST /api/auth/register
-      // BE tạo với role CUSTOMER mặc định
       const registerRes = await fetch(buildApiUrl("/auth/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -88,17 +87,12 @@ export default function CreateUserPage() {
       const newUserId: number = registerData.user?.userId ?? registerData.userId;
       setCreatedUserId(newUserId);
 
-      // ✅ STEP 2: Nếu role không phải CUSTOMER → cần set role
-      // Hiện tại BE chưa có update-role endpoint nên dùng approve cho SELLER
-      // Với các role khác → cần BE bổ sung
       if (form.selectedRole === "SELLER") {
-        // ✅ POST /api/users/:id/approve — đổi sang SELLER
         const approveRes = await apiFetch(`/users/${newUserId}/approve`, {
           method: "POST",
         });
         if (!approveRes.ok) {
           const approveData = await approveRes.json();
-          // Tạo thành công nhưng set role thất bại
           setMessage({
             type: "error",
             text: `User created (ID: #${newUserId}) but role set failed: ${approveData.message}. Please edit manually.`,
@@ -106,11 +100,9 @@ export default function CreateUserPage() {
           return;
         }
       } else if (form.selectedRole !== "CUSTOMER") {
-        // ADMIN / MANAGER / ARTIST — cần BE bổ sung endpoint update role
-        // Hiện tại: thông báo để admin biết cần update thủ công
         setMessage({
           type: "success",
-          text: `✅ User created (ID: #${newUserId}) with CUSTOMER role. ⚠️ Please manually update to ${form.selectedRole} role via Edit User page (requires BE to add role-update endpoint).`,
+          text: `✅ User created (ID: #${newUserId}) with CUSTOMER role. ⚠️ Please manually update to ${form.selectedRole} role via Edit User page.`,
         });
         return;
       }
@@ -137,208 +129,224 @@ export default function CreateUserPage() {
   };
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       {/* Back */}
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-1 text-gray-400 mb-6 hover:text-white transition text-sm"
+        className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-xs font-bold cursor-pointer"
       >
-        <ArrowLeft className="w-4 h-4" /> Back to Users
+        <ArrowLeft className="w-4 h-4" /> Back to Directory
       </button>
 
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center">
+      {/* Header */}
+      <div className="flex items-center gap-4 border-b border-white/[0.06] pb-6">
+        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.25)]">
           <UserPlus className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">Create New Account</h1>
-          <p className="text-gray-400 text-sm">Add a new user with a specific role</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Create User Account</h1>
+          <p className="text-slate-400 text-sm mt-0.5">Provision a new platform profile and configure initial settings</p>
         </div>
       </div>
 
       <div className="space-y-6">
-
-        {/* ── Account Info ── */}
-        <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-6 space-y-4">
-          <h2 className="text-white font-semibold text-sm uppercase tracking-wider text-slate-400 mb-4">
-            Account Information
+        {/* Account Info */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-[#0d1324]/50 border border-white/[0.06] rounded-2xl p-6 space-y-5 backdrop-blur-sm shadow-lg"
+        >
+          <h2 className="text-white font-bold text-xs uppercase tracking-wider text-indigo-400 border-b border-white/[0.04] pb-3">
+            Account Specifications
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-white text-sm">Username *</label>
+              <label className="text-slate-400 text-xs font-semibold">Username *</label>
               <input
                 value={form.UserName}
                 onChange={(e) => update("UserName", e.target.value)}
                 placeholder="john_doe"
-                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-cyan-500 placeholder:text-slate-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-[#080d1a] border border-white/[0.06] text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 placeholder:text-slate-600 transition-all"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-white text-sm">Phone</label>
+              <label className="text-slate-400 text-xs font-semibold">Phone</label>
               <input
                 value={form.Phone}
                 onChange={(e) => update("Phone", e.target.value)}
                 placeholder="+84 xxx xxx xxx"
-                className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-cyan-500 placeholder:text-slate-500"
+                className="w-full px-4 py-2.5 rounded-xl bg-[#080d1a] border border-white/[0.06] text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 placeholder:text-slate-600 transition-all"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-white text-sm">Email *</label>
+            <label className="text-slate-400 text-xs font-semibold">Email Address *</label>
             <input
               type="email"
               value={form.Email}
               onChange={(e) => update("Email", e.target.value)}
               placeholder="user@example.com"
-              className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-cyan-500 placeholder:text-slate-500"
+              className="w-full px-4 py-2.5 rounded-xl bg-[#080d1a] border border-white/[0.06] text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 placeholder:text-slate-600 transition-all"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-white text-sm">Password * <span className="text-slate-500">(6–12 chars)</span></label>
+              <label className="text-slate-400 text-xs font-semibold">Password * <span className="text-slate-500 font-normal">(6–12 chars)</span></label>
               <div className="relative">
                 <input
                   type={showPass ? "text" : "password"}
                   value={form.PasswordHash}
                   onChange={(e) => update("PasswordHash", e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 pr-10 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-cyan-500 placeholder:text-slate-500"
+                  className="w-full px-4 py-2.5 pr-10 rounded-xl bg-[#080d1a] border border-white/[0.06] text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 placeholder:text-slate-600 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer"
                 >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4.5 h-4.5" />}
                 </button>
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-white text-sm">Confirm Password *</label>
+              <label className="text-slate-400 text-xs font-semibold">Confirm Password *</label>
               <div className="relative">
                 <input
                   type={showConfirm ? "text" : "password"}
                   value={form.ConfirmPassword}
                   onChange={(e) => update("ConfirmPassword", e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 pr-10 rounded-lg bg-slate-900 border border-slate-600 text-white text-sm focus:outline-none focus:border-cyan-500 placeholder:text-slate-500"
+                  className="w-full px-4 py-2.5 pr-10 rounded-xl bg-[#080d1a] border border-white/[0.06] text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 placeholder:text-slate-600 transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors cursor-pointer"
                 >
-                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4.5 h-4.5" />}
                 </button>
               </div>
-              {/* Password match indicator */}
               {form.ConfirmPassword && (
-                <p className={`text-xs mt-1 ${form.PasswordHash === form.ConfirmPassword ? "text-green-400" : "text-red-400"}`}>
-                  {form.PasswordHash === form.ConfirmPassword ? "✓ Passwords match" : "✗ Passwords do not match"}
+                <p className={`text-[10px] font-bold mt-1.5 ${form.PasswordHash === form.ConfirmPassword ? "text-emerald-400" : "text-rose-400"}`}>
+                  {form.PasswordHash === form.ConfirmPassword ? "✓ Credentials match" : "✗ Credentials mismatch"}
                 </p>
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* ── Role Selection ── */}
-        <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-6">
-          <h2 className="text-white font-semibold text-sm uppercase tracking-wider text-slate-400 mb-4">
-            Select Role
+        {/* Role Selection */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="bg-[#0d1324]/50 border border-white/[0.06] rounded-2xl p-6 space-y-4 backdrop-blur-sm shadow-lg"
+        >
+          <h2 className="text-white font-bold text-xs uppercase tracking-wider text-purple-400 border-b border-white/[0.04] pb-3">
+            Privilege Allocation
           </h2>
           <div className="space-y-2">
-            {ROLES.map((role) => (
-              <button
-                key={role}
-                onClick={() => update("selectedRole", role)}
-                className={`w-full flex items-center justify-between p-3.5 rounded-xl border-2 transition-all text-left ${
-                  form.selectedRole === role
-                    ? ROLE_COLORS[role] + " border-opacity-100"
-                    : "border-slate-700 hover:border-slate-500 text-slate-400"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      form.selectedRole === role ? "bg-current" : "bg-slate-600"
-                    }`} />
-                    <span className="font-semibold text-sm">{role}</span>
+            {ROLES.map((role) => {
+              const isSelected = form.selectedRole === role;
+              return (
+                <button
+                  key={role}
+                  onClick={() => update("selectedRole", role)}
+                  className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all text-left cursor-pointer ${
+                    isSelected
+                      ? `${ROLE_COLORS[role]} border-current shadow-[0_0_15px_rgba(255,255,255,0.02)]`
+                      : "border-white/[0.06] hover:border-white/[0.12] text-slate-400 bg-white/[0.01] hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        isSelected ? "bg-current" : "bg-slate-600"
+                      }`} />
+                      <span className="font-bold text-xs tracking-wider uppercase">{role}</span>
+                    </div>
+                    <p className="text-slate-500 text-xs ml-4 font-medium">{ROLE_DESCRIPTIONS[role]}</p>
                   </div>
-                  <p className="text-xs mt-0.5 ml-4 text-slate-400">{ROLE_DESCRIPTIONS[role]}</p>
-                </div>
-                {form.selectedRole === role && (
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                )}
-              </button>
-            ))}
+                  {isSelected && (
+                    <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-current" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Warning for non-CUSTOMER/SELLER roles */}
+          {/* Inline Notices */}
           {form.selectedRole !== "CUSTOMER" && form.selectedRole !== "SELLER" && (
-            <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-xs text-yellow-400">
-              ⚠️ <strong>{form.selectedRole}</strong> role: User will be created as CUSTOMER first, then you'll need to manually update the role via the Edit User page. This requires a role-update endpoint to be added to the BE.
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4.5 py-3 text-xs text-amber-300 leading-relaxed font-medium">
+              ⚠️ User gets set to <strong>CUSTOMER</strong> first. Elevating to <strong>{form.selectedRole}</strong> requires a separate manual database modification.
             </div>
           )}
           {form.selectedRole === "SELLER" && (
-            <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 text-xs text-green-400">
-              ✅ SELLER: Will be set automatically via <code>/api/users/:id/approve</code>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl px-4.5 py-3 text-xs text-emerald-300 leading-relaxed font-medium">
+              ✓ Seller accounts automatically request authorization and transition immediately.
             </div>
           )}
           {form.selectedRole === "CUSTOMER" && (
-            <div className="mt-3 bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 text-xs text-blue-400">
-              ✅ CUSTOMER: Default role, set automatically on register.
+            <div className="bg-sky-500/5 border border-sky-500/20 rounded-xl px-4.5 py-3 text-xs text-sky-300 leading-relaxed font-medium">
+              ✓ Standard customer accounts are active and functional upon generation.
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Message */}
         {message && (
-          <div className={`flex items-start gap-2 text-sm rounded-xl px-4 py-3 ${
-            message.type === "success"
-              ? "bg-green-500/10 text-green-400 border border-green-500/30"
-              : "bg-red-500/10 text-red-400 border border-red-500/30"
-          }`}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`flex items-start gap-2 text-sm rounded-xl px-4 py-3 border font-semibold ${
+              message.type === "success"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+            }`}
+          >
             {message.type === "success"
-              ? <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              : <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />}
+              ? <CheckCircle2 className="w-4.5 h-4.5 flex-shrink-0 mt-0.5" />
+              : <AlertCircle className="w-4.5 h-4.5 flex-shrink-0 mt-0.5" />}
             <span>{message.text}</span>
-          </div>
+          </motion.div>
         )}
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
             onClick={() => router.back()}
-            className="flex-1 py-3 text-sm border border-slate-600 text-slate-300 rounded-xl hover:bg-slate-700/50 transition"
+            className="flex-1 py-3 text-xs border border-white/[0.08] text-slate-300 rounded-xl hover:bg-white/[0.03] transition-colors cursor-pointer font-bold"
           >
-            Cancel
+            Cancel and Discard
           </button>
 
-          {/* Go to created user if success */}
           {createdUserId && message?.type === "success" && (
             <button
               onClick={() => router.push(`/admin-dashboard/users/${createdUserId}`)}
-              className="flex-1 py-3 text-sm border border-cyan-500/50 text-cyan-400 rounded-xl hover:bg-cyan-500/10 transition"
+              className="flex-1 py-3 text-xs border border-indigo-500/30 text-indigo-400 rounded-xl hover:bg-indigo-500/5 transition-colors cursor-pointer font-bold"
             >
-              Edit Created User →
+              Modify Created Profile →
             </button>
           )}
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
             onClick={handleCreate}
             disabled={loading}
-            className="flex-1 py-3 text-sm bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-xl disabled:opacity-50 transition flex items-center justify-center gap-2 font-medium"
+            className="flex-1 py-3 text-xs bg-gradient-to-r from-indigo-500 to-purple-500 hover:opacity-95 text-white rounded-xl disabled:opacity-50 transition-all flex items-center justify-center gap-2 font-bold cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.15)]"
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-4.5 h-4.5" />
             )}
-            {loading ? "Creating..." : `Create ${form.selectedRole} Account`}
-          </button>
+            {loading ? "Provisioning Profile..." : `Provision ${form.selectedRole} Account`}
+          </motion.button>
         </div>
       </div>
     </div>

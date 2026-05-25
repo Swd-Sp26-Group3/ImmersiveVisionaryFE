@@ -65,7 +65,7 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full border-b transition-all duration-300 ${
+      className={`sticky top-0 z-[100] w-full border-b transition-all duration-300 ${
         shouldBeTransparent
           ? "bg-transparent border-transparent"
           : "backdrop-blur-[20px] border-white/[0.06]"

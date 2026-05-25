@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -8,10 +8,11 @@ import { Textarea } from "@/app/components/ui/textarea";
 import {
   Eye, UserCheck, Loader2, AlertCircle, CheckCircle2,
   RefreshCw, X, ArrowLeft, Package, ShoppingBag,
-  Building2, DollarSign, Clock, RotateCcw, Upload, Plus
+  Building2, DollarSign, Clock, RotateCcw, Upload, Plus, Edit, Tag
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
+import { motion, AnimatePresence } from "motion/react";
 
 interface MarketplaceOrder {
   MpOrderId: number;
@@ -32,10 +33,23 @@ interface MarketplaceOrder {
 }
 
 const MP_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  PENDING: { label: "Pending", color: "bg-yellow-600" },
-  PAID: { label: "Paid", color: "bg-green-600" },
-  DELIVERED: { label: "Delivered", color: "bg-cyan-600" },
-  REFUNDED: { label: "Refunded", color: "bg-red-600" },
+  PENDING: { label: "Pending", color: "bg-amber-500/10 text-amber-400 border border-amber-500/20" },
+  PAID: { label: "Paid", color: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" },
+  DELIVERED: { label: "Delivered", color: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" },
+  REFUNDED: { label: "Refunded", color: "bg-rose-500/10 text-rose-400 border border-rose-500/20" },
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 25 } }
 };
 
 // ===================== AssignTaskModal =====================
@@ -71,46 +85,56 @@ function AssignTaskModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 border border-blue-500/30 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-white font-bold text-lg">Assign Task</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-white/[0.01]">
+          <h2 className="text-white font-bold text-base tracking-tight">Dispatch Project Order</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 space-y-5">
-          <div className="bg-slate-900/60 rounded-lg p-4 border border-slate-700">
-            <p className="text-xs text-slate-400 mb-1">Order</p>
-            <p className="text-white font-medium">{order.ProductName ?? `Order #${order.OrderId}`}</p>
-            <p className="text-slate-400 text-sm">#{order.OrderId} · {order.CompanyName}</p>
-            {order.Brief && <p className="text-slate-500 text-xs mt-1 line-clamp-2">{order.Brief}</p>}
+        <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-[#080d1a] rounded-xl p-4 border border-white/[0.04]">
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Target Product</p>
+            <p className="text-white font-semibold text-sm">{order.ProductName ?? `Order #${order.OrderId}`}</p>
+            <p className="text-slate-400 text-xs mt-0.5">Ref ID: #{order.OrderId} · Company: {order.CompanyName}</p>
+            {order.Brief && <p className="text-slate-500 text-xs mt-2.5 line-clamp-2 leading-relaxed italic">"{order.Brief}"</p>}
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-white">Select Artist *</Label>
+          <div className="space-y-2.5">
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Select Available Artist *</Label>
             {artists.length === 0 ? (
-              <div className="flex items-center gap-2 text-yellow-400 text-sm bg-yellow-400/10 rounded-lg px-3 py-2">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" /> No artists available.
+              <div className="flex items-center gap-2 text-amber-400 text-xs bg-amber-500/5 rounded-xl px-3.5 py-2.5 border border-amber-500/10">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" /> No registered 3D artists available
               </div>
             ) : (
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                 {artists.map((artist) => (
                   <button
                     key={artist.UserId}
                     onClick={() => setSelectedArtist(artist.UserId)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${selectedArtist === artist.UserId
-                      ? "border-cyan-500 bg-cyan-500/10"
-                      : "border-slate-700 hover:border-slate-500"
-                      }`}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left cursor-pointer ${
+                      selectedArtist === artist.UserId
+                        ? "border-purple-500 bg-purple-500/10"
+                        : "border-white/[0.06] bg-white/[0.01] hover:border-slate-600"
+                    }`}
                   >
-                    <div>
-                      <p className="text-white font-medium">{artist.UserName}</p>
-                      <p className="text-slate-400 text-xs">{artist.Email ?? "No email"}</p>
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{artist.UserName}</p>
+                      <p className="text-slate-500 text-xs truncate mt-0.5">{artist.Email ?? "No email address"}</p>
                     </div>
-                    <Badge className={artist.IsActive ? "bg-green-700 text-xs" : "bg-slate-600 text-xs"}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      artist.IsActive
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                    }`}>
                       {artist.IsActive ? "Active" : "Inactive"}
-                    </Badge>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -118,37 +142,38 @@ function AssignTaskModal({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-white">Instructions / Note</Label>
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Production Memo / Guidelines</Label>
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Special instructions for the artist..."
+              placeholder="Provide guidelines, technical constraints or deadlines..."
               rows={3}
-              className="bg-slate-900 border-slate-600 text-white placeholder:text-slate-500"
+              className="bg-[#080d1a] border-white/[0.06] text-white placeholder:text-slate-500 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all rounded-xl resize-none"
             />
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-rose-400 text-xs bg-rose-500/10 rounded-xl px-3.5 py-2.5 border border-rose-500/20">
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
           )}
         </div>
 
-        <div className="flex gap-3 p-6 border-t border-slate-700">
-          <Button onClick={onClose} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
+        <div className="flex gap-2.5 p-5 border-t border-white/[0.06] bg-white/[0.01]">
+          <Button onClick={onClose} variant="outline" className="flex-1 border-white/[0.08] hover:bg-white/[0.02] text-slate-300">Cancel</Button>
           <Button
             onClick={handleAssign}
             disabled={!selectedArtist || assigning}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl"
           >
-            {assigning
-              ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Assigning...</>
-              : <><UserCheck className="w-4 h-4 mr-2" />Assign & Start Production</>
-            }
+            {assigning ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Dispatching...</>
+            ) : (
+              <><UserCheck className="w-3.5 h-3.5 mr-1.5" />Dispatch Project</>
+            )}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -189,65 +214,70 @@ function EditOrderModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className="bg-slate-800 border border-blue-500/30 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-white font-bold text-lg">Edit Order Details</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[160] p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-white/[0.01]">
+          <h2 className="text-white font-bold text-base tracking-tight">Edit Order Specifications</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6 space-y-4">
-          <div className="space-y-2">
-            <Label className="text-white">Project Name</Label>
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Project Name</Label>
             <input
               type="text"
               value={formData.ProjectName}
               onChange={(e) => setFormData({ ...formData, ProjectName: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+              className="w-full bg-[#080d1a] border border-white/[0.06] rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-white">Budget / Price (VND)</Label>
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Budget / Price (VND)</Label>
             <input
               type="text"
               value={formData.Budget}
               onChange={(e) => setFormData({ ...formData, Budget: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+              className="w-full bg-[#080d1a] border border-white/[0.06] rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
               placeholder="e.g. 5.000.000 VND"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-white">Brief / Description</Label>
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Brief / Client Request</Label>
             <Textarea
               value={formData.Brief}
               onChange={(e) => setFormData({ ...formData, Brief: e.target.value })}
               rows={4}
-              className="bg-slate-900 border-slate-700 text-white"
+              className="bg-[#080d1a] border-white/[0.06] text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all rounded-xl resize-none"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-white">Deadline</Label>
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Deadline</Label>
             <input
               type="date"
               value={formData.Deadline}
               onChange={(e) => setFormData({ ...formData, Deadline: e.target.value })}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
+              className="w-full bg-[#080d1a] border border-white/[0.06] rounded-xl p-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-all"
             />
           </div>
-          {error && <p className="text-red-400 text-sm">{error}</p>}
+          {error && <p className="text-rose-400 text-xs bg-rose-500/10 p-2.5 border border-rose-500/20 rounded-xl">{error}</p>}
         </div>
-        <div className="flex gap-3 p-6 border-t border-slate-700">
-          <Button onClick={onClose} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
+        <div className="flex gap-2.5 p-5 border-t border-white/[0.06] bg-white/[0.01]">
+          <Button onClick={onClose} variant="outline" className="flex-1 border-white/[0.08] hover:bg-white/[0.02] text-slate-300">Cancel</Button>
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Save Changes"}
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : "Save Specifications"}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -298,125 +328,136 @@ function CreativeOrderDetail({
   const nextStatus = NEXT_STATUS_MAP[order.Status];
   const stageIdx = STAGES.findIndex(s => s.key === order.Status);
 
+  const statusLabel = STATUS_CONFIG[order.Status]?.label ?? order.Status;
+  const statusColor = STATUS_CONFIG[order.Status]?.color ?? "bg-slate-600";
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button onClick={onBack} variant="outline" size="sm" className="border-slate-600 text-slate-300">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
+        <Button onClick={onBack} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02] rounded-xl">
+          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to List
         </Button>
-        <h2 className="text-white font-bold text-lg">Creative Order Detail</h2>
+        <h2 className="text-white font-bold text-base tracking-tight">Creative Brief Specifications</h2>
       </div>
 
-      <Card className="bg-slate-800/50 border-blue-500/20">
-        <CardHeader>
+      <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+        <CardHeader className="border-b border-white/[0.06] pb-5 bg-white/[0.01]">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <CardTitle className="text-white text-xl mb-2">
-                {order.ProductName ?? `Order #${order.OrderId}`}
+              <CardTitle className="text-white text-lg font-bold mb-2">
+                {order.ProductName ?? `Creative Order #${order.OrderId}`}
               </CardTitle>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge className={STATUS_CONFIG[order.Status]?.color ?? "bg-gray-600"}>
-                  {STATUS_CONFIG[order.Status]?.label}
-                </Badge>
-                <span className="text-slate-400 text-sm">• #{order.OrderId}</span>
-                <span className="text-slate-400 text-sm">• {order.CompanyName ?? `Company #${order.CompanyId}`}</span>
+              <div className="flex items-center gap-2 flex-wrap text-xs font-semibold">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] ${statusColor}`}>
+                  {statusLabel}
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400 font-mono">#{order.OrderId}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400 flex items-center gap-1">
+                  <Building2 className="w-3.5 h-3.5" />
+                  {order.CompanyName ?? `Company #${order.CompanyId}`}
+                </span>
               </div>
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={() => setEditModal(true)}
                 variant="outline"
-                className="border-slate-700 text-slate-400 hover:text-white"
+                className="border-white/[0.08] hover:bg-white/[0.02] text-slate-300 rounded-xl text-xs font-bold h-9"
               >
-                <Plus className="w-4 h-4 mr-2" /> Edit Details
+                <Edit className="w-3.5 h-3.5 mr-1.5" /> Modify Specifications
               </Button>
               {order.Status === "NEW" && (
-                <Button onClick={() => setAssignModal(true)} className="bg-gradient-to-r from-blue-600 to-cyan-600">
-                  <UserCheck className="w-4 h-4 mr-2" /> Assign to Artist
+                <Button onClick={() => setAssignModal(true)} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl h-9">
+                  <UserCheck className="w-3.5 h-3.5 mr-1.5" /> Dispatch to Artist
                 </Button>
               )}
               {nextStatus && order.Status !== "NEW" && (
                 <Button
                   onClick={() => handleStatusChange(nextStatus)}
                   disabled={updatingStatus}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-500"
+                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl h-9"
                 >
-                  {updatingStatus ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                  Move to {STATUS_CONFIG[nextStatus]?.label}
+                  {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
+                  Promote to {STATUS_CONFIG[nextStatus]?.label}
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="p-5 space-y-6">
           {statusError && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-rose-400 text-xs bg-rose-500/10 rounded-xl px-3.5 py-2.5 border border-rose-500/20">
               <AlertCircle className="w-4 h-4" /> {statusError}
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs font-medium">
             {[
-              { label: "Order ID", value: `#${order.OrderId}` },
+              { label: "Brief ID", value: `#${order.OrderId}` },
               { label: "Project Name", value: order.ProjectName ?? "Not specified" },
-              { label: "Budget", value: order.Budget ?? "Not specified" },
+              { label: "Budget", value: order.Budget ?? "Not specified", color: "text-emerald-400 font-bold" },
               { label: "Company", value: order.CompanyName ?? `#${order.CompanyId}` },
-              { label: "Product", value: order.ProductName ?? `#${order.ProductId}` },
-              { label: "Package", value: order.PackageName ?? `#${order.PackageId}` },
-              { label: "Platform", value: order.TargetPlatform ?? "Not specified" },
-              { label: "Deadline", value: order.Deadline ? new Date(order.Deadline).toLocaleDateString() : "No deadline" },
-              { label: "Created", value: new Date(order.CreatedAt).toLocaleDateString() },
-              { label: "Last updated", value: order.UpdatedAt ? new Date(order.UpdatedAt).toLocaleDateString() : "—" },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                <p className="text-slate-400 text-xs mb-1">{label}</p>
-                <p className="text-white font-medium">{value}</p>
+              { label: "Target Product", value: order.ProductName ?? `#${order.ProductId}` },
+              { label: "Render Package", value: order.PackageName ?? `#${order.PackageId}` },
+              { label: "AR Platform", value: order.TargetPlatform ?? "Not specified" },
+              { label: "Deadline", value: order.Deadline ? new Date(order.Deadline).toLocaleDateString() : "No deadline specified", color: "text-amber-400 font-semibold" },
+              { label: "Created On", value: new Date(order.CreatedAt).toLocaleDateString() },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04]">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">{label}</p>
+                <p className={`text-white font-medium ${color || ""}`}>{value}</p>
               </div>
             ))}
             {order.BuyerName && (
-              <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                <p className="text-slate-400 text-xs mb-1">Buyer Name</p>
+              <div className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04]">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">Purchasing Rep</p>
                 <p className="text-white font-medium">{order.BuyerName}</p>
               </div>
             )}
             {order.BuyerPhone && (
-              <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                <p className="text-slate-400 text-xs mb-1">Buyer Phone</p>
+              <div className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04]">
+                <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">Rep Contacts</p>
                 <p className="text-white font-medium">{order.BuyerPhone}</p>
               </div>
             )}
           </div>
 
           {order.Brief && (
-            <div className="bg-slate-900/60 rounded-lg p-4 border border-slate-700">
-              <p className="text-slate-400 text-xs mb-2">Brief</p>
+            <div className="bg-[#080d1a]/50 rounded-xl p-4 border border-white/[0.04] space-y-1">
+              <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Creative Brief</p>
               <p className="text-white text-sm leading-relaxed">{order.Brief}</p>
             </div>
           )}
 
           {/* Production stages */}
-          <div>
-            <p className="text-white font-medium mb-4">Production Stages</p>
-            <div className="relative">
-              <div className="absolute left-[9px] top-3 bottom-3 w-px bg-white/10" />
-              <div className="space-y-3">
+          <div className="space-y-4">
+            <p className="text-white text-sm font-bold tracking-tight">Production Milestone Pipeline</p>
+            <div className="relative pl-1">
+              <div className="absolute left-[9px] top-3.5 bottom-3.5 w-px bg-white/[0.08]" />
+              <div className="space-y-3.5">
                 {STAGES.map((s, i) => {
                   const done = i < stageIdx;
                   const current = i === stageIdx;
                   return (
                     <div key={s.key} className="flex items-center gap-3 relative z-10">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${done ? "bg-green-500" : current ? "bg-white ring-2 ring-cyan-500/40" : "bg-white/10"
-                        }`}>
-                        {done && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        {current && <div className="w-2 h-2 rounded-full bg-black" />}
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
+                        done 
+                          ? "bg-emerald-500" 
+                          : current 
+                          ? "bg-purple-600 ring-4 ring-purple-500/25 text-white" 
+                          : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
+                      }`}>
+                        {done ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : i + 1}
                       </div>
-                      <span className={`text-sm ${current ? "text-white font-semibold" : done ? "text-slate-300" : "text-slate-600"}`}>
+                      <span className={`text-xs font-semibold ${current ? "text-white font-bold" : done ? "text-slate-300" : "text-slate-600"}`}>
                         {s.label}
                       </span>
                       {current && (
-                        <span className="ml-auto text-xs text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 rounded-full px-2 py-0.5">
-                          Current
+                        <span className="ml-auto text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-2 py-0.5 font-bold uppercase tracking-wider">
+                          Active Stage
                         </span>
                       )}
                     </div>
@@ -440,10 +481,7 @@ function CreativeOrderDetail({
         <EditOrderModal
           order={order}
           onClose={() => setEditModal(false)}
-          onUpdated={(updated) => {
-            setOrder(updated);
-            onOrderUpdated(updated);
-          }}
+          onUpdated={(updated) => { setOrder(updated); onOrderUpdated(updated); }}
         />
       )}
     </div>
@@ -465,7 +503,6 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
 
     setUploading(true); setError("");
     try {
-      // Read file as base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
@@ -478,8 +515,8 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
         method: "POST",
         body: JSON.stringify({
           FileFormat: "OBJ",
-          FileUrl: file.name, // Just store name as reference if URL not used
-          Base64Data: base64Data, // Save the actual file content
+          FileUrl: file.name,
+          Base64Data: base64Data,
           PolyCount: 0,
           TextureSize: "Unknown"
         }),
@@ -496,27 +533,32 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 border border-purple-500/30 rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center">
-          <h2 className="text-white font-bold">Edit Marketplace Asset</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
+      >
+        <div className="p-5 border-b border-white/[0.06] flex justify-between items-center bg-white/[0.01]">
+          <h2 className="text-white font-bold text-base tracking-tight">Reupload Model Source</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X /></button>
         </div>
-        <div className="p-6 space-y-4">
-          <p className="text-slate-400 text-sm">Upload a new .obj file to update this asset's 3D model.</p>
-          <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-purple-500/40 transition-colors relative">
+        <div className="p-5 space-y-4">
+          <p className="text-slate-400 text-xs leading-relaxed">Upload a replacement OBJ compilation model file to automatically deploy a new asset version.</p>
+          <div className="border-2 border-dashed border-white/[0.06] rounded-xl p-8 text-center hover:border-purple-500/40 transition-colors relative bg-white/[0.01]">
             <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
             <div className="flex flex-col items-center">
               {uploading ? <Loader2 className="w-8 h-8 text-purple-400 animate-spin" /> : <Upload className="w-8 h-8 text-slate-500 mb-2" />}
-              <p className="text-white text-sm font-medium">{uploading ? "Uploading..." : "Click to upload .OBJ"}</p>
+              <p className="text-white text-xs font-medium">{uploading ? "Parsing OBJ file..." : "Click to select replacement OBJ"}</p>
             </div>
           </div>
-          {error && <p className="text-red-400 text-xs bg-red-400/10 p-2 rounded">{error}</p>}
+          {error && <p className="text-rose-400 text-xs bg-rose-500/10 p-2.5 border border-rose-500/20 rounded-xl">{error}</p>}
         </div>
-        <div className="p-4 bg-slate-900/50 rounded-b-2xl text-center">
-          <Button onClick={onClose} variant="ghost" className="text-slate-400">Cancel</Button>
+        <div className="p-4 bg-white/[0.01] border-t border-white/[0.06] text-right">
+          <Button onClick={onClose} variant="ghost" className="text-slate-400 hover:bg-white/[0.02] hover:text-white text-xs font-semibold">Cancel</Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -534,11 +576,6 @@ function MarketplaceOrderDetail({
   const [error, setError] = useState("");
   const [showEditAsset, setShowEditAsset] = useState(false);
 
-  const handleDeliver = async () => {
-    // Manager đánh dấu delivered
-    setError("Deliver action requires additional BE endpoint (PUT /marketplace-orders/:id/status).");
-  };
-
   const handleRefund = async () => {
     if (!confirm(`Refund marketplace order #${order.MpOrderId}?`)) return;
     setUpdating(true); setError("");
@@ -554,96 +591,98 @@ function MarketplaceOrderDetail({
     }
   };
 
-  const cfg = MP_STATUS_CONFIG[order.Status] ?? { label: order.Status, color: "bg-slate-600" };
+  const cfg = MP_STATUS_CONFIG[order.Status] ?? { label: order.Status, color: "bg-slate-600/10 text-slate-300 border-slate-500/20" };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button onClick={onBack} variant="outline" size="sm" className="border-slate-600 text-slate-300">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
+        <Button onClick={onBack} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02] rounded-xl">
+          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to List
         </Button>
-        <h2 className="text-white font-bold text-lg">Marketplace Order Detail</h2>
+        <h2 className="text-white font-bold text-base tracking-tight">Marketplace Order Details</h2>
       </div>
 
-      <Card className="bg-slate-800/50 border-purple-500/20">
-        <CardHeader>
+      <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+        <CardHeader className="border-b border-white/[0.06] pb-5 bg-white/[0.01]">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <ShoppingBag className="w-4 h-4 text-purple-400" />
-                <CardTitle className="text-white text-xl">
-                  {order.AssetName || "3D Marketplace Asset"}
+              <div className="flex items-center gap-2 mb-1.5">
+                <ShoppingBag className="w-5 h-5 text-purple-400 shrink-0" />
+                <CardTitle className="text-white text-lg font-bold">
+                  {order.AssetName || "3D Store Asset"}
                 </CardTitle>
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge className={cfg.color}>{cfg.label}</Badge>
-                <span className="text-slate-400 text-sm">• Order #{order.MpOrderId}</span>
+              <div className="flex items-center gap-2 flex-wrap text-xs font-semibold">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] ${cfg.color}`}>
+                  {cfg.label}
+                </span>
+                <span className="text-slate-500">•</span>
+                <span className="text-slate-400 font-mono">Invoice #{order.MpOrderId}</span>
               </div>
             </div>
             <div className="flex gap-2">
               <Button
                 onClick={() => setShowEditAsset(true)}
                 variant="outline"
-                className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                className="border-white/[0.08] hover:border-purple-500/30 hover:bg-purple-500/5 text-slate-300 hover:text-purple-400 rounded-xl h-9 text-xs font-bold"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Edit Asset (.OBJ)
+                <Plus className="w-3.5 h-3.5 mr-1.5" />
+                Edit Asset OBJ
               </Button>
               {(order.Status === "PAID" || order.Status === "DELIVERED") && (
                 <Button
                   onClick={handleRefund}
                   disabled={updating}
                   variant="outline"
-                  className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/5 rounded-xl h-9 text-xs font-bold"
                 >
-                  {updating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                  Refund
+                  {updating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
+                  Issue Refund
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
+        <CardContent className="p-5 space-y-6">
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-rose-400 text-xs bg-rose-500/10 rounded-xl px-3.5 py-2.5 border border-rose-500/20">
               <AlertCircle className="w-4 h-4" /> {error}
             </div>
           )}
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Asset Detail Section */}
-            <div className="space-y-4">
-              <p className="text-purple-400 text-xs font-bold uppercase tracking-widest">Asset Information</p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-3">
+              <p className="text-purple-400 text-xs font-bold uppercase tracking-wider">Asset Specifications</p>
+              <div className="grid grid-cols-2 gap-3 text-xs font-medium">
                 {[
                   { label: "Asset Name", value: order.AssetName || "3D Asset" },
                   { label: "Category", value: order.Category || "3D/AR" },
-                  { label: "Industry", value: order.Industry || "Generic" },
-                  { label: "Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                    <p className="text-slate-400 text-xs mb-1">{label}</p>
-                    <p className="text-white font-medium">{value}</p>
+                  { label: "Industry Focus", value: order.Industry || "Generic" },
+                  { label: "Asset Price", value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—", color: "text-emerald-400 font-bold" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04]">
+                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">{label}</p>
+                    <p className={`text-white font-medium ${color || ""}`}>{value}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Buyer Detail Section */}
-            <div className="space-y-4">
-              <p className="text-blue-400 text-xs font-bold uppercase tracking-widest">Buyer Information</p>
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-3">
+              <p className="text-blue-400 text-xs font-bold uppercase tracking-wider">Buyer Ledger Information</p>
+              <div className="grid grid-cols-2 gap-3 text-xs font-medium">
                 {[
-                  { label: "Buyer Name", value: order.BuyerName || "—" },
-                  { label: "Phone", value: order.BuyerPhone || "—" },
-                  { label: "Company", value: order.BuyerCompanyName || `ID: ${order.BuyerCompanyId}` },
-                  { label: "Email", value: order.BuyerEmail || "Not provided" },
-                  { label: "Order Ref", value: `#${order.MpOrderId}` },
+                  { label: "Purchasing Rep", value: order.BuyerName || "—" },
+                  { label: "Contact Phone", value: order.BuyerPhone || "—" },
+                  { label: "Company Profile", value: order.BuyerCompanyName || `ID: ${order.BuyerCompanyId}` },
+                  { label: "Email Address", value: order.BuyerEmail || "Not provided" },
                 ].map(({ label, value }) => (
-                  <div key={label} className="bg-slate-900/60 rounded-lg p-3 border border-slate-700">
-                    <p className="text-slate-400 text-xs mb-1">{label}</p>
-                    <p className="text-white font-medium">{value}</p>
+                  <div key={label} className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04]">
+                    <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">{label}</p>
+                    <p className="text-white font-medium truncate">{value}</p>
                   </div>
                 ))}
               </div>
@@ -651,14 +690,14 @@ function MarketplaceOrderDetail({
           </div>
 
           {/* MP Order status steps */}
-          <div>
-            <p className="text-white font-medium mb-4">Order Progress</p>
-            <div className="relative">
-              <div className="absolute left-[9px] top-3 bottom-3 w-px bg-white/10" />
+          <div className="space-y-4">
+            <p className="text-white text-sm font-bold tracking-tight">Order Fulfilment Pipeline</p>
+            <div className="relative pl-1">
+              <div className="absolute left-[9px] top-3.5 bottom-3.5 w-px bg-white/[0.08]" />
               {[
-                { key: "PENDING", label: "Order Placed" },
-                { key: "PAID", label: "Payment Confirmed" },
-                { key: "DELIVERED", label: "Asset Delivered" },
+                { key: "PENDING", label: "Invoice Placed" },
+                { key: "PAID", label: "Payment Deposited" },
+                { key: "DELIVERED", label: "Product Key Delivered" },
               ].map((s, i) => {
                 const statusOrder = ["PENDING", "PAID", "DELIVERED", "REFUNDED"];
                 const curIdx = statusOrder.indexOf(order.Status);
@@ -667,28 +706,32 @@ function MarketplaceOrderDetail({
                 const current = order.Status === s.key;
                 return (
                   <div key={s.key} className="flex items-center gap-3 relative z-10 mb-3">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${done ? "bg-green-500" : current ? "bg-white ring-2 ring-purple-400/40" : "bg-white/10"
-                      }`}>
-                      {done && <CheckCircle2 className="w-3 h-3 text-white" />}
-                      {current && <div className="w-2 h-2 rounded-full bg-black" />}
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
+                      done 
+                        ? "bg-emerald-500" 
+                        : current 
+                        ? "bg-purple-600 ring-4 ring-purple-500/25 text-white" 
+                        : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
+                    }`}>
+                      {done ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : i + 1}
                     </div>
-                    <span className={`text-sm ${current ? "text-white font-semibold" : done ? "text-slate-300" : "text-slate-600"}`}>
+                    <span className={`text-xs font-semibold ${current ? "text-white font-bold" : done ? "text-slate-300" : "text-slate-600"}`}>
                       {s.label}
                     </span>
                     {current && (
-                      <span className="ml-auto text-xs text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-2 py-0.5">
-                        Current
+                      <span className="ml-auto text-[10px] text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full px-2 py-0.5 font-bold uppercase tracking-wider">
+                        Active Stage
                       </span>
                     )}
                   </div>
                 );
               })}
               {order.Status === "REFUNDED" && (
-                <div className="flex items-center gap-3 mt-1">
-                  <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
-                    <X className="w-3 h-3 text-white" />
+                <div className="flex items-center gap-3 mt-1 relative z-10">
+                  <div className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center flex-shrink-0">
+                    <X className="w-3.5 h-3.5 text-white" />
                   </div>
-                  <span className="text-red-400 text-sm font-semibold">Refunded</span>
+                  <span className="text-rose-400 text-xs font-bold uppercase tracking-wider">Refund Completed</span>
                 </div>
               )}
             </div>
@@ -700,7 +743,7 @@ function MarketplaceOrderDetail({
         <EditAssetModal
           assetId={order.AssetId}
           onClose={() => setShowEditAsset(false)}
-          onUpdated={() => { /* maybe refresh versions if shown */ }}
+          onUpdated={() => { /* maybe refresh */ }}
         />
       )}
     </div>
@@ -721,7 +764,7 @@ function CreativeOrdersSubTab({ artists }: { artists: Artist[] }) {
     apiFetch("/orders")
       .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((d) => setOrders(d.data ?? d))
-      .catch(() => setError("Cannot load orders."))
+      .catch(() => setError("Cannot load creative orders."))
       .finally(() => setLoading(false));
   };
 
@@ -746,97 +789,117 @@ function CreativeOrdersSubTab({ artists }: { artists: Artist[] }) {
   const newCount = orders.filter(o => o.Status === "NEW").length;
 
   return (
-    <Card className="bg-slate-800/50 border-blue-500/20">
-      <CardHeader>
+    <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+      <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Package className="w-5 h-5 text-blue-400" />
-              Creative Orders
+            <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+              <Package className="w-5 h-5 text-blue-400 shrink-0" />
+              Creative Order Dispatching
             </CardTitle>
-            <CardDescription className="text-gray-400 mt-1">
-              Review briefs, assign artists, track production
+            <CardDescription className="text-slate-400 text-xs">
+              Audit custom briefs, dispatch to artists, and track production lifecycles
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {newCount > 0 && <Badge className="bg-yellow-600/80">{newCount} unassigned</Badge>}
-            <Button onClick={fetchOrders} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={loading}>
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            {newCount > 0 && (
+              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold">
+                {newCount} unassigned
+              </Badge>
+            )}
+            <Button onClick={fetchOrders} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={loading}>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
 
         {/* Status filter */}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {["ALL", "NEW", "IN_PRODUCTION", "REVIEW", "COMPLETED", "DELIVERED", "CANCELLED"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`text-xs px-3 py-1 rounded-full border transition-all ${filterStatus === s
-                ? "bg-blue-600 border-blue-600 text-white"
-                : "border-slate-600 text-slate-400 hover:border-slate-400"
+        <div className="flex flex-wrap gap-1.5 mt-4">
+          {["ALL", "NEW", "IN_PRODUCTION", "REVIEW", "COMPLETED", "DELIVERED", "CANCELLED"].map((s) => {
+            const label = s === "ALL" ? "All Briefs" : STATUS_CONFIG[s]?.label ?? s;
+            const active = filterStatus === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${
+                  active
+                    ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/10"
+                    : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
                 }`}
-            >
-              {s === "ALL" ? "All" : STATUS_CONFIG[s]?.label ?? s}
-              {s !== "ALL" && (
-                <span className="ml-1 opacity-60">({orders.filter(o => o.Status === s).length})</span>
-              )}
-            </button>
-          ))}
+              >
+                {label}
+                {s !== "ALL" && (
+                  <span className="ml-1 opacity-50">({orders.filter(o => o.Status === s).length})</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+            <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center py-12 gap-3">
-            <AlertCircle className="w-8 h-8 text-red-400" />
-            <p className="text-red-400">{error}</p>
-            <Button onClick={fetchOrders} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
+            <AlertCircle className="w-8 h-8 text-rose-400" />
+            <p className="text-rose-400 text-xs">{error}</p>
+            <Button onClick={fetchOrders} variant="outline" className="border-white/[0.08] text-slate-300">Retry</Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No orders found.</p>
+          <div className="text-center py-16 border border-dashed border-white/[0.06] rounded-2xl">
+            <Package className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm font-semibold">No active creative orders registered</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="max-h-[480px] overflow-y-auto pr-1.5 space-y-2.5 custom-scrollbar">
             {filtered.map((order) => (
               <div
                 key={order.OrderId}
-                className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all"
+                className="flex items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-blue-500/20 hover:bg-[#0d1324]/40 transition-all gap-4"
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">
-                    {order.ProductName ?? `Order #${order.OrderId}`}
+                <div className="min-w-0 space-y-1">
+                  <p className="text-white font-semibold text-sm truncate">
+                    {order.ProductName ?? `Creative Order #${order.OrderId}`}
                   </p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-slate-400">
-                    <span>#{order.OrderId}</span>
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500 font-medium">
+                    <span className="font-mono text-[10px] text-slate-400">#{order.OrderId}</span>
                     <span>·</span>
-                    <span>{order.BuyerName || order.CompanyName || `Company #${order.CompanyId}`}</span>
-                    {order.PackageName && <><span>·</span><span>{order.PackageName}</span></>}
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5" />
+                      {order.BuyerName || order.CompanyName || `Company #${order.CompanyId}`}
+                    </span>
+                    {order.PackageName && (
+                      <>
+                        <span>·</span>
+                        <span>{order.PackageName}</span>
+                      </>
+                    )}
                     <span>·</span>
-                    <span>{new Date(order.CreatedAt).toLocaleDateString()}</span>
+                    <span>Created {new Date(order.CreatedAt).toLocaleDateString()}</span>
                     {order.Deadline && (
-                      <><span>·</span><span className="text-yellow-400">Due {new Date(order.Deadline).toLocaleDateString()}</span></>
+                      <>
+                        <span>·</span>
+                        <span className="text-amber-400 font-semibold">Due {new Date(order.Deadline).toLocaleDateString()}</span>
+                      </>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <Badge className={`text-xs ${STATUS_CONFIG[order.Status]?.color ?? "bg-gray-600"}`}>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_CONFIG[order.Status]?.color ?? "bg-slate-600"}`}>
                     {STATUS_CONFIG[order.Status]?.label}
-                  </Badge>
-                  <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300"
+                  </span>
+                  <Button size="sm" variant="outline" className="border-white/[0.08] hover:border-blue-500/30 hover:bg-blue-500/5 text-slate-300 hover:text-blue-400 rounded-xl h-8 text-xs font-bold"
                     onClick={() => setSelected(order)}>
-                    <Eye className="w-4 h-4 mr-1" /> View
+                    <Eye className="w-3.5 h-3.5 mr-1" /> View
                   </Button>
                   {order.Status === "NEW" && (
-                    <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600"
+                    <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl h-8 text-xs font-bold"
                       onClick={() => setAssignModal(order)}>
-                      <UserCheck className="w-4 h-4 mr-1" /> Assign
+                      <UserCheck className="w-3.5 h-3.5 mr-1" /> Dispatch
                     </Button>
                   )}
                 </div>
@@ -867,7 +930,6 @@ function MarketplaceOrdersSubTab() {
 
   const fetchOrders = () => {
     setLoading(true); setError("");
-    // GET /api/marketplace-orders — manager thấy tất cả
     apiFetch("/marketplace-orders")
       .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then((d) => setOrders(d.data ?? d))
@@ -898,119 +960,133 @@ function MarketplaceOrdersSubTab() {
     .reduce((s, o) => s + (o.Price ?? 0), 0);
 
   return (
-    <Card className="bg-slate-800/50 border-purple-500/20">
-      <CardHeader>
+    <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+      <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <CardTitle className="text-white flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5 text-purple-400" />
-              Marketplace Orders
+            <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5 text-purple-400 shrink-0" />
+              Marketplace Store Transactions
             </CardTitle>
-            <CardDescription className="text-gray-400 mt-1">
-              Asset purchases — manage delivery and refunds
+            <CardDescription className="text-slate-400 text-xs">
+              Audit automated store downloads, monitor payments, and process refund actions
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {pendingCount > 0 && <Badge className="bg-yellow-600/80">{pendingCount} pending</Badge>}
-            <Button onClick={fetchOrders} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={loading}>
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            {pendingCount > 0 && (
+              <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold">
+                {pendingCount} pending
+              </Badge>
+            )}
+            <Button onClick={fetchOrders} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={loading}>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Stats grid */}
         {orders.length > 0 && (
-          <div className="grid grid-cols-4 gap-3 mt-3">
+          <div className="grid grid-cols-4 gap-3 mt-4">
             {[
-              { label: "Total Orders", value: orders.length, color: "text-white" },
-              { label: "Pending", value: orders.filter(o => o.Status === "PENDING").length, color: "text-yellow-400" },
-              { label: "Delivered", value: orders.filter(o => o.Status === "DELIVERED").length, color: "text-cyan-400" },
-              { label: "Revenue", value: `${totalRevenue.toLocaleString("vi-VN")} ₫`, color: "text-green-400" },
+              { label: "Total Purchases", value: orders.length, color: "text-white" },
+              { label: "Awaiting Clearance", value: orders.filter(o => o.Status === "PENDING").length, color: "text-amber-400" },
+              { label: "Delivered Keys", value: orders.filter(o => o.Status === "DELIVERED").length, color: "text-cyan-400" },
+              { label: "Store Gross Income", value: `${totalRevenue.toLocaleString("vi-VN")} ₫`, color: "text-emerald-400 font-bold" },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-slate-900/60 rounded-xl p-3 border border-white/8 text-center">
-                <p className="text-slate-500 text-xs mb-1">{label}</p>
-                <p className={`font-bold text-sm ${color}`}>{value}</p>
+              <div key={label} className="bg-[#080d1a]/50 rounded-xl p-3 border border-white/[0.04] text-center min-w-0">
+                <p className="text-slate-500 text-[9px] uppercase tracking-wider mb-1 font-bold truncate">{label}</p>
+                <p className={`font-extrabold text-sm truncate ${color}`}>{value}</p>
               </div>
             ))}
           </div>
         )}
 
         {/* Status filter */}
-        <div className="flex flex-wrap gap-2 mt-3">
-          {["ALL", "PENDING", "PAID", "DELIVERED", "REFUNDED"].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`text-xs px-3 py-1 rounded-full border transition-all ${filterStatus === s
-                ? "bg-purple-600 border-purple-600 text-white"
-                : "border-slate-600 text-slate-400 hover:border-slate-400"
+        <div className="flex flex-wrap gap-1.5 mt-4">
+          {["ALL", "PENDING", "PAID", "DELIVERED", "REFUNDED"].map((s) => {
+            const label = s === "ALL" ? "All Receipts" : MP_STATUS_CONFIG[s]?.label ?? s;
+            const active = filterStatus === s;
+            return (
+              <button
+                key={s}
+                onClick={() => setFilterStatus(s)}
+                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${
+                  active
+                    ? "bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/10"
+                    : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
                 }`}
-            >
-              {s === "ALL" ? "All" : MP_STATUS_CONFIG[s]?.label ?? s}
-              {s !== "ALL" && (
-                <span className="ml-1 opacity-60">({orders.filter(o => o.Status === s).length})</span>
-              )}
-            </button>
-          ))}
+              >
+                {label}
+                {s !== "ALL" && (
+                  <span className="ml-1 opacity-50">({orders.filter(o => o.Status === s).length})</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="p-4">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
           </div>
         ) : error ? (
           <div className="flex flex-col items-center py-12 gap-3">
-            <AlertCircle className="w-8 h-8 text-red-400" />
-            <p className="text-red-400 text-sm">{error}</p>
-            <Button onClick={fetchOrders} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
+            <AlertCircle className="w-8 h-8 text-rose-400" />
+            <p className="text-rose-400 text-xs">{error}</p>
+            <Button onClick={fetchOrders} variant="outline" className="border-white/[0.08] text-slate-300">Retry</Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <ShoppingBag className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <p className="text-slate-400">No marketplace orders found.</p>
+          <div className="text-center py-16 border border-dashed border-white/[0.06] rounded-2xl">
+            <ShoppingBag className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+            <p className="text-slate-400 text-sm font-semibold">No store transactions logged</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="max-h-[480px] overflow-y-auto pr-1.5 space-y-2.5 custom-scrollbar">
             {filtered.map((order) => {
-              const cfg = MP_STATUS_CONFIG[order.Status] ?? { label: order.Status, color: "bg-slate-600" };
+              const cfg = MP_STATUS_CONFIG[order.Status] ?? { label: order.Status, color: "bg-slate-600/10 text-slate-300 border-slate-500/20" };
               return (
                 <div
                   key={order.MpOrderId}
-                  className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-purple-500/10 hover:border-purple-500/30 transition-all"
+                  className="flex items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-purple-500/20 hover:bg-[#0d1324]/40 transition-all gap-4"
                 >
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2">
                       <ShoppingBag className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
-                      <p className="text-white font-medium truncate">
-                        {order.AssetName ?? `Asset #${order.AssetId}`}
+                      <p className="text-white font-semibold text-sm truncate">
+                        {order.AssetName ?? `Catalog Asset #${order.AssetId}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-slate-400">
-                      <span>Order #{order.MpOrderId}</span>
+                    <div className="flex items-center gap-2.5 flex-wrap text-xs text-slate-500 font-medium">
+                      <span className="font-mono text-[10px] text-slate-400">Order #{order.MpOrderId}</span>
                       <span>·</span>
                       <span className="flex items-center gap-1">
-                        <Building2 className="w-3 h-3" />
+                        <Building2 className="w-3.5 h-3.5" />
                         {order.BuyerName || (order.BuyerCompanyName ?? `Buyer #${order.BuyerCompanyId}`)}
                       </span>
                       {order.Price != null && (
-                        <><span>·</span>
-                          <span className="flex items-center gap-1 text-green-400">
-                            <DollarSign className="w-3 h-3" />{order.Price.toLocaleString("vi-VN")} ₫
-                          </span></>
+                        <>
+                          <span>·</span>
+                          <span className="text-emerald-400 font-semibold">
+                            {order.Price.toLocaleString("vi-VN")} ₫
+                          </span>
+                        </>
                       )}
                       <span>·</span>
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />{new Date(order.CreatedAt).toLocaleDateString()}
+                        <Clock className="w-3.5 h-3.5 text-slate-600" />
+                        {new Date(order.CreatedAt).toLocaleDateString()}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-4">
-                    <Badge className={`text-xs ${cfg.color}`}>{cfg.label}</Badge>
-                    <Button size="sm" variant="outline" className="border-purple-500/50 text-slate-300"
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.color}`}>
+                      {cfg.label}
+                    </span>
+                    <Button size="sm" variant="outline" className="border-white/[0.08] hover:border-purple-500/30 hover:bg-purple-500/5 text-slate-300 hover:text-purple-400 rounded-xl h-8 text-xs font-bold"
                       onClick={() => setSelected(order)}>
-                      <Eye className="w-4 h-4 mr-1" /> View
+                      <Eye className="w-3.5 h-3.5 mr-1" /> View
                     </Button>
                   </div>
                 </div>
@@ -1030,33 +1106,56 @@ export function OrdersTab({ artists }: { artists: Artist[] }) {
   return (
     <div className="space-y-5">
       {/* Sub-tab switcher */}
-      <div className="flex gap-1 p-1 bg-slate-800/60 border border-white/8 rounded-xl w-fit">
+      <div className="flex gap-1.5 p-1 bg-[#0d1324]/50 border border-white/[0.06] rounded-xl w-fit relative">
         <button
           onClick={() => setSubTab("creative")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${subTab === "creative"
-            ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
-            : "text-slate-400 hover:text-white"
-            }`}
+          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${
+            subTab === "creative" ? "text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          <Package className="w-4 h-4" />
-          Creative Orders
+          {subTab === "creative" && (
+            <motion.div
+              layoutId="activeSubTabIndicator"
+              className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/30 rounded-lg"
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            />
+          )}
+          <Package className="w-4 h-4 relative z-10 shrink-0" />
+          <span className="relative z-10">Creative Orders</span>
         </button>
         <button
           onClick={() => setSubTab("marketplace")}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${subTab === "marketplace"
-            ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg"
-            : "text-slate-400 hover:text-white"
-            }`}
+          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${
+            subTab === "marketplace" ? "text-white" : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          <ShoppingBag className="w-4 h-4" />
-          Marketplace Orders
+          {subTab === "marketplace" && (
+            <motion.div
+              layoutId="activeSubTabIndicator"
+              className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 rounded-lg"
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+            />
+          )}
+          <ShoppingBag className="w-4 h-4 relative z-10 shrink-0" />
+          <span className="relative z-10">Marketplace Orders</span>
         </button>
       </div>
 
-      {subTab === "creative"
-        ? <CreativeOrdersSubTab artists={artists} />
-        : <MarketplaceOrdersSubTab />
-      }
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={subTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+          {subTab === "creative" ? (
+            <CreativeOrdersSubTab artists={artists} />
+          ) : (
+            <MarketplaceOrdersSubTab />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

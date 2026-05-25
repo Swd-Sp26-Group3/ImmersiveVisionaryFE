@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Users, Settings, FileText, Shield, LayoutDashboard, Menu, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 
 const navItems = [
   { href: "/admin-dashboard",          label: "Dashboard",   icon: LayoutDashboard },
@@ -17,7 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   return (
-    <div className="flex min-h-[calc(100vh-64px)] md:min-h-[calc(100vh-80px)] bg-[#080d1a] relative">
+    <div className="flex h-[calc(100vh-64px)] md:h-[calc(100vh-80px)] overflow-hidden bg-[#080d1a] relative">
       
       {/* Mobile Backdrop */}
       {isMobileOpen && (
@@ -29,16 +30,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900/95 backdrop-blur-xl border-r border-blue-500/20 p-4 flex flex-col gap-2 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:h-auto ${
+        className={`fixed top-16 md:top-20 bottom-0 z-40 w-64 bg-[#0d1324]/85 backdrop-blur-md border-r border-white/[0.06] p-4 flex flex-col gap-2 transform transition-transform duration-300 lg:translate-x-0 lg:static lg:h-full ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between mb-6 px-2">
-          <div className="text-white font-bold text-xl flex items-center gap-2">
-            <span className="p-1.5 bg-blue-600 rounded-lg">
-              <Settings className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between mb-8 px-2 mt-2">
+          <div className="text-white font-bold text-lg flex items-center gap-3">
+            <span className="p-2 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+              <Shield className="w-4 h-4 text-white" />
             </span>
-            Admin Panel
+            <div className="flex flex-col">
+              <span className="leading-tight tracking-wide">Admin Panel</span>
+              <span className="text-[10px] text-indigo-400 font-medium">Control Center</span>
+            </div>
           </div>
           <button onClick={() => setIsMobileOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
@@ -54,14 +58,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all font-medium ${
-                  isActive
-                    ? "bg-gradient-to-r from-blue-600/80 to-cyan-600/80 text-white shadow-lg shadow-blue-500/20 border border-blue-500/30"
-                    : "text-slate-400 hover:bg-white/5 hover:text-white"
-                }`}
+                className="relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium group text-sm"
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-cyan-200" : ""}`} />
-                {item.label}
+                {isActive && (
+                  <motion.div
+                    layoutId="active-nav"
+                    className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-transparent border-l-2 border-indigo-500 rounded-xl"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <Icon className={`w-4 h-4 relative z-10 ${isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-white transition-colors"}`} />
+                <span className={`relative z-10 ${isActive ? "text-white font-semibold" : "text-slate-400 group-hover:text-white transition-colors"}`}>
+                  {item.label}
+                </span>
               </Link>
             );
           })}
@@ -83,8 +92,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </div>
 
-        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden overflow-y-auto w-full">
-          {children}
+        <div className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden overflow-y-auto w-full relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 15, filter: "blur(4px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -15, filter: "blur(4px)" }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="w-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </main>
     </div>

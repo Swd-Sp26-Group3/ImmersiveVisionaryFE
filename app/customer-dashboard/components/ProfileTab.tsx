@@ -228,7 +228,7 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
                     <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white focus:border-purple-500">
                       <SelectValue placeholder="Select a company..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700">
+                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
                       {companies.map((c) => (
                         <SelectItem key={c.CompanyId} value={c.CompanyId.toString()} className="text-white hover:bg-slate-700">
                           {c.CompanyName}

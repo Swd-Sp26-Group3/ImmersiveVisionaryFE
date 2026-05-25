@@ -6,22 +6,23 @@ import { Badge } from "@/app/components/ui/badge";
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Download, Loader2, AlertCircle, Building2, RefreshCw,
-  ShoppingBag, Box, Tag, Edit, Trash2, Plus, Eye, Upload, User, Phone,
+  ShoppingBag, Box, Tag, Edit, Plus, Upload, Link2, Calendar
 } from "lucide-react";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import { apiFetch } from "@/lib/api";
-import { Artist, Company, CreativeOrder, Product } from "./components/type";
+import { Artist, Company, CreativeOrder } from "./components/type";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
+import { motion, AnimatePresence } from "motion/react";
 
-// ===================== Types =====================
-const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  ACTIVE: { label: "Active", color: "bg-green-600" },
-  INACTIVE: { label: "Inactive", color: "bg-slate-600" },
-  SUSPENDED: { label: "Suspended", color: "bg-red-600" },
+// ===================== Types & Constants =====================
+const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string; border: string }> = {
+  ACTIVE: { label: "Active", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", border: "border-emerald-500/20" },
+  INACTIVE: { label: "Inactive", color: "bg-slate-500/10 text-slate-400 border-slate-500/20", border: "border-slate-500/20" },
+  SUSPENDED: { label: "Suspended", color: "bg-rose-500/10 text-rose-400 border-rose-500/20", border: "border-rose-500/20" },
 };
 const getCompanyStatusCfg = (s: string | null | undefined) =>
   s ? (COMPANY_STATUS_CONFIG[s] ?? null) : null;
@@ -38,7 +39,6 @@ interface Payment {
   BuyerPhone?: string | null;
 }
 
-// Asset3D — đây mới là "platform assets" trong Catalog Management
 interface Asset {
   AssetId: number; AssetName: string; Description: string | null;
   Category: string | null; Industry: string | null;
@@ -49,21 +49,33 @@ interface Asset {
 }
 
 const ASSET_PUBLISH_CONFIG: Record<string, { label: string; color: string }> = {
-  DRAFT: { label: "Draft", color: "bg-slate-600" },
-  PENDING: { label: "Pending", color: "bg-yellow-600" },
-  PUBLISHED: { label: "Published", color: "bg-green-600" },
-  REJECTED: { label: "Rejected", color: "bg-red-600" },
+  DRAFT: { label: "Draft", color: "bg-slate-500/10 text-slate-400 border border-slate-500/20" },
+  PENDING: { label: "Pending Review", color: "bg-amber-500/10 text-amber-400 border border-amber-500/20" },
+  PUBLISHED: { label: "Published", color: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" },
+  REJECTED: { label: "Rejected", color: "bg-rose-500/10 text-rose-400 border border-rose-500/20" },
 };
 
-// ===================== Tabs (theo flow diagram) =====================
 const TABS = [
   { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "orders", label: "Orders", icon: Package },
+  { id: "orders", label: "Orders Stream", icon: Package },
   { id: "catalog", label: "Catalog Mgmt", icon: Box },
   { id: "companies", label: "Companies", icon: Building2 },
-  { id: "team", label: "Team", icon: Users },
+  { id: "team", label: "Team Directory", icon: Users },
 ] as const;
 type TabId = typeof TABS[number]["id"];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.04 }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 25 } }
+};
 
 // ===================== Asset Edit Modal =====================
 function AssetEditModal({
@@ -157,13 +169,19 @@ function AssetEditModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 border border-blue-500/30 rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-slate-700">
-          <h2 className="text-white font-bold">Edit Asset</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-white/[0.01]">
+          <h2 className="text-white font-bold tracking-tight">Edit Asset Specifications</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors cursor-pointer">✕</button>
         </div>
-        <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
+        
+        <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
           {[
             { label: "Asset Name *", key: "AssetName", placeholder: "e.g. Luxury Bag 3D" },
             { label: "Category", key: "Category", placeholder: "e.g. Fashion" },
@@ -171,57 +189,59 @@ function AssetEditModal({
             { label: "Price ($)", key: "Price", placeholder: "e.g. 299" },
           ].map(({ label, key, placeholder }) => (
             <div key={key} className="space-y-1.5">
-              <label className="text-white text-sm">{label}</label>
+              <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">{label}</label>
               <input
                 value={form[key as keyof typeof form]}
                 onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                className="w-full px-3.5 py-2.5 bg-[#080d1a] border border-white/[0.06] rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all"
               />
             </div>
           ))}
           <div className="space-y-1.5">
-            <label className="text-white text-sm">Description</label>
+            <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Description</label>
             <textarea
               value={form.Description}
               onChange={e => setForm(p => ({ ...p, Description: e.target.value }))}
               rows={3}
               placeholder="Asset description..."
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500 resize-none"
+              className="w-full px-3.5 py-2.5 bg-[#080d1a] border border-white/[0.06] rounded-xl text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/20 transition-all resize-none"
             />
           </div>
 
           {/* Upload Section */}
-          <div className="space-y-1.5 pt-4 border-t border-slate-700 mt-4">
-            <label className="text-white text-sm">Update 3D Model (.obj)</label>
-            <div className="border-2 border-dashed border-slate-600 hover:border-cyan-500/50 rounded-xl p-4 text-center transition-colors relative">
+          <div className="space-y-2 pt-4 border-t border-white/[0.06] mt-4">
+            <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Update 3D Model (.obj)</label>
+            <div className="border-2 border-dashed border-white/[0.06] hover:border-purple-500/40 rounded-xl p-4 text-center transition-colors relative bg-white/[0.01]">
               <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
               <div className="flex flex-col items-center">
-                {uploading ? <Loader2 className="w-6 h-6 text-cyan-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
-                <p className="text-white text-xs font-medium">{uploading ? "Uploading..." : "Click to upload replacement .OBJ"}</p>
+                {uploading ? <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
+                <p className="text-white text-xs font-medium">{uploading ? "Uploading version..." : "Click to upload replacement .OBJ"}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">OBJ format only</p>
               </div>
             </div>
           </div>
 
           {error && (
-            <div className="flex items-center gap-2 text-red-400 text-sm bg-red-400/10 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 text-rose-400 text-xs bg-rose-500/10 rounded-xl px-3.5 py-2.5 border border-rose-500/20">
               <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
           )}
         </div>
-        <div className="flex gap-2 p-5 border-t border-slate-700">
-          <Button onClick={onClose} variant="outline" className="flex-1 border-slate-600 text-slate-300">Cancel</Button>
+        
+        <div className="flex gap-2.5 p-5 border-t border-white/[0.06] bg-white/[0.01]">
+          <Button onClick={onClose} variant="outline" className="flex-1 border-white/[0.08] hover:bg-white/[0.02] text-slate-300">Cancel</Button>
           {asset.PublishStatus === "PENDING" && (
-            <Button onClick={handleApprove} disabled={saving} className="flex-1 bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={handleApprove} disabled={saving} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
               ✓ Approve
             </Button>
           )}
-          <Button onClick={handleSave} disabled={saving} className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600">
+          <Button onClick={handleSave} disabled={saving} className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold">
             {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-            Save
+            Save Specifications
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -259,7 +279,6 @@ export default function ManagerDashboard() {
   // ===================== Fetch =====================
   const fetchAssets = () => {
     setAssetsLoading(true); setAssetsError("");
-    // Manager uses GET /assets (all) to see DRAFT, PENDING, PUBLISHED, REJECTED
     apiFetch("/assets")
       .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
       .then(d => setAssets(d.data ?? d))
@@ -314,25 +333,19 @@ export default function ManagerDashboard() {
   // ===================== Revenue =====================
   const paidPayments = useMemo(() => {
     return payments.filter((p: Payment) => {
-      // 1. Must be PAID on the payment record itself
       if (p.PaymentStatus !== "PAID") return false;
-
-      // 2. For Creative Orders, typically count when finalized (or as requested: PAID/DELIVERED/COMPLETED)
       if (p.OrderId) {
-        // If we don't have OrderStatus (fallback case), allow it
         if (!p.OrderStatus) return true;
         return ["PAID", "DELIVERED", "COMPLETED"].includes(p.OrderStatus);
       }
-
-      // 3. For Marketplace Orders
       if (p.MpOrderId) {
         if (!p.MpOrderStatus) return true;
         return ["PAID", "DELIVERED"].includes(p.MpOrderStatus);
       }
-
       return true;
     });
   }, [payments]);
+
   const totalRevenue = useMemo(() =>
     paidPayments.reduce((acc: number, p: Payment) => acc + (Number(p.Amount) || 0), 0)
     , [paidPayments]);
@@ -356,10 +369,11 @@ export default function ManagerDashboard() {
     if (isNaN(num)) return "0 ₫";
     return num.toLocaleString("vi-VN") + " ₫";
   };
+
   const orderStatusData = [
-    { name: "New", value: orders.filter(o => o.Status === "NEW").length, color: "#f59e0b" },
+    { name: "New Briefs", value: orders.filter(o => o.Status === "NEW").length, color: "#eab308" },
     { name: "In Progress", value: orders.filter(o => o.Status === "IN_PRODUCTION").length, color: "#3b82f6" },
-    { name: "Review", value: orders.filter(o => o.Status === "REVIEW").length, color: "#a855f7" },
+    { name: "Client Review", value: orders.filter(o => o.Status === "REVIEW").length, color: "#a855f7" },
     { name: "Completed", value: orders.filter(o => o.Status === "COMPLETED").length, color: "#10b981" },
   ].filter(d => d.value > 0);
 
@@ -370,442 +384,535 @@ export default function ManagerDashboard() {
   const pendingAssets = assets.filter(a => a.PublishStatus === "PENDING").length;
 
   return (
-    <div className="min-h-screen py-8">
-      <div className="container mx-auto px-4">
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2 text-white">Manager Dashboard</h1>
-          <p className="text-gray-400">Monitor performance · Manage catalog · Assign tasks to artists</p>
+    <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 space-y-8 w-full">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-slate-400">
+            Manager Control Center
+          </h1>
+          <p className="text-slate-400 text-sm mt-1">Monitor project performance, update catalog specifications, and coordinate dispatches</p>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {[
-            { label: "Total Revenue", value: paymentsLoading ? null : fmt(totalRevenue), sub: `${paidPayments.length} paid`, color: "from-blue-600/20 to-cyan-600/20 border-blue-500/30", icon: DollarSign, iconColor: "text-cyan-400" },
-            { label: "Active Orders", value: ordersLoading ? null : activeOrders, sub: `${newOrderCount} unassigned`, color: "from-green-600/20 to-emerald-600/20 border-green-500/30", icon: Package, iconColor: "text-green-400" },
-            { label: "Companies", value: companiesLoading ? null : companies.length, sub: `${companies.filter(c => String(c.Status) === "ACTIVE").length} active`, color: "from-purple-600/20 to-pink-600/20 border-purple-500/30", icon: Building2, iconColor: "text-purple-400" },
-            { label: "Artists", value: artistsLoading ? null : artists.length, sub: `${artists.filter(a => a.IsActive).length} active`, color: "from-pink-600/20 to-rose-600/20 border-pink-500/30", icon: Users, iconColor: "text-pink-400" },
-            { label: "Catalog Assets", value: assetsLoading ? null : assets.length, sub: pendingAssets > 0 ? `${pendingAssets} pending review` : "All reviewed", color: "from-yellow-600/20 to-orange-600/20 border-yellow-500/30", icon: Box, iconColor: "text-yellow-400" },
-          ].map(({ label, value, sub, color, icon: Icon, iconColor }) => (
-            <Card key={label} className={`bg-gradient-to-br ${color}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm text-gray-300">{label}</CardTitle>
-                  <Icon className={`w-5 h-5 ${iconColor}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                {value === null
-                  ? <Loader2 className={`w-6 h-6 ${iconColor} animate-spin`} />
-                  : <><div className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white break-words leading-tight">{value}</div>
-                    <p className={`text-xs ${iconColor} mt-1`}>{sub}</p></>
-                }
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Tab nav */}
-        <div className="space-y-6">
-          <div className="flex gap-1 p-1 rounded-xl bg-slate-800/50 w-full sm:w-fit flex-wrap sm:flex-nowrap overflow-x-auto">
-            {TABS.map(({ id, label, icon: Icon }) => {
-              const isActive = activeTab === id;
-              return (
-                <button key={id} onClick={() => setActiveTab(id)}
-                  className={`relative flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-all duration-200 whitespace-nowrap ${isActive
-                    ? "bg-gradient-to-r from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/25"
-                    : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                    }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                  {id === "orders" && newOrderCount > 0 && (
-                    <span className="ml-1 bg-yellow-500 text-black text-xs rounded-full px-1.5 py-0.5 font-bold leading-none">{newOrderCount}</span>
-                  )}
-                  {id === "catalog" && pendingAssets > 0 && (
-                    <span className="ml-1 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 font-bold leading-none">{pendingAssets}</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ===== OVERVIEW ===== */}
-          {activeTab === "overview" && (
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-white">Revenue Trend</CardTitle>
-                        <CardDescription className="text-gray-400">Monthly PAID transactions</CardDescription>
-                      </div>
-                      {paymentsLoading && <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <LineChart data={chartData.length > 0 ? chartData : [{ month: "—", revenue: 0 }]}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                        <XAxis dataKey="month" stroke="#94a3b8" />
-                        <YAxis stroke="#94a3b8" tickFormatter={fmt} />
-                        <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }}
-                          formatter={(v: any) => [`${v?.toLocaleString("vi-VN") ?? 0} ₫`, "Revenue"]} />
-                        <Line type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2} dot={{ fill: "#06b6d4" }} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
-                  <CardHeader>
-                    <CardTitle className="text-white">Order Status</CardTitle>
-                    <CardDescription className="text-gray-400">Creative orders breakdown</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {ordersLoading ? (
-                      <div className="flex items-center justify-center h-[250px]"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin" /></div>
-                    ) : orderStatusData.length === 0 ? (
-                      <div className="flex items-center justify-center h-[250px] text-slate-500">No orders yet</div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                          <Pie data={orderStatusData} cx="50%" cy="50%" labelLine={false}
-                            label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                            outerRadius={80} dataKey="value">
-                            {orderStatusData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #3b82f6" }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recent Payments */}
-              <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-white">Recent Payments</CardTitle>
-                      <CardDescription className="text-gray-400">Latest paid — total {fmt(totalRevenue)}</CardDescription>
-                    </div>
-                    <Button onClick={fetchPayments} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={paymentsLoading}>
-                      <RefreshCw className={`w-4 h-4 ${paymentsLoading ? "animate-spin" : ""}`} />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {paymentsLoading ? (
-                    <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-cyan-400 animate-spin" /></div>
-                  ) : paidPayments.length === 0 ? (
-                    <p className="text-center text-slate-500 py-8">No paid transactions yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {paidPayments.slice(0, 10).map((p: Payment) => (
-                        <div key={p.PaymentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                              <DollarSign className="w-5 h-5 text-green-400" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-white font-semibold truncate flex items-center gap-2">
-                                {p.BuyerName || p.CompanyName || "Individual Buyer"}
-                                {p.BuyerName && p.CompanyName && <span className="text-[10px] text-slate-500 font-normal">({p.CompanyName})</span>}
-                                {p.CompanyEmail && <span className="text-[10px] text-slate-500 font-normal ml-1">({p.CompanyEmail})</span>}
-                                {p.BuyerPhone && <span className="text-[10px] text-slate-500 font-normal ml-1">({p.BuyerPhone})</span>}
-                              </p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-slate-400">
-                                <span className="text-cyan-400 font-medium tracking-tight">PAY-{p.PaymentId}</span>
-                                <span className="flex items-center gap-1">
-                                  {p.PaymentType === 'ASSET' ? <Box className="w-3 h-3" /> : <Package className="w-3 h-3" />}
-                                  {p.ProjectName || p.AssetName || (p.PaymentType === 'ASSET' ? 'Marketplace Asset' : 'Creative Project')}
-                                </span>
-                                <span className="text-slate-500 font-mono">
-                                  {p.OrderId ? `CR-${p.OrderId}` : p.MpOrderId ? `MP-${p.MpOrderId}` : "—"}
-                                </span>
-                                {(p.OrderStatus || p.MpOrderStatus) && (
-                                  <Badge variant="outline" className="h-4 text-[9px] border-slate-700 text-slate-500 uppercase">
-                                    {p.OrderStatus || p.MpOrderStatus}
-                                  </Badge>
-                                )}
-                                {p.PaymentDate && <span>{new Date(p.PaymentDate).toLocaleDateString("vi-VN")}</span>}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-between md:justify-end gap-4 ml-0 md:ml-4 border-t md:border-t-0 border-slate-700/50 pt-3 md:pt-0">
-                            <div className="flex flex-col items-end">
-                              <span className="text-green-400 font-bold text-lg">{fmt(p.Amount)}</span>
-                              <Badge className="bg-green-600/20 text-green-400 border border-green-600/30 text-[10px] uppercase tracking-wider py-0 px-2 h-5">
-                                Success
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {paidPayments.length > 10 && (
-                        <p className="text-center text-slate-500 text-xs pt-2">+{paidPayments.length - 10} more transactions</p>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
-                <CardHeader><CardTitle className="text-white">Export Reports</CardTitle></CardHeader>
-                <CardContent className="flex flex-wrap gap-3">
-                  {["Revenue Report (PDF)", "Team Performance (CSV)", "Order Summary (Excel)"].map(label => (
-                    <Button key={label} variant="outline" className="border-blue-500/50 text-slate-300">
-                      <Download className="w-4 h-4 mr-2" /> {label}
-                    </Button>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* ===== ORDERS — Creative + Marketplace (OrdersTab) ===== */}
-          {activeTab === "orders" && <OrdersTab artists={artists} />}
-
-          {/* ===== CATALOG MANAGEMENT — Asset3D (platform assets) ===== */}
-          {activeTab === "catalog" && (
-            <Card className="bg-slate-800/50 border-blue-500/20">
-              <CardHeader>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div>
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <Box className="w-5 h-5 text-cyan-400" />
-                      Catalog Management
-                    </CardTitle>
-                    <CardDescription className="text-gray-400 mt-1">
-                      Platform 3D/AR assets — review, approve, update pricing
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {pendingAssets > 0 && (
-                      <Badge className="bg-orange-600/80">{pendingAssets} pending review</Badge>
-                    )}
-                    <Button onClick={fetchAssets} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={assetsLoading}>
-                      <RefreshCw className={`w-4 h-4 ${assetsLoading ? "animate-spin" : ""}`} />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Publish status filter */}
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {["ALL", "DRAFT", "PENDING", "PUBLISHED", "REJECTED"].map(s => (
-                    <button key={s} onClick={() => setFilterPublish(s)}
-                      className={`text-xs px-3 py-1 rounded-full border transition-all ${filterPublish === s
-                        ? "bg-cyan-600 border-cyan-600 text-white"
-                        : "border-slate-600 text-slate-400 hover:border-slate-400"
-                        }`}
-                    >
-                      {s === "ALL" ? "All" : ASSET_PUBLISH_CONFIG[s]?.label ?? s}
-                      {s !== "ALL" && <span className="ml-1 opacity-60">({assets.filter(a => a.PublishStatus === s).length})</span>}
-                    </button>
-                  ))}
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                {assetsLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
-                  </div>
-                ) : assetsError ? (
-                  <div className="flex flex-col items-center py-12 gap-3">
-                    <AlertCircle className="w-8 h-8 text-red-400" />
-                    <p className="text-red-400 text-sm">{assetsError}</p>
-                    <Button onClick={fetchAssets} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
-                  </div>
-                ) : filteredAssets.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Box className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400">No assets found.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredAssets.map(asset => {
-                      const publishCfg = ASSET_PUBLISH_CONFIG[asset.PublishStatus] ?? { label: asset.PublishStatus, color: "bg-slate-600" };
-                      return (
-                        <div key={asset.AssetId} className="flex items-center justify-between p-4 rounded-xl bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <p className="text-white font-medium truncate">{asset.AssetName}</p>
-                              <Badge className={`${publishCfg.color} text-xs flex-shrink-0`}>{publishCfg.label}</Badge>
-                              {asset.Category && <Badge className="bg-blue-600/80 text-xs flex-shrink-0">{asset.Category}</Badge>}
-                              {Number(asset.IsMarketplace) === 1 && (
-                                <Badge className="bg-purple-600/80 text-xs flex-shrink-0">Marketplace</Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 flex-wrap text-xs text-slate-400">
-                              <span className="flex items-center gap-1"><Tag className="w-3 h-3" />#{asset.AssetId}</span>
-                              {asset.Industry && <span>{asset.Industry}</span>}
-                              {asset.Price != null && <span className="text-green-400">${asset.Price.toLocaleString()}</span>}
-                              <span>{new Date(asset.CreatedAt).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            {asset.PublishStatus === "PENDING" && (
-                              <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white text-xs"
-                                onClick={() => setEditingAsset(asset)}>
-                                Review
-                              </Button>
-                            )}
-                            <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300"
-                              onClick={() => setEditingAsset(asset)}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ===== COMPANIES ===== */}
-          {activeTab === "companies" && (
-            <Card className="bg-slate-800/50 border-blue-500/20">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white">Company Management</CardTitle>
-                    <CardDescription className="text-gray-400">Create and manage client companies</CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={fetchCompanies} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={companiesLoading}>
-                      <RefreshCw className={`w-4 h-4 ${companiesLoading ? "animate-spin" : ""}`} />
-                    </Button>
-                    <Button onClick={() => setCompanyModal({ open: true, company: null })} className="bg-gradient-to-r from-blue-600 to-cyan-600">
-                      <Plus className="w-4 h-4 mr-2" /> Add Company
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {companiesLoading ? (
-                  <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin" /></div>
-                ) : companiesError ? (
-                  <div className="flex flex-col items-center py-12 gap-3">
-                    <AlertCircle className="w-8 h-8 text-red-400" />
-                    <p className="text-red-400">{companiesError}</p>
-                    <Button onClick={fetchCompanies} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
-                  </div>
-                ) : companies.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Building2 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400">No companies yet.</p>
-                    <Button onClick={() => setCompanyModal({ open: true, company: null })} className="mt-4 bg-gradient-to-r from-blue-600 to-cyan-600">
-                      <Plus className="w-4 h-4 mr-2" /> Add First Company
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {companies.map(company => {
-                      const sCfg = getCompanyStatusCfg(String(company.Status ?? ""));
-                      return (
-                        <div key={company.CompanyId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10 hover:border-blue-500/30 transition-all">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="text-white font-medium truncate">{company.CompanyName}</p>
-                              {company.CompanyType && <Badge className="bg-blue-600/80 text-xs">{String(company.CompanyType)}</Badge>}
-                              {sCfg && <Badge className={`${sCfg.color} text-xs`}>{sCfg.label}</Badge>}
-                            </div>
-                            <div className="flex items-center gap-3 flex-wrap text-xs">
-                              {company.Email && <span className="text-slate-400">{company.Email}</span>}
-                              {company.Phone && <span className="text-slate-500">· {company.Phone}</span>}
-                              {company.Address && <span className="text-slate-500 truncate">· {company.Address}</span>}
-                            </div>
-                          </div>
-                          <Button size="sm" variant="outline" className="border-blue-500/50 text-slate-300 ml-4"
-                            onClick={() => setCompanyModal({ open: true, company })}>
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ===== TEAM ===== */}
-          {activeTab === "team" && (
-            <Card className="bg-slate-800/50 border-blue-500/20">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-white">Team — 3D Artists</CardTitle>
-                    <CardDescription className="text-gray-400">All users with role ARTIST</CardDescription>
-                  </div>
-                  <Button onClick={fetchArtists} variant="outline" size="sm" className="border-slate-600 text-slate-300" disabled={artistsLoading}>
-                    <RefreshCw className={`w-4 h-4 ${artistsLoading ? "animate-spin" : ""}`} />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {artistsLoading ? (
-                  <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 text-cyan-400 animate-spin" /></div>
-                ) : artistsError ? (
-                  <div className="flex flex-col items-center py-12 gap-3">
-                    <AlertCircle className="w-8 h-8 text-red-400" />
-                    <p className="text-red-400">{artistsError}</p>
-                    <Button onClick={fetchArtists} variant="outline" className="border-slate-600 text-slate-300">Retry</Button>
-                  </div>
-                ) : artists.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Users className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                    <p className="text-slate-400">No artists found.</p>
-                  </div>
-                ) : artists.map(artist => (
-                  <div key={artist.UserId} className="flex items-center justify-between p-4 rounded-lg bg-slate-900/50 border border-blue-500/10">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">
-                        {artist.UserName.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-white font-medium">{artist.UserName}</p>
-                        <p className="text-slate-400 text-sm">{artist.Email ?? "No email"}</p>
-                        {artist.Phone && <p className="text-slate-500 text-xs">{artist.Phone}</p>}
-                      </div>
-                    </div>
-                    <Badge className={artist.IsActive ? "bg-green-600" : "bg-slate-600"}>
-                      {artist.IsActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0d1324] border border-white/[0.06]">
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-ping" />
+          <span className="text-xs font-semibold text-slate-300">Live Management Stream</span>
         </div>
       </div>
 
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[
+          { label: "Total Revenue", value: paymentsLoading ? null : fmt(totalRevenue), sub: `${paidPayments.length} paid orders`, color: "from-blue-500/5 via-blue-500/10 to-transparent border-blue-500/20", icon: DollarSign, iconColor: "text-blue-400" },
+          { label: "Active Orders", value: ordersLoading ? null : activeOrders, sub: `${newOrderCount} unassigned briefs`, color: "from-emerald-500/5 via-emerald-500/10 to-transparent border-emerald-500/20", icon: Package, iconColor: "text-emerald-400" },
+          { label: "Client Companies", value: companiesLoading ? null : companies.length, sub: `${companies.filter(c => String(c.Status) === "ACTIVE").length} active brands`, color: "from-purple-500/5 via-purple-500/10 to-transparent border-purple-500/20", icon: Building2, iconColor: "text-purple-400" },
+          { label: "3D Artists", value: artistsLoading ? null : artists.length, sub: `${artists.filter(a => a.IsActive).length} currently active`, color: "from-pink-500/5 via-pink-500/10 to-transparent border-pink-500/20", icon: Users, iconColor: "text-pink-400" },
+          { label: "Catalog Assets", value: assetsLoading ? null : assets.length, sub: pendingAssets > 0 ? `${pendingAssets} pending review` : "All models approved", color: "from-amber-500/5 via-amber-500/10 to-transparent border-amber-500/20", icon: Box, iconColor: "text-amber-400" },
+        ].map(({ label, value, sub, color, icon: Icon, iconColor }) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -4, scale: 1.01 }}
+            className={`bg-gradient-to-br ${color} border rounded-2xl p-5 backdrop-blur-sm transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col justify-between`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+              <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <Icon className={`w-4 h-4 ${iconColor}`} />
+              </div>
+            </div>
+            <div>
+              {value === null ? (
+                <div className="w-5 h-5 border-2 border-white/10 border-t-white/60 rounded-full animate-spin my-1" />
+              ) : (
+                <>
+                  <p className="text-xl font-extrabold text-white tracking-tight leading-none truncate">{value}</p>
+                  <p className="text-[10px] text-slate-500 mt-1.5 font-medium">{sub}</p>
+                </>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="space-y-6">
+        <div className="flex gap-1.5 p-1 rounded-xl bg-[#0d1324]/50 border border-white/[0.06] w-full sm:w-fit flex-wrap sm:flex-nowrap overflow-x-auto relative">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`relative flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-300 whitespace-nowrap cursor-pointer ${
+                  isActive ? "text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeTabIndicator"
+                    className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 border border-purple-500/40 rounded-lg"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <Icon className="w-4 h-4 relative z-10 shrink-0" />
+                <span className="relative z-10">{label}</span>
+                {id === "orders" && newOrderCount > 0 && (
+                  <span className="relative z-10 ml-1.5 bg-amber-500 text-black text-[10px] rounded-full px-1.5 py-0.5 font-extrabold leading-none">
+                    {newOrderCount}
+                  </span>
+                )}
+                {id === "catalog" && pendingAssets > 0 && (
+                  <span className="relative z-10 ml-1.5 bg-orange-500 text-white text-[10px] rounded-full px-1.5 py-0.5 font-extrabold leading-none">
+                    {pendingAssets}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content area with transition */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="outline-none"
+          >
+            {/* ===== OVERVIEW ===== */}
+            {activeTab === "overview" && (
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Revenue Chart */}
+                  <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-white text-base font-bold">Revenue Distribution</CardTitle>
+                          <CardDescription className="text-slate-400 text-xs">Monthly accumulated PAID orders</CardDescription>
+                        </div>
+                        {paymentsLoading && <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={230}>
+                        <AreaChart data={chartData.length > 0 ? chartData : [{ month: "—", revenue: 0 }]} margin={{ top: 10, right: 5, left: -10, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="revenueGlow" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.25} />
+                              <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                          <XAxis dataKey="month" stroke="#64748b" fontSize={11} />
+                          <YAxis stroke="#64748b" tickFormatter={(v) => `${(v/1e6).toFixed(0)}M`} fontSize={11} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: "#0d1324", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px" }}
+                            formatter={(v: any) => [`${v?.toLocaleString("vi-VN") ?? 0} ₫`, "Revenue"]}
+                          />
+                          <Area type="monotone" dataKey="revenue" stroke="#06b6d4" strokeWidth={2.5} fillOpacity={1} fill="url(#revenueGlow)" dot={{ fill: "#06b6d4", r: 4 }} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+
+                  {/* Order Status Pie Chart */}
+                  <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-white text-base font-bold">Order Workload Status</CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">Production progress breakdown</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-center">
+                      {ordersLoading ? (
+                        <div className="flex items-center justify-center h-[230px]"><Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /></div>
+                      ) : orderStatusData.length === 0 ? (
+                        <div className="flex items-center justify-center h-[230px] text-slate-500 text-xs font-semibold">No briefs in progress</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height={230}>
+                          <PieChart>
+                            <Pie
+                              data={orderStatusData}
+                              cx="50%"
+                              cy="50%"
+                              labelLine={false}
+                              label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+                              outerRadius={75}
+                              dataKey="value"
+                              fontSize={10.5}
+                              stroke="#0d1324"
+                              strokeWidth={2}
+                            >
+                              {orderStatusData.map((e, i) => (
+                                <Cell key={i} fill={e.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: "#0d1324", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "12px" }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Recent Payments Section */}
+                <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                  <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="text-white text-base font-bold">Recent Paid Ledger</CardTitle>
+                        <CardDescription className="text-slate-400 text-xs">Verified deposits and catalog conversions</CardDescription>
+                      </div>
+                      <Button onClick={fetchPayments} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={paymentsLoading}>
+                        <RefreshCw className={`w-3.5 h-3.5 ${paymentsLoading ? "animate-spin" : ""}`} />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4">
+                    {paymentsLoading ? (
+                      <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 text-purple-400 animate-spin" /></div>
+                    ) : paidPayments.length === 0 ? (
+                      <p className="text-center text-slate-500 py-12 text-xs font-semibold">No paid transaction records logged</p>
+                    ) : (
+                      <div className="max-h-[380px] overflow-y-auto pr-1.5 space-y-2 custom-scrollbar">
+                        {paidPayments.slice(0, 10).map((p: Payment) => (
+                          <div key={p.PaymentId} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-blue-500/20 hover:bg-[#0d1324]/40 transition-all gap-4">
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center flex-shrink-0">
+                                <DollarSign className="w-4.5 h-4.5 text-emerald-400" />
+                              </div>
+                              <div className="min-w-0 space-y-1">
+                                <p className="text-white font-semibold text-sm truncate flex items-center gap-2">
+                                  {p.BuyerName || p.CompanyName || "Generic Brand"}
+                                  {p.CompanyEmail && <span className="text-[10px] text-slate-500 font-normal">({p.CompanyEmail})</span>}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-400">
+                                  <span className="text-cyan-400 font-bold tracking-tight text-[10px]">PAY-{p.PaymentId}</span>
+                                  <span className="text-slate-600">·</span>
+                                  <span className="flex items-center gap-1">
+                                    {p.PaymentType === 'ASSET' ? <Box className="w-3.5 h-3.5 text-purple-400 shrink-0" /> : <Package className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
+                                    <span className="truncate">{p.ProjectName || p.AssetName || (p.PaymentType === 'ASSET' ? 'Marketplace Asset' : 'Creative Project')}</span>
+                                  </span>
+                                  <span className="text-slate-600">·</span>
+                                  <span className="text-slate-500 font-mono text-[10px]">
+                                    {p.OrderId ? `CR-${p.OrderId}` : p.MpOrderId ? `MP-${p.MpOrderId}` : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 border-white/[0.04] pt-3.5 md:pt-0">
+                              <div className="flex flex-col items-end">
+                                <span className="text-emerald-400 font-bold text-base">{fmt(p.Amount)}</span>
+                                <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500">
+                                  <Calendar className="w-3 h-3" />
+                                  {p.PaymentDate ? new Date(p.PaymentDate).toLocaleDateString("vi-VN") : "—"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Action panel */}
+                <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                  <CardHeader className="pb-3"><CardTitle className="text-white text-base font-bold">Download Reports</CardTitle></CardHeader>
+                  <CardContent className="flex flex-wrap gap-2.5">
+                    {["Revenue Statement (PDF)", "Dispatch Analytics (CSV)", "Audit Ledger (Excel)"].map(label => (
+                      <Button key={label} variant="outline" className="border-white/[0.08] hover:border-purple-500/30 text-slate-300 hover:text-purple-400 rounded-xl text-xs font-bold bg-[#0d1324]/30">
+                        <Download className="w-4 h-4 mr-2" /> {label}
+                      </Button>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* ===== ORDERS ===== */}
+            {activeTab === "orders" && <OrdersTab artists={artists} />}
+
+            {/* ===== CATALOG MANAGEMENT ===== */}
+            {activeTab === "catalog" && (
+              <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div>
+                      <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+                        <Box className="w-5 h-5 text-purple-400 shrink-0" />
+                        Asset Catalog
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">
+                        Audit upload queues, approve artist assets, and regulate prices
+                      </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {pendingAssets > 0 && (
+                        <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold">
+                          {pendingAssets} pending
+                        </Badge>
+                      )}
+                      <Button onClick={fetchAssets} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={assetsLoading}>
+                        <RefreshCw className={`w-3.5 h-3.5 ${assetsLoading ? "animate-spin" : ""}`} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Publish Status filter */}
+                  <div className="flex flex-wrap gap-1.5 mt-4">
+                    {["ALL", "DRAFT", "PENDING", "PUBLISHED", "REJECTED"].map(s => {
+                      const label = s === "ALL" ? "All Statuses" : ASSET_PUBLISH_CONFIG[s]?.label ?? s;
+                      const active = filterPublish === s;
+                      return (
+                        <button
+                          key={s}
+                          onClick={() => setFilterPublish(s)}
+                          className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${
+                            active
+                              ? "bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/10"
+                              : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
+                          }`}
+                        >
+                          {label}
+                          {s !== "ALL" && <span className="ml-1 opacity-50">({assets.filter(a => a.PublishStatus === s).length})</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-4">
+                  {assetsLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+                    </div>
+                  ) : assetsError ? (
+                    <div className="flex flex-col items-center py-12 gap-3">
+                      <AlertCircle className="w-8 h-8 text-rose-400" />
+                      <p className="text-rose-400 text-xs">{assetsError}</p>
+                      <Button onClick={fetchAssets} variant="outline" className="border-white/[0.08] text-slate-300">Retry</Button>
+                    </div>
+                  ) : filteredAssets.length === 0 ? (
+                    <div className="text-center py-16 border border-dashed border-white/[0.06] rounded-2xl">
+                      <Box className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                      <p className="text-slate-400 text-sm font-semibold">No assets found matching filters</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[480px] overflow-y-auto pr-1.5 space-y-2.5 custom-scrollbar">
+                      {filteredAssets.map(asset => {
+                        const publishCfg = ASSET_PUBLISH_CONFIG[asset.PublishStatus] ?? { label: asset.PublishStatus, color: "bg-slate-600/10 text-slate-300 border-slate-500/20" };
+                        return (
+                          <div key={asset.AssetId} className="flex items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-purple-500/20 hover:bg-[#0d1324]/40 transition-all gap-4">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <p className="text-white font-semibold text-sm truncate">{asset.AssetName}</p>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${publishCfg.color}`}>
+                                  {publishCfg.label}
+                                </span>
+                                {asset.Category && (
+                                  <span className="text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                                    {asset.Category}
+                                  </span>
+                                )}
+                                {Number(asset.IsMarketplace) === 1 && (
+                                  <span className="text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                                    Marketplace Store
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2.5 flex-wrap text-xs text-slate-500 font-medium">
+                                <span className="flex items-center gap-1 font-mono text-[10px] text-slate-400"><Tag className="w-3 h-3" />#{asset.AssetId}</span>
+                                <span>·</span>
+                                {asset.Industry && <span>{asset.Industry}</span>}
+                                {asset.Industry && <span>·</span>}
+                                {asset.Price != null && <span className="text-emerald-400 font-semibold">${asset.Price.toLocaleString()}</span>}
+                                {asset.Price != null && <span>·</span>}
+                                <span>Registered {new Date(asset.CreatedAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {asset.PublishStatus === "PENDING" && (
+                                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-8 px-3"
+                                  onClick={() => setEditingAsset(asset)}>
+                                  Approve
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline" className="border-white/[0.08] hover:border-purple-500/30 hover:bg-purple-500/5 text-slate-300 hover:text-purple-400 rounded-xl h-8 w-8 p-0"
+                                onClick={() => setEditingAsset(asset)}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ===== COMPANIES ===== */}
+            {activeTab === "companies" && (
+              <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-indigo-400 shrink-0" />
+                        Client Accounts
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">Register and moderate brand corporate profiles</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={fetchCompanies} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={companiesLoading}>
+                        <RefreshCw className={`w-3.5 h-3.5 ${companiesLoading ? "animate-spin" : ""}`} />
+                      </Button>
+                      <Button onClick={() => setCompanyModal({ open: true, company: null })} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl h-9">
+                        <Plus className="w-4 h-4 mr-1.5" /> Add Company
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {companiesLoading ? (
+                    <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /></div>
+                  ) : companiesError ? (
+                    <div className="flex flex-col items-center py-12 gap-3">
+                      <AlertCircle className="w-8 h-8 text-rose-400" />
+                      <p className="text-rose-400 text-xs">{companiesError}</p>
+                      <Button onClick={fetchCompanies} variant="outline" className="border-white/[0.08] text-slate-300">Retry</Button>
+                    </div>
+                  ) : companies.length === 0 ? (
+                    <div className="text-center py-16 border border-dashed border-white/[0.06] rounded-2xl">
+                      <Building2 className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                      <p className="text-slate-400 text-sm font-semibold">No registered companies</p>
+                      <Button onClick={() => setCompanyModal({ open: true, company: null })} className="mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs rounded-xl font-bold">
+                        <Plus className="w-4 h-4 mr-1.5" /> Add First Company
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="max-h-[480px] overflow-y-auto pr-1.5 space-y-2.5 custom-scrollbar">
+                      {companies.map(company => {
+                        const sCfg = getCompanyStatusCfg(String(company.Status ?? ""));
+                        return (
+                          <div key={company.CompanyId} className="flex items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-indigo-500/20 hover:bg-[#0d1324]/40 transition-all gap-4">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <p className="text-white font-semibold text-sm truncate">{company.CompanyName}</p>
+                                {company.CompanyType && (
+                                  <span className="text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full">
+                                    {String(company.CompanyType)}
+                                  </span>
+                                )}
+                                {sCfg && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${sCfg.color}`}>{sCfg.label}</span>}
+                              </div>
+                              <div className="flex items-center gap-2.5 flex-wrap text-xs text-slate-500 font-medium">
+                                {company.Email && <span className="text-slate-400">{company.Email}</span>}
+                                {company.Phone && <span>·</span>}
+                                {company.Phone && <span>{company.Phone}</span>}
+                                {company.Address && <span>·</span>}
+                                {company.Address && <span className="truncate">{company.Address}</span>}
+                              </div>
+                            </div>
+                            <Button size="sm" variant="outline" className="border-white/[0.08] hover:border-indigo-500/30 hover:bg-indigo-500/5 text-slate-300 hover:text-indigo-400 rounded-xl h-8 w-8 p-0 shrink-0"
+                              onClick={() => setCompanyModal({ open: true, company })}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* ===== TEAM ===== */}
+            {activeTab === "team" && (
+              <Card className="bg-[#0d1324]/50 border-white/[0.06] backdrop-blur-sm rounded-2xl overflow-hidden shadow-lg">
+                <CardHeader className="border-b border-white/[0.06] pb-4 bg-white/[0.01]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-white text-base font-bold flex items-center gap-2">
+                        <Users className="w-5 h-5 text-pink-400 shrink-0" />
+                        Artist Directory
+                      </CardTitle>
+                      <CardDescription className="text-slate-400 text-xs">Verify work states and assign logs for active 3D artists</CardDescription>
+                    </div>
+                    <Button onClick={fetchArtists} variant="outline" size="sm" className="border-white/[0.08] text-slate-300 hover:bg-white/[0.02]" disabled={artistsLoading}>
+                      <RefreshCw className={`w-3.5 h-3.5 ${artistsLoading ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4">
+                  {artistsLoading ? (
+                    <div className="flex items-center justify-center py-12"><Loader2 className="w-8 h-8 text-indigo-400 animate-spin" /></div>
+                  ) : artistsError ? (
+                    <div className="flex flex-col items-center py-12 gap-3">
+                      <AlertCircle className="w-8 h-8 text-rose-400" />
+                      <p className="text-rose-400 text-xs">{artistsError}</p>
+                      <Button onClick={fetchArtists} variant="outline" className="border-white/[0.08] text-slate-300">Retry</Button>
+                    </div>
+                  ) : artists.length === 0 ? (
+                    <div className="text-center py-16 border border-dashed border-white/[0.06] rounded-2xl">
+                      <Users className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                      <p className="text-slate-400 text-sm font-semibold">No artists registered in the system</p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[480px] overflow-y-auto pr-1.5 space-y-2.5 custom-scrollbar">
+                      {artists.map(artist => (
+                        <div key={artist.UserId} className="flex items-center justify-between p-4 rounded-xl bg-[#080d1a]/50 border border-white/[0.04] hover:border-pink-500/20 hover:bg-[#0d1324]/40 transition-all gap-4">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-500/20 to-purple-500/20 border border-pink-500/30 flex items-center justify-center text-pink-300 font-extrabold text-sm flex-shrink-0">
+                              {artist.UserName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white font-semibold text-sm truncate">{artist.UserName}</p>
+                              <p className="text-slate-400 text-xs truncate mt-0.5">{artist.Email ?? "No email address registered"}</p>
+                              {artist.Phone && <p className="text-slate-500 text-[10px] mt-1 font-mono font-medium">{artist.Phone}</p>}
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
+                            artist.IsActive
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                          }`}>
+                            {artist.IsActive ? "Active" : "Inactive"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
       {/* Modals */}
-      {
-        companyModal.open && (
+      <AnimatePresence>
+        {companyModal.open && (
           <CompanyModal
             company={companyModal.company}
             onClose={() => setCompanyModal({ open: false, company: null })}
             onSave={() => { setCompanyModal({ open: false, company: null }); fetchCompanies(); }}
           />
-        )
-      }
-      {
-        editingAsset && (
+        )}
+      </AnimatePresence>
+      
+      <AnimatePresence>
+        {editingAsset && (
           <AssetEditModal
             asset={editingAsset}
             onClose={() => setEditingAsset(null)}
             onSave={() => { setEditingAsset(null); fetchAssets(); }}
           />
-        )
-      }
-    </div >
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

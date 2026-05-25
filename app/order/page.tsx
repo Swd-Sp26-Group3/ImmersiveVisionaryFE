@@ -280,7 +280,7 @@ export default function OrderProductPage() {
                       placeholder="e.g., XYZ Phone 3D Model"
                       value={form.projectName}
                       onChange={(e) => updateForm("projectName", e.target.value)}
-                      className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-gray-500"
+                      className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-slate-400"
                     />
                   </div>
 
@@ -291,7 +291,7 @@ export default function OrderProductPage() {
                       <SelectTrigger id="product-type" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30">
+                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
                         <SelectItem value="Electronics">Electronics</SelectItem>
                         <SelectItem value="Furniture">Furniture</SelectItem>
                         <SelectItem value="Fashion">Fashion</SelectItem>
@@ -313,7 +313,7 @@ export default function OrderProductPage() {
                     rows={5}
                     value={form.description}
                     onChange={(e) => updateForm("description", e.target.value)}
-                    className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-gray-500"
+                    className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-slate-400"
                   />
                 </div>
 
@@ -325,7 +325,7 @@ export default function OrderProductPage() {
                       <SelectTrigger id="deadline" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Select deadline" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30">
+                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
                         <SelectItem value="standard">Standard (7–10 days)</SelectItem>
                         <SelectItem value="express">Express (3–5 days)</SelectItem>
                         <SelectItem value="rush">Rush (1–2 days)</SelectItem>
@@ -340,7 +340,7 @@ export default function OrderProductPage() {
                       <SelectTrigger id="budget" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Select budget" />
                       </SelectTrigger>
-                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30">
+                      <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
                         <SelectItem value="100k-250k">100.000 – 250.000 ₫</SelectItem>
                         <SelectItem value="250k-750k">250.000 – 750.000 ₫</SelectItem>
                         <SelectItem value="750k-1250k">750.000 – 1.250.000 ₫</SelectItem>

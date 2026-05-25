@@ -118,7 +118,7 @@ export function ProductModal({ product, onClose, onSave }: ProductModalProps) {
                   <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
                     <SelectValue placeholder="Select company" />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectContent className="bg-slate-800 border-slate-600 text-white">
                     {activeCompanies.map((c) => (
                       <SelectItem key={c.CompanyId} value={String(c.CompanyId)}>
                         {c.CompanyName}
@@ -152,7 +152,7 @@ export function ProductModal({ product, onClose, onSave }: ProductModalProps) {
               <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-600">
+              <SelectContent className="bg-slate-800 border-slate-600 text-white">
                 {["Cosmetics", "Fashion", "Food & Beverage", "Electronics", "Home Decor", "Other"].map((c) => (
                   <SelectItem key={c} value={c}>{c}</SelectItem>
                 ))}

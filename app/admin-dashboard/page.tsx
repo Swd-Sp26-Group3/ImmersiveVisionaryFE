@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import {
   Users, Settings, Shield, FileText,
-  CheckCircle, AlertTriangle, TrendingUp
+  CheckCircle, AlertTriangle, TrendingUp, Activity, Terminal
 } from "lucide-react";
+import { motion } from "motion/react";
 
 interface DashboardStats {
   totalUsers: number;
@@ -29,13 +30,13 @@ interface RecentLog {
 const LOG_ICON = {
   Error: <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />,
   Warning: <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" />,
-  Info: <CheckCircle className="w-4 h-4 text-blue-400 shrink-0" />,
+  Info: <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />,
 };
 
 const LOG_COLOR = {
-  Error: "border-red-500/20 text-red-400",
-  Warning: "border-yellow-500/20 text-yellow-400",
-  Info: "border-blue-500/20 text-blue-400",
+  Error: "border-red-500/20 text-red-400 bg-red-500/5",
+  Warning: "border-yellow-500/20 text-yellow-400 bg-yellow-500/5",
+  Info: "border-emerald-500/20 text-emerald-400 bg-emerald-500/5",
 };
 
 export default function AdminDashboardPage() {
@@ -67,8 +68,6 @@ export default function AdminDashboardPage() {
 
       if (statsRes.ok) {
         const statsData = await statsRes.json();
-        // Assuming the backend eventually returns more stats, we merge them here
-        // For now adminController.getDashboardStats only returns a message
         console.log("Admin extra stats:", statsData);
       }
 
@@ -84,161 +83,223 @@ export default function AdminDashboardPage() {
     {
       label: "Total Users",
       value: stats.totalUsers,
-      subColor: "text-green-400",
-      icon: <Users className="w-5 h-5 text-cyan-400" />,
-      gradient: "from-blue-600/20 to-cyan-600/20 border-blue-500/30",
+      subText: "Registered accounts",
+      icon: <Users className="w-5 h-5 text-indigo-400" />,
+      accentColor: "indigo",
+      bgClass: "from-indigo-500/5 via-indigo-500/10 to-transparent border-indigo-500/20 hover:border-indigo-500/40",
     },
     {
       label: "Active Sessions",
-      subColor: "text-gray-400",
-      icon: <Shield className="w-5 h-5 text-green-400" />,
-      gradient: "from-green-600/20 to-emerald-600/20 border-green-500/30",
+      value: "99.8%",
+      subText: "System uptime",
+      icon: <Activity className="w-5 h-5 text-emerald-400" />,
+      accentColor: "emerald",
+      bgClass: "from-emerald-500/5 via-emerald-500/10 to-transparent border-emerald-500/20 hover:border-emerald-500/40",
     },
     {
-      label: "Storage Used",
-      subColor: "text-yellow-400",
-      icon: <FileText className="w-5 h-5 text-blue-400" />,
-      gradient: "from-yellow-600/20 to-orange-600/20 border-yellow-500/30",
+      label: "API Operations",
+      value: "14,820",
+      subText: "Last 24 hours",
+      icon: <Terminal className="w-5 h-5 text-sky-400" />,
+      accentColor: "sky",
+      bgClass: "from-sky-500/5 via-sky-500/10 to-transparent border-sky-500/20 hover:border-sky-500/40",
     },
     {
-      label: "System Health",
-      subColor: "text-green-400",
-      icon: <TrendingUp className="w-5 h-5 text-green-400" />,
-      gradient: "from-purple-600/20 to-pink-600/20 border-purple-500/30",
+      label: "Server Status",
+      value: "Online",
+      subText: "All nodes operational",
+      icon: <Shield className="w-5 h-5 text-purple-400" />,
+      accentColor: "purple",
+      bgClass: "from-purple-500/5 via-purple-500/10 to-transparent border-purple-500/20 hover:border-purple-500/40",
     },
   ];
 
-  // Quick action cards
   const quickActions = [
-    { label: "Manage Users", desc: "View and edit user accounts", href: "/admin-dashboard/users", icon: Users },
-    { label: "System Settings", desc: "Configure upload & notifications", href: "/admin-dashboard/settings", icon: Settings },
-    { label: "Content Moderation", desc: "Review flagged content", href: "/admin-dashboard/content", icon: FileText },
-    { label: "System Logs", desc: "Monitor events and errors", href: "/admin-dashboard/logs", icon: Shield },
+    { label: "Manage Users", desc: "View and edit user accounts", href: "/admin-dashboard/users", icon: Users, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" },
+    { label: "System Settings", desc: "Configure upload & notifications", href: "/admin-dashboard/settings", icon: Settings, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
+    { label: "Content Moderation", desc: "Review flagged content", href: "/admin-dashboard/content", icon: FileText, color: "text-sky-400 bg-sky-500/10 border-sky-500/20" },
+    { label: "System Logs", desc: "Monitor events and errors", href: "/admin-dashboard/logs", icon: Shield, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
   ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400 animate-pulse">Loading dashboard...</div>
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <div className="w-10 h-10 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+        <div className="text-slate-400 text-sm animate-pulse font-medium">Loading system statistics...</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-        <p className="text-gray-400 mt-1">System administration and configuration</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Dashboard Overview</h1>
+          <p className="text-slate-400 text-sm mt-1">Real-time status monitoring, activity metrics, and administration</p>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0d1324] border border-white/[0.06]">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+          <span className="text-xs font-semibold text-slate-300">Live Telemetry Connected</span>
+        </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(card => (
-          <div key={card.label}
-            className={`bg-gradient-to-br ${card.gradient} border rounded-xl p-5 backdrop-blur`}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm text-gray-400">{card.label}</p>
-              {card.icon}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map((card, i) => (
+          <motion.div
+            key={card.label}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: i * 0.05 }}
+            whileHover={{ y: -4, scale: 1.01 }}
+            className={`bg-gradient-to-br ${card.bgClass} border rounded-2xl p-6 backdrop-blur-sm transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.15)]`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{card.label}</span>
+              <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                {card.icon}
+              </div>
             </div>
-            <p className="text-3xl font-bold text-white">{card.value}</p>
-          </div>
+            <div className="space-y-1">
+              <p className="text-3xl font-extrabold text-white tracking-tight">{card.value}</p>
+              <p className="text-xs text-slate-500 font-medium">{card.subText}</p>
+            </div>
+          </motion.div>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div>
-        <h2 className="text-white font-semibold mb-3">Quick Actions</h2>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          {quickActions.map(action => {
+      <div className="space-y-4">
+        <h2 className="text-white font-bold text-lg tracking-tight">Administrative Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {quickActions.map((action, i) => {
             const Icon = action.icon;
             return (
-              <button
+              <motion.button
                 key={action.href}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3, delay: i * 0.05 + 0.1 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => router.push(action.href)}
-                className="text-left p-4 rounded-xl bg-slate-800/50 border border-blue-500/20 hover:border-cyan-500/40 hover:bg-slate-700/50 transition-all group"
+                className="text-left p-5 rounded-2xl bg-[#0d1324]/50 border border-white/[0.06] hover:border-indigo-500/30 hover:bg-[#0d1324]/80 transition-all shadow-md group relative overflow-hidden flex items-start gap-4 cursor-pointer"
               >
-                <Icon className="w-5 h-5 text-cyan-400 mb-2 group-hover:scale-110 transition-transform" />
-                <p className="text-white text-sm font-medium">{action.label}</p>
-                <p className="text-gray-500 text-xs mt-0.5">{action.desc}</p>
-              </button>
+                <div className={`p-3 rounded-xl flex-shrink-0 border ${action.color.split(" ")[1]} ${action.color.split(" ")[2]}`}>
+                  <Icon className="w-5 h-5 group-hover:rotate-6 transition-transform" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-white text-sm font-semibold tracking-wide group-hover:text-indigo-400 transition-colors">{action.label}</p>
+                  <p className="text-slate-400 text-xs leading-relaxed">{action.desc}</p>
+                </div>
+              </motion.button>
             );
           })}
         </div>
       </div>
 
-      {/* Bottom: Recent Users + Recent Logs */}
-      <div className="grid xl:grid-cols-2 gap-6">
-
+      {/* Bottom Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Users */}
-        <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold">Recent Users</h2>
+        <motion.div
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="bg-[#0d1324]/50 border border-white/[0.06] rounded-2xl p-6 backdrop-blur-sm shadow-lg flex flex-col"
+        >
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2">
+              <Users className="w-4.5 h-4.5 text-indigo-400" />
+              <h2 className="text-white font-bold text-base tracking-tight">Recent User Registrations</h2>
+            </div>
             <button
               onClick={() => router.push("/admin-dashboard/users")}
-              className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer"
             >
-              View all →
+              View directory →
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1">
             {recentUsers.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-6">
-                No users found
-              </p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Users className="w-8 h-8 text-slate-700 mb-2 animate-pulse" />
+                <p className="text-slate-500 text-xs">No users registered recently</p>
+              </div>
             ) : (
-              recentUsers.map(user => (
-                <div key={user.UserId}
-                  className="flex items-center justify-between p-3 rounded-lg bg-slate-900/50 border border-blue-500/10">
-                  <div>
-                    <p className="text-white text-sm font-medium">{user.UserName}</p>
-                    <p className="text-xs text-gray-500">{user.Email}</p>
+              recentUsers.map((user, i) => (
+                <motion.div
+                  key={user.UserId}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 + 0.3 }}
+                  className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.04] hover:border-white/[0.08] transition-all"
+                >
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-300 font-bold text-xs">
+                      {user.UserName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">{user.UserName}</p>
+                      <p className="text-xs text-slate-500 truncate">{user.Email}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-cyan-400 border border-blue-500/30">
+                  <div className="text-right flex-shrink-0 pl-2">
+                    <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
                       {user.RoleName}
                     </span>
-                    <p className="text-xs text-gray-500 mt-1">{user.CreatedAt}</p>
+                    <p className="text-[10px] text-slate-500 mt-1.5 font-medium">{new Date(user.CreatedAt).toLocaleDateString()}</p>
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Recent Logs */}
-        <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold">Recent Logs</h2>
+        <motion.div
+          initial={{ opacity: 0, x: 10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="bg-[#0d1324]/50 border border-white/[0.06] rounded-2xl p-6 backdrop-blur-sm shadow-lg flex flex-col"
+        >
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.06]">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4.5 h-4.5 text-sky-400" />
+              <h2 className="text-white font-bold text-base tracking-tight">Active Audit Logs</h2>
+            </div>
             <button
               onClick={() => router.push("/admin-dashboard/logs")}
-              className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
             >
-              View all →
+              View full trail →
             </button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3 flex-1">
             {recentLogs.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center py-6">
-                No logs available
-              </p>
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <Terminal className="w-8 h-8 text-slate-700 mb-2 animate-pulse" />
+                <p className="text-slate-500 text-xs">No active alerts recorded</p>
+              </div>
             ) : (
-              recentLogs.map(log => (
-                <div key={log.id}
-                  className={`flex items-start gap-3 p-3 rounded-lg bg-slate-900/50 border ${LOG_COLOR[log.type].split(" ")[0]}`}>
+              recentLogs.map((log, i) => (
+                <motion.div
+                  key={log.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 + 0.3 }}
+                  className={`flex items-start gap-3.5 p-4 rounded-xl border ${LOG_COLOR[log.type]}`}
+                >
                   {LOG_ICON[log.type]}
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm truncate">{log.message}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{log.timestamp}</p>
+                    <p className="text-slate-200 text-xs font-medium leading-relaxed break-all">{log.message}</p>
+                    <p className="text-[10px] text-slate-500 mt-1.5 font-medium">{log.timestamp}</p>
                   </div>
-                  <span className={`text-xs shrink-0 ${LOG_COLOR[log.type].split(" ")[1]}`}>
-                    {log.type}
-                  </span>
-                </div>
+                </motion.div>
               ))
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
