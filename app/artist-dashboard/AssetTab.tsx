@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   Loader2, Plus, Box, Send, Clock,
-  ShoppingBag, ArrowRight, Sparkles, X, Upload, Eye, AlertCircle, RefreshCw,
+  ShoppingBag, ArrowRight, Sparkles, X, Upload, Eye, AlertCircle, RefreshCw, ImagePlus,
 } from "lucide-react";
 import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import { Button } from "@/app/components/ui/button";
@@ -23,6 +23,8 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     Industry: "", Price: "", PreviewImage: "",
   });
   const [file, setFile] = useState<File | null>(null);
+  const [previewImgFile, setPreviewImgFile] = useState<File | null>(null);
+  const [previewImgDataUrl, setPreviewImgDataUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,12 +34,27 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       setForm((p) => ({ ...p, [key]: e.target.value })),
   });
 
+  // Khi user chọn ảnh preview → đọc thành data URL rồi lưu vào form.PreviewImage
+  const handlePreviewImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const imgFile = e.target.files?.[0];
+    if (!imgFile) return;
+    setPreviewImgFile(imgFile);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setPreviewImgDataUrl(dataUrl);
+      setForm((p) => ({ ...p, PreviewImage: dataUrl }));
+    };
+    reader.readAsDataURL(imgFile);
+  };
+
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
     if (!file) { setError("Please upload a .obj file."); return; }
     setSaving(true);
     setError("");
     try {
+      // Base64Data chỉ dành cho file 3D (.obj)
       const base64Data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -53,8 +70,8 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           Category:     form.Category     || null,
           Industry:     form.Industry     || null,
           Price:        form.Price ? Number(form.Price) : null,
-          PreviewImage: form.PreviewImage || null,
-          Base64Data:   base64Data,
+          PreviewImage: form.PreviewImage || null,  // data URL của ảnh preview
+          Base64Data:   base64Data,                 // base64 chỉ cho file 3D
           AssetType:    "MARKETPLACE",
           IsMarketplace: true,
         }),
@@ -69,12 +86,12 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     }
   };
 
+  // PreviewImage đã tách ra thành file picker riêng, không còn trong TEXT_FIELDS
   const TEXT_FIELDS = [
-    { label: "Asset Name *",      key: "AssetName",    placeholder: "e.g. Luxury Bag 3D Model", type: "text"   },
-    { label: "Category",          key: "Category",     placeholder: "e.g. Fashion, Cosmetics",  type: "text"   },
-    { label: "Industry",          key: "Industry",     placeholder: "e.g. Retail, Beauty",       type: "text"   },
-    { label: "Price (VND)",       key: "Price",        placeholder: "e.g. 5000000",              type: "number" },
-    { label: "Preview Image URL", key: "PreviewImage", placeholder: "https://...",               type: "text"   },
+    { label: "Asset Name *", key: "AssetName", placeholder: "e.g. Luxury Bag 3D Model", type: "text"   },
+    { label: "Category",     key: "Category",  placeholder: "e.g. Fashion, Cosmetics",  type: "text"   },
+    { label: "Industry",     key: "Industry",  placeholder: "e.g. Retail, Beauty",       type: "text"   },
+    { label: "Price (VND)",  key: "Price",     placeholder: "e.g. 5000000",              type: "number" },
   ] as const;
 
   return (
@@ -100,6 +117,36 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
               className="w-full px-3 py-2.5 bg-slate-900/60 border border-white/10 rounded-xl text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/60 transition" />
           </div>
         ))}
+        {/* Preview Image — file picker, đọc ra data URL, KHÔNG dùng Base64Data */}
+        <div className="space-y-1.5">
+          <label className="text-slate-300 text-xs font-medium">Preview Image</label>
+          <div className="relative border border-dashed border-white/10 rounded-xl overflow-hidden hover:border-purple-500/40 transition group cursor-pointer">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePreviewImageChange}
+              className="absolute inset-0 opacity-0 cursor-pointer z-10"
+            />
+            {previewImgDataUrl ? (
+              <div className="relative h-28">
+                <img src={previewImgDataUrl} alt="preview" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                  <ImagePlus className="w-5 h-5 text-white" />
+                  <p className="text-white text-xs font-medium">Đổi ảnh</p>
+                </div>
+                <span className="absolute bottom-1.5 right-2 text-[10px] text-white/60 font-mono">{previewImgFile?.name}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-1.5 py-5">
+                <ImagePlus className="w-5 h-5 text-slate-500 group-hover:text-purple-400 transition" />
+                <p className="text-slate-400 text-xs">Chọn ảnh thumbnail từ máy</p>
+                <p className="text-slate-600 text-[10px]">PNG, JPG, WEBP...</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 3D Model file */}
         <div className="space-y-1.5">
           <label className="text-slate-300 text-xs font-medium">3D Model (.OBJ) *</label>
           <div className="relative border border-dashed border-white/10 rounded-xl p-4 hover:border-cyan-500/40 transition group cursor-pointer">
