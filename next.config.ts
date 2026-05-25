@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-// Use NEXT_PUBLIC_API_URL for consistency, falling back to localhost for local dev.
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+// Use NEXT_PUBLIC_API_URL for consistency, falling back to production API for local dev.
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.immersivevisionary.name.vn";
 
 const nextConfig: NextConfig = {
   eslint: {
