@@ -81,29 +81,41 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
         let currentUrl: string | null = null;
         const processModel = async () => {
             try {
+                // Case 1: already a real URL or blob URL — use directly
                 if (objData.startsWith("http") || objData.startsWith("blob:")) {
                     setBlobUrl(objData);
                     return;
                 }
 
-                let dataUrl = objData;
-                if (!objData.startsWith("data:")) {
-                    // Extract base64 if it's a long raw string, otherwise treat as plain text
-                    const isBase64 = objData.length > 500 && !objData.includes(" ");
-                    if (isBase64) {
-                        dataUrl = `data:application/octet-stream;base64,${objData}`;
-                    } else {
-                        const blob = new Blob([objData], { type: "text/plain" });
-                        currentUrl = URL.createObjectURL(blob);
-                        setBlobUrl(currentUrl);
-                        return;
-                    }
+                // Case 2: data: URL — decode base64 payload directly with atob()
+                // NEVER call fetch() on a data: URL — it throws ERR_INVALID_URL
+                // for non-standard MIME types like model/obj.
+                if (objData.startsWith("data:")) {
+                    const commaIdx = objData.indexOf(",");
+                    if (commaIdx === -1) throw new Error("Malformed data URL");
+                    const b64 = objData.slice(commaIdx + 1);
+                    const binary = atob(b64);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const blob = new Blob([bytes], { type: "text/plain" });
+                    currentUrl = URL.createObjectURL(blob);
+                    setBlobUrl(currentUrl);
+                    return;
                 }
 
-                // Use fetch(dataUrl) for asynchronous decoding
-                const response = await fetch(dataUrl);
-                const blob = await response.blob();
-                currentUrl = URL.createObjectURL(blob);
+                // Case 3: raw string — bare base64 or plain .obj text
+                const isBase64 = objData.length > 500 && !objData.includes(" ") && !objData.includes("\n");
+                if (isBase64) {
+                    const binary = atob(objData);
+                    const bytes = new Uint8Array(binary.length);
+                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                    const blob = new Blob([bytes], { type: "text/plain" });
+                    currentUrl = URL.createObjectURL(blob);
+                } else {
+                    // Plain .obj text content
+                    const blob = new Blob([objData], { type: "text/plain" });
+                    currentUrl = URL.createObjectURL(blob);
+                }
                 setBlobUrl(currentUrl);
             } catch (e) {
                 console.error("3D Viewer Critical Error: Failed to process model data:", e);
@@ -112,11 +124,10 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
 
         processModel();
 
-        // Cleanup: only revoke when effect re-runs or unmounts
+        // Cleanup: revoke blob URL when modal closes or objData changes
         return () => {
             if (currentUrl) {
-                // Small delay to ensure any pending fetch operations can complete
-                // This prevents the "Failed to fetch" error during rapid re-renders
+                // Small delay to let any in-progress render finish before revoking
                 setTimeout(() => URL.revokeObjectURL(currentUrl!), 1000);
             }
         };
