@@ -68,39 +68,56 @@ function Model({ blobUrl }: { blobUrl: string }) {
     );
 }
 
-// Helper to safely decode Base64 strings in the browser, handling URL-encoding,
-// whitespace, URL-safe characters, and missing padding.
-const safeAtob = (str: string): string => {
+// Custom robust Base64 to Uint8Array decoder.
+// Bypasses browser atob() entirely to prevent any possible InvalidCharacterError.
+// It ignores invalid characters, handles URL-safe base64, and handles padding automatically.
+const base64ToBytes = (str: string): Uint8Array => {
     let cleanStr = str;
     const commaIdx = cleanStr.indexOf(",");
     if (commaIdx !== -1) {
         cleanStr = cleanStr.slice(commaIdx + 1);
     }
-    
+
     // Decode URL-encoded base64 characters directly
     cleanStr = cleanStr.replace(/%2B/gi, "+").replace(/%2F/gi, "/").replace(/%3D/gi, "=");
+
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     
-    // Strip all whitespace
-    cleanStr = cleanStr.replace(/\s/g, "");
+    // Support URL-safe base64 characters by mapping them
+    const normalized: string[] = [];
+    for (let i = 0; i < cleanStr.length; i++) {
+        const char = cleanStr[i];
+        if (char === "-") normalized.push("+");
+        else if (char === "_") normalized.push("/");
+        else if (alphabet.indexOf(char) !== -1) {
+            normalized.push(char);
+        }
+    }
+    const clean = normalized.join("");
     
-    // Convert URL-safe base64 to standard base64
-    cleanStr = cleanStr.replace(/-/g, "+").replace(/_/g, "/");
-    
-    // Pad to multiple of 4
-    while (cleanStr.length % 4) {
-        cleanStr += "=";
+    // Build lookup table
+    const lookup = new Uint8Array(256);
+    for (let i = 0; i < alphabet.length; i++) {
+        lookup[alphabet.charCodeAt(i)] = i;
     }
     
-    // Detect and log any invalid base64 characters
-    const invalidChars = cleanStr.match(/[^A-Za-z0-9+/=]/g);
-    if (invalidChars) {
-        const uniqueInvalids = Array.from(new Set(invalidChars));
-        console.error("3D Viewer: Invalid base64 characters found in data:", uniqueInvalids);
-        // Strip invalid characters as a safe fallback to prevent atob crashes
-        cleanStr = cleanStr.replace(/[^A-Za-z0-9+/=]/g, "");
+    const len = clean.length;
+    const numBytes = Math.floor((len * 3) / 4);
+    const bytes = new Uint8Array(numBytes);
+    
+    let p = 0;
+    for (let i = 0; i < len; i += 4) {
+        const c1 = lookup[clean.charCodeAt(i)] || 0;
+        const c2 = lookup[clean.charCodeAt(i + 1)] || 0;
+        const c3 = lookup[clean.charCodeAt(i + 2)] || 0;
+        const c4 = lookup[clean.charCodeAt(i + 3)] || 0;
+        
+        if (p < numBytes) bytes[p++] = (c1 << 2) | (c2 >> 4);
+        if (p < numBytes) bytes[p++] = ((c2 & 15) << 4) | (c3 >> 2);
+        if (p < numBytes) bytes[p++] = ((c3 & 3) << 6) | c4;
     }
     
-    return atob(cleanStr);
+    return bytes;
 };
 
 export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
@@ -124,10 +141,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
 
                 // Case 2: data: URL — decode base64 payload safely
                 if (objData.startsWith("data:")) {
-                    const binary = safeAtob(objData);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    const blob = new Blob([bytes], { type: "text/plain" });
+                    const bytes = base64ToBytes(objData);
+                    const blob = new Blob([bytes as any], { type: "text/plain" });
                     currentUrl = URL.createObjectURL(blob);
                     setBlobUrl(currentUrl);
                     return;
@@ -136,10 +151,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 // Case 3: raw string — bare base64 or plain .obj text
                 const isBase64 = objData.length > 500 && !objData.includes(" ") && !objData.includes("\n");
                 if (isBase64) {
-                    const binary = safeAtob(objData);
-                    const bytes = new Uint8Array(binary.length);
-                    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                    const blob = new Blob([bytes], { type: "text/plain" });
+                    const bytes = base64ToBytes(objData);
+                    const blob = new Blob([bytes as any], { type: "text/plain" });
                     currentUrl = URL.createObjectURL(blob);
                 } else {
                     // Plain .obj text content
