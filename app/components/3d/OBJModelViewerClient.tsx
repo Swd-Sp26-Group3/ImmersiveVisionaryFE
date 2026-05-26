@@ -76,16 +76,30 @@ const safeAtob = (str: string): string => {
     if (commaIdx !== -1) {
         cleanStr = cleanStr.slice(commaIdx + 1);
     }
-    try {
-        cleanStr = decodeURIComponent(cleanStr);
-    } catch (e) {
-        // Not URL encoded, continue
-    }
+    
+    // Decode URL-encoded base64 characters directly
+    cleanStr = cleanStr.replace(/%2B/gi, "+").replace(/%2F/gi, "/").replace(/%3D/gi, "=");
+    
+    // Strip all whitespace
     cleanStr = cleanStr.replace(/\s/g, "");
+    
+    // Convert URL-safe base64 to standard base64
     cleanStr = cleanStr.replace(/-/g, "+").replace(/_/g, "/");
+    
+    // Pad to multiple of 4
     while (cleanStr.length % 4) {
         cleanStr += "=";
     }
+    
+    // Detect and log any invalid base64 characters
+    const invalidChars = cleanStr.match(/[^A-Za-z0-9+/=]/g);
+    if (invalidChars) {
+        const uniqueInvalids = Array.from(new Set(invalidChars));
+        console.error("3D Viewer: Invalid base64 characters found in data:", uniqueInvalids);
+        // Strip invalid characters as a safe fallback to prevent atob crashes
+        cleanStr = cleanStr.replace(/[^A-Za-z0-9+/=]/g, "");
+    }
+    
     return atob(cleanStr);
 };
 
