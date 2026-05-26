@@ -120,6 +120,39 @@ const base64ToBytes = (str: string): Uint8Array => {
     return bytes;
 };
 
+const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
+    // Check for GZIP magic header: 0x1f 0x8b
+    if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        try {
+            const ds = new DecompressionStream("gzip");
+            const writer = ds.writable.getWriter();
+            writer.write(bytes);
+            writer.close();
+            
+            const chunks: Uint8Array[] = [];
+            const reader = ds.readable.getReader();
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                chunks.push(value);
+            }
+            
+            const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+            const decompressed = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const chunk of chunks) {
+                decompressed.set(chunk, offset);
+                offset += chunk.length;
+            }
+            return decompressed;
+        } catch (err) {
+            console.error("Failed client-side decompression of gzip bytes:", err);
+            return bytes;
+        }
+    }
+    return bytes;
+};
+
 export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
@@ -133,32 +166,42 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
         let currentUrl: string | null = null;
         const processModel = async () => {
             try {
+                let dataToProcess = objData;
+                let isExplicitGzip = false;
+                
+                if (dataToProcess.startsWith("gzip:")) {
+                    dataToProcess = dataToProcess.slice(5);
+                    isExplicitGzip = true;
+                }
+
                 // Case 1: already a real URL or blob URL — use directly
-                if (objData.startsWith("http") || objData.startsWith("blob:")) {
-                    setBlobUrl(objData);
+                if (!isExplicitGzip && (dataToProcess.startsWith("http") || dataToProcess.startsWith("blob:"))) {
+                    setBlobUrl(dataToProcess);
                     return;
                 }
 
-                // Case 2: data: URL — decode base64 payload safely
-                if (objData.startsWith("data:")) {
-                    const bytes = base64ToBytes(objData);
-                    const blob = new Blob([bytes as any], { type: "text/plain" });
-                    currentUrl = URL.createObjectURL(blob);
-                    setBlobUrl(currentUrl);
-                    return;
-                }
-
-                // Case 3: raw string — bare base64 or plain .obj text
-                const isBase64 = objData.length > 500 && !objData.includes(" ") && !objData.includes("\n");
-                if (isBase64) {
-                    const bytes = base64ToBytes(objData);
-                    const blob = new Blob([bytes as any], { type: "text/plain" });
-                    currentUrl = URL.createObjectURL(blob);
+                let bytes: Uint8Array;
+                if (isExplicitGzip) {
+                    bytes = base64ToBytes(dataToProcess);
+                } else if (dataToProcess.startsWith("data:")) {
+                    bytes = base64ToBytes(dataToProcess);
                 } else {
-                    // Plain .obj text content
-                    const blob = new Blob([objData], { type: "text/plain" });
-                    currentUrl = URL.createObjectURL(blob);
+                    const isBase64 = dataToProcess.length > 500 && !dataToProcess.includes(" ") && !dataToProcess.includes("\n");
+                    if (isBase64) {
+                        bytes = base64ToBytes(dataToProcess);
+                    } else {
+                        // Plain .obj text content
+                        const blob = new Blob([dataToProcess], { type: "text/plain" });
+                        currentUrl = URL.createObjectURL(blob);
+                        setBlobUrl(currentUrl);
+                        return;
+                    }
                 }
+
+                // Automatically decompress if GZIP header is present
+                const finalBytes = await decompressIfGzip(bytes);
+                const blob = new Blob([finalBytes as any], { type: "text/plain" });
+                currentUrl = URL.createObjectURL(blob);
                 setBlobUrl(currentUrl);
             } catch (e) {
                 console.error("3D Viewer Critical Error: Failed to process model data:", e);

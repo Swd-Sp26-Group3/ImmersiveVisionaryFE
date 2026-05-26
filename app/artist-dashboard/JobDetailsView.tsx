@@ -19,6 +19,35 @@ interface Props {
   onBack: () => void;
 }
 
+// Helper to compress file using gzip and encode to base64
+const compressFileToGzipBase64 = async (file: File): Promise<string> => {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const cs = new CompressionStream("gzip");
+  const writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const reader = cs.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+  const compressedBytes = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    compressedBytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  let binary = "";
+  const len = compressedBytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(compressedBytes[i]);
+  }
+  return "gzip:" + btoa(binary);
+};
+
 export function JobDetailView({ order, onBack }: Props) {
   const [updating, setUpdating] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(order.Status);
@@ -43,6 +72,8 @@ export function JobDetailView({ order, onBack }: Props) {
     }
   };
 
+
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -53,12 +84,7 @@ export function JobDetailView({ order, onBack }: Props) {
     setUpdating(true);
     setMessage(null);
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => { const str = reader.result as string; resolve(str.split(",")[1] || str); };
-        reader.onerror = reject;
-      });
+      const base64 = await compressFileToGzipBase64(file);
       const res = await apiFetch(`/orders/${order.OrderId}/attachments`, {
         method: "POST",
         body: JSON.stringify({ FileName: file.name, MimeType: "application/octet-stream", Base64Data: base64 }),

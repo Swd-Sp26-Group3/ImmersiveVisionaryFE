@@ -488,6 +488,35 @@ function CreativeOrderDetail({
   );
 }
 
+// Helper to compress file using gzip and encode to base64
+const compressFileToGzipBase64 = async (file: File): Promise<string> => {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const cs = new CompressionStream("gzip");
+  const writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const reader = cs.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+  const compressedBytes = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    compressedBytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  let binary = "";
+  const len = compressedBytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(compressedBytes[i]);
+  }
+  return "gzip:" + btoa(binary);
+};
+
 // ===================== Edit Asset Modal =====================
 function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
   const [uploading, setUploading] = useState(false);
@@ -503,13 +532,7 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
 
     setUploading(true); setError("");
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Data = await base64Promise;
+      const base64Data = await compressFileToGzipBase64(file);
 
       const res = await apiFetch(`/asset-versions/${assetId}`, {
         method: "POST",
