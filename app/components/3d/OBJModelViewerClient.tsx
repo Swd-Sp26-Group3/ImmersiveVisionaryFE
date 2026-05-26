@@ -68,6 +68,27 @@ function Model({ blobUrl }: { blobUrl: string }) {
     );
 }
 
+// Helper to safely decode Base64 strings in the browser, handling URL-encoding,
+// whitespace, URL-safe characters, and missing padding.
+const safeAtob = (str: string): string => {
+    let cleanStr = str;
+    const commaIdx = cleanStr.indexOf(",");
+    if (commaIdx !== -1) {
+        cleanStr = cleanStr.slice(commaIdx + 1);
+    }
+    try {
+        cleanStr = decodeURIComponent(cleanStr);
+    } catch (e) {
+        // Not URL encoded, continue
+    }
+    cleanStr = cleanStr.replace(/\s/g, "");
+    cleanStr = cleanStr.replace(/-/g, "+").replace(/_/g, "/");
+    while (cleanStr.length % 4) {
+        cleanStr += "=";
+    }
+    return atob(cleanStr);
+};
+
 export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
@@ -87,14 +108,9 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     return;
                 }
 
-                // Case 2: data: URL — decode base64 payload directly with atob()
-                // NEVER call fetch() on a data: URL — it throws ERR_INVALID_URL
-                // for non-standard MIME types like model/obj.
+                // Case 2: data: URL — decode base64 payload safely
                 if (objData.startsWith("data:")) {
-                    const commaIdx = objData.indexOf(",");
-                    if (commaIdx === -1) throw new Error("Malformed data URL");
-                    const b64 = objData.slice(commaIdx + 1);
-                    const binary = atob(b64);
+                    const binary = safeAtob(objData);
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                     const blob = new Blob([bytes], { type: "text/plain" });
@@ -106,7 +122,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 // Case 3: raw string — bare base64 or plain .obj text
                 const isBase64 = objData.length > 500 && !objData.includes(" ") && !objData.includes("\n");
                 if (isBase64) {
-                    const binary = atob(objData);
+                    const binary = safeAtob(objData);
                     const bytes = new Uint8Array(binary.length);
                     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
                     const blob = new Blob([bytes], { type: "text/plain" });
