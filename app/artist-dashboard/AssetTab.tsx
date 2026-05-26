@@ -13,7 +13,6 @@ import { StatusBadge } from "@/app/components/ui/status-badge";
 import { Modal } from "@/app/components/ui/modal";
 import { useConfirm } from "@/app/components/ui/confirm-dialog";
 import { apiFetch } from "@/lib/api";
-import { getAbsoluteApiUrl } from "@/lib/apiBase";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
 import { toast } from "sonner";
 
@@ -94,52 +93,24 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      // On localhost: use the Next.js proxy (no 4.5 MB Vercel limit, no CORS issue).
-      // On production (Vercel): bypass the proxy and go directly to the VPS API,
-      // because Vercel rewrites have a hard 4.5 MB body limit that kills large uploads.
-      const isLocalhost = typeof window !== "undefined" &&
-        (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-      let res: Response;
-      if (isLocalhost) {
-        // Local dev — go through Next.js rewrite proxy (avoids CORS with localhost BE)
-        res = await apiFetch("/assets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            AssetName:    form.AssetName,
-            Description:  form.Description  || null,
-            Category:     form.Category     || null,
-            Industry:     form.Industry     || null,
-            Price:        form.Price ? Number(form.Price) : null,
-            PreviewImage: form.PreviewImage || null,
-            Base64Data:   base64Data,
-            AssetType:    "MARKETPLACE",
-            IsMarketplace: true,
-          }),
-        });
-      } else {
-        // Production — bypass Vercel proxy, call VPS directly to avoid 4.5 MB limit
-        const accessToken = localStorage.getItem("accessToken");
-        res = await fetch(getAbsoluteApiUrl("/assets"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({
-            AssetName:    form.AssetName,
-            Description:  form.Description  || null,
-            Category:     form.Category     || null,
-            Industry:     form.Industry     || null,
-            Price:        form.Price ? Number(form.Price) : null,
-            PreviewImage: form.PreviewImage || null,
-            Base64Data:   base64Data,
-            AssetType:    "MARKETPLACE",
-            IsMarketplace: true,
-          }),
-        });
-      }
+      // Always route through the Edge proxy at /api/proxy/assets.
+      // This runs server-side on Vercel (no CORS) and streams the body
+      // without Vercel's 4.5 MB rewrite limit. Works on localhost too.
+      const res = await apiFetch("/proxy/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          AssetName:    form.AssetName,
+          Description:  form.Description  || null,
+          Category:     form.Category     || null,
+          Industry:     form.Industry     || null,
+          Price:        form.Price ? Number(form.Price) : null,
+          PreviewImage: form.PreviewImage || null,
+          Base64Data:   base64Data,
+          AssetType:    "MARKETPLACE",
+          IsMarketplace: true,
+        }),
+      });
       if (!res.ok) {
         const errBody = await res.json();
         const detail = [errBody.message, errBody.error, errBody.detail].filter(Boolean).join(' | ');
