@@ -80,19 +80,32 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     reader.readAsDataURL(imgFile);
   };
 
+  /** Gzip-compress a File and return "gzip:<base64>" string.
+   *  .obj files are plain text → gzip shrinks them 70-90%, keeping
+   *  the payload well under the 65535-byte TDS mssql packet limit. */
+  const compressFileToGzipBase64 = async (f: File): Promise<string> => {
+    const arrayBuf = await f.arrayBuffer();
+    const cs = new CompressionStream("gzip");
+    const writer = cs.writable.getWriter();
+    writer.write(new Uint8Array(arrayBuf));
+    writer.close();
+    const compressed = await new Response(cs.readable).arrayBuffer();
+    // Convert compressed bytes → base64
+    const bytes = new Uint8Array(compressed);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return "gzip:" + btoa(binary);
+  };
+
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
     if (!file) { setError("Please upload a .obj file."); return; }
     setSaving(true);
     setError("");
     try {
-      // Base64Data chỉ dành cho file 3D (.obj)
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+      // Compress .obj before sending → shrinks 70-90%, avoids mssql uint16 overflow
+      const base64Data = await compressFileToGzipBase64(file);
+
       // Always route through the Edge proxy at /api/proxy/assets.
       // This runs server-side on Vercel (no CORS) and streams the body
       // without Vercel's 4.5 MB rewrite limit. Works on localhost too.
