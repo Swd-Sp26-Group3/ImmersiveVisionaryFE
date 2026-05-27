@@ -28,20 +28,20 @@ interface OrderDetail {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  NEW:           { label: "New",           color: "bg-yellow-600" },
-  IN_PRODUCTION: { label: "In Production", color: "bg-blue-600"   },
-  REVIEW:        { label: "Under Review",  color: "bg-purple-600" },
-  COMPLETED:     { label: "Completed",     color: "bg-green-600"  },
-  DELIVERED:     { label: "Delivered",     color: "bg-cyan-600"   },
-  CANCELLED:     { label: "Cancelled",     color: "bg-red-600"    },
+  NEW:           { label: "Mới",           color: "bg-yellow-600" },
+  IN_PRODUCTION: { label: "Đang sản xuất", color: "bg-blue-600"   },
+  REVIEW:        { label: "Đang xem xét",  color: "bg-purple-600" },
+  COMPLETED:     { label: "Hoàn thành",    color: "bg-green-600"  },
+  DELIVERED:     { label: "Đã giao",       color: "bg-cyan-600"   },
+  CANCELLED:     { label: "Đã hủy",        color: "bg-red-600"    },
 };
 
 const NEXT_STEPS = [
-  { label: "Order Created",       description: "Your order has been received",  done: true  },
-  { label: "Manager Review",      description: "Manager assigns an artist",    done: false },
-  { label: "3D/AR Production",    description: "Artist creates your assets",   done: false },
-  { label: "Client Review",       description: "Review and approve the result", done: false },
-  { label: "Delivery",            description: "Download your final assets",   done: false },
+  { label: "Đơn hàng tạo thành công", description: "Yêu cầu của bạn đã được tiếp nhận",  done: true  },
+  { label: "Quản lý xem xét",         description: "Quản lý phân công nghệ sĩ",           done: false },
+  { label: "Sản xuất 3D/AR",          description: "Nghệ sĩ tạo ra tài sản của bạn",      done: false },
+  { label: "Khách hàng xem xét",      description: "Xem xét và phê duyệt kết quả",        done: false },
+  { label: "Giao hàng",               description: "Tải xuống tài sản cuối cùng",          done: false },
 ];
 
 function OrderSuccessContent() {
@@ -54,15 +54,15 @@ function OrderSuccessContent() {
 
   useEffect(() => {
     if (!orderId) {
-      setError("No order ID provided.");
+      setError("Không có mã đơn hàng.");
       setLoading(false);
       return;
     }
 
     apiFetch(`/orders/${orderId}`)
-      .then(r => { if (!r.ok) throw new Error(`Order not found (${r.status})`); return r.json(); })
+      .then(r => { if (!r.ok) throw new Error(`Không tìm thấy đơn hàng (${r.status})`); return r.json(); })
       .then(d => setOrder(d.data ?? d))
-      .catch(e => setError(e.message ?? "Failed to load order details."))
+      .catch(e => setError(e.message ?? "Không thể tải thông tin đơn hàng."))
       .finally(() => setLoading(false));
   }, [orderId]);
 
@@ -80,11 +80,11 @@ function OrderSuccessContent() {
         <Card className="bg-[#1a1f3a]/50 border-red-500/30 max-w-md w-full">
           <CardContent className="p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-            <p className="text-white font-semibold mb-2">Order Not Found</p>
+            <p className="text-white font-semibold mb-2">Không tìm thấy đơn hàng</p>
             <p className="text-gray-400 text-sm mb-6">{error}</p>
             <Link href="/order">
               <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                <Plus className="w-4 h-4 mr-2" /> Place New Order
+                <Plus className="w-4 h-4 mr-2" /> Đặt đơn mới
               </Button>
             </Link>
           </CardContent>
@@ -108,8 +108,8 @@ function OrderSuccessContent() {
           <div className="w-20 h-20 rounded-full bg-green-500/20 border-2 border-green-500/40 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="w-10 h-10 text-green-400" />
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Order Submitted!</h1>
-          <p className="text-gray-400">Your custom production order has been created successfully</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">Đặt hàng thành công!</h1>
+          <p className="text-gray-400">Đơn đặt hàng tùy chỉnh của bạn đã được tạo thành công</p>
         </motion.div>
 
         {/* Order Details Card */}
@@ -119,7 +119,7 @@ function OrderSuccessContent() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-white flex items-center gap-2">
                   <Package className="w-5 h-5 text-indigo-400" />
-                  Order #{order.OrderId}
+                  Đơn hàng #{order.OrderId}
                 </CardTitle>
                 <Badge className={statusCfg.color}>{statusCfg.label}</Badge>
               </div>
@@ -127,12 +127,12 @@ function OrderSuccessContent() {
             <CardContent className="p-6">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {[
-                  { label: "Project Name", value: order.ProjectName ?? "Custom Project" },
-                  { label: "Category",     value: order.ProductType ?? "Not specified" },
-                  { label: "Budget",       value: order.Budget ?? "Not specified" },
-                  { label: "Speed",        value: order.DeliverySpeed ?? "Standard" },
-                  { label: "Company",      value: order.CompanyName ?? `#${order.CompanyId}` },
-                  { label: "Created",      value: new Date(order.CreatedAt).toLocaleDateString() },
+                  { label: "Tên dự án",  value: order.ProjectName ?? "Dự án tùy chỉnh" },
+                  { label: "Danh mục",   value: order.ProductType ?? "Chưa xác định" },
+                  { label: "Ngân sách",  value: order.Budget ?? "Chưa xác định" },
+                  { label: "Tốc độ",    value: order.DeliverySpeed ?? "Tiêu chuẩn" },
+                  { label: "Công ty",    value: order.CompanyName ?? `#${order.CompanyId}` },
+                  { label: "Ngày tạo",  value: new Date(order.CreatedAt).toLocaleDateString("vi-VN") },
                 ].map(({ label, value }) => (
                   <div key={label} className="bg-slate-900/40 rounded-lg p-3 border border-white/6">
                     <p className="text-slate-500 text-xs mb-1">{label}</p>
@@ -143,7 +143,7 @@ function OrderSuccessContent() {
 
               {order.Brief && (
                 <div className="mt-4 bg-blue-500/5 border border-blue-500/15 rounded-lg p-4">
-                  <p className="text-slate-400 text-xs uppercase tracking-widest mb-2">Project Brief</p>
+                  <p className="text-slate-400 text-xs uppercase tracking-widest mb-2">Mô tả dự án</p>
                   <p className="text-white text-sm leading-relaxed">{order.Brief}</p>
                 </div>
               )}
@@ -157,7 +157,7 @@ function OrderSuccessContent() {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Clock className="w-5 h-5 text-yellow-400" />
-                What Happens Next
+                Bước tiếp theo
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -190,13 +190,13 @@ function OrderSuccessContent() {
           <Link href="/customer-dashboard" className="flex-1">
             <Button className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white">
               <Home className="w-4 h-4 mr-2" />
-              View My Orders
+              Xem đơn hàng của tôi
             </Button>
           </Link>
           <Link href="/order" className="flex-1">
             <Button variant="outline" className="w-full border-purple-500/30 text-white hover:bg-white/5">
               <Plus className="w-4 h-4 mr-2" />
-              Place Another Order
+              Đặt thêm đơn hàng
             </Button>
           </Link>
         </motion.div>

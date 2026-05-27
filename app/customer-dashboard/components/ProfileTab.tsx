@@ -36,9 +36,9 @@ interface Company {
 }
 
 const EDITABLE_FIELDS = [
-  { key: "UserName", label: "Username",     type: "text",  placeholder: "Enter username"     },
-  { key: "Email",    label: "Email",         type: "email", placeholder: "Enter email"         },
-  { key: "Phone",    label: "Phone",         type: "text",  placeholder: "Enter phone number"  },
+  { key: "UserName", label: "Tên người dùng", type: "text",  placeholder: "Nhập tên người dùng" },
+  { key: "Email",    label: "Email",            type: "email", placeholder: "Nhập email"           },
+  { key: "Phone",    label: "Số điện thoại",    type: "text",  placeholder: "Nhập số điện thoại"  },
 ] as const;
 
 export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabProps) {
@@ -104,11 +104,11 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
       const data = await res.json();
       if (!res.ok) { setErrorMsg(data.message ?? "Update failed."); return; }
       onProfileUpdated(data.data ?? data);
-      setSuccessMsg("Profile updated successfully!");
+      setSuccessMsg("Hồ sơ đã được cập nhật thành công!");
       setIsEditing(false);
-      toast.success("Profile updated successfully!");
+      toast.success("Hồ sơ đã được cập nhật thành công!");
     } catch {
-      setErrorMsg("Connection error, please try again.");
+      setErrorMsg("Lỗi kết nối, vui lòng thử lại.");
     } finally {
       setSaving(false);
     }
@@ -118,7 +118,7 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
     return (
       <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
         <CardContent className="p-6">
-          <LoadingSpinner size="sm" color="cyan" /> <span className="text-gray-400 ml-2">Loading...</span>
+          <LoadingSpinner size="sm" color="cyan" /> <span className="text-gray-400 ml-2">Đang tải...</span>
         </CardContent>
       </Card>
     );
@@ -128,25 +128,25 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
     return (
       <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
         <CardContent className="p-6">
-          <p className="text-gray-400">Could not load profile.</p>
+          <p className="text-gray-400">Không thể tải hồ sơ.</p>
         </CardContent>
       </Card>
     );
   }
 
   const viewItems = [
-    { label: "Username",     value: profile.UserName },
-    { label: "Email",        value: profile.Email },
-    { label: "Phone",        value: profile.Phone ?? "Not set" },
-    { label: "Role",         value: profile.RoleName },
-    { label: "Company",      value: profile.CompanyName ?? "Not assigned" },
-    { label: "Member since", value: new Date(profile.CreatedAt).toLocaleDateString() },
+    { label: "Tên người dùng", value: profile.UserName },
+    { label: "Email",            value: profile.Email },
+    { label: "Số điện thoại",   value: profile.Phone ?? "Chưa đặt" },
+    { label: "Vai trò",          value: profile.RoleName },
+    { label: "Công ty",          value: profile.CompanyName ?? "Chưa gán" },
+    { label: "Ngày tham gia",    value: new Date(profile.CreatedAt).toLocaleDateString("vi-VN") },
   ];
 
   const readOnlyItems = [
-    { label: "Role",         value: profile.RoleName },
-    { label: "Company",      value: profile.CompanyName ?? "Not assigned" },
-    { label: "Member since", value: new Date(profile.CreatedAt).toLocaleDateString() },
+    { label: "Vai trò",       value: profile.RoleName },
+    { label: "Công ty",       value: profile.CompanyName ?? "Chưa gán" },
+    { label: "Ngày tham gia", value: new Date(profile.CreatedAt).toLocaleDateString("vi-VN") },
   ];
 
   return (
@@ -154,8 +154,8 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-white">Account Profile</CardTitle>
-            <CardDescription className="text-gray-400">Your account details from the system</CardDescription>
+            <CardTitle className="text-white">Hồ sơ tài khoản</CardTitle>
+            <CardDescription className="text-gray-400">Thông tin tài khoản của bạn trong hệ thống</CardDescription>
           </div>
           {!isEditing && (
             <Button
@@ -164,7 +164,7 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
               onClick={handleStartEdit}
               className="border-purple-500/50 text-purple-300 hover:bg-purple-600/20"
             >
-              <Edit className="w-4 h-4 mr-2" /> Edit Profile
+              <Edit className="w-4 h-4 mr-2" /> Chỉnh sửa hồ sơ
             </Button>
           )}
         </div>
@@ -217,16 +217,16 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
 
               {/* Company Select (shadcn) */}
               <div className="space-y-1.5">
-                <label className="text-xs text-gray-400 uppercase tracking-wide">Assign Company</label>
+                <label className="text-xs text-gray-400 uppercase tracking-wide">Gán công ty</label>
                 {loadingCompanies ? (
-                  <p className="text-[10px] text-slate-500 italic">Loading companies...</p>
+                  <p className="text-[10px] text-slate-500 italic">Đang tải danh sách công ty...</p>
                 ) : (
                   <Select
                     value={form.CompanyId?.toString() ?? ""}
                     onValueChange={(v) => setForm((f) => ({ ...f, CompanyId: v ? Number(v) : null }))}
                   >
                     <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white focus:border-purple-500">
-                      <SelectValue placeholder="Select a company..." />
+                      <SelectValue placeholder="Chọn công ty..." />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-700 text-white">
                       {companies.map((c) => (
@@ -257,8 +257,8 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
                 style={{ background: "var(--gradient-brand)" }}
               >
                 {saving
-                  ? <><LoadingSpinner size="xs" color="white" className="mr-2" />Saving...</>
-                  : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+                  ? <><LoadingSpinner size="xs" color="white" className="mr-2" />Đang lưu...</>
+                  : <><Save className="w-4 h-4 mr-2" />Lưu thay đổi</>}
               </Button>
               <Button
                 variant="outline"
@@ -266,7 +266,7 @@ export function ProfileTab({ profile, loading, onProfileUpdated }: ProfileTabPro
                 disabled={saving}
                 className="border-slate-600 text-slate-300 hover:bg-slate-700/50"
               >
-                <X className="w-4 h-4 mr-2" /> Cancel
+                <X className="w-4 h-4 mr-2" /> Hủy
               </Button>
             </div>
           </div>

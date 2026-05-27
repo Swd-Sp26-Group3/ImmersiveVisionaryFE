@@ -18,7 +18,7 @@ export default function SupportPage() {
     {
       id: "1",
       role: "assistant",
-      content: "Hello! I'm your Immersive Visionary AI Assistant. How can I help you today with our 3D/AR production services?"
+      content: "Xin chào! Tôi là trợ lý AI của Immersive Visionary. Tôi có thể giúp gì cho bạn về dịch vụ sản xuất 3D/AR của chúng tôi?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -81,7 +81,7 @@ export default function SupportPage() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I'm having trouble connecting right now. Please try again later or use our alternative contact methods below.",
+        content: "Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau hoặc sử dụng phương thức liên hệ khác bên dưới.",
       }]);
     } finally {
       setIsLoading(false);
@@ -97,13 +97,13 @@ export default function SupportPage() {
       >
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border border-purple-500/30 mb-6">
           <Sparkles className="w-5 h-5 text-purple-400" />
-          <span className="text-sm text-purple-300 font-medium">Premium AI Support</span>
+          <span className="text-sm text-purple-300 font-medium">Hỗ trợ AI cao cấp</span>
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">
-          How can we help you?
+          Chúng tôi có thể giúp gì?
         </h1>
         <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-          Chat with our intelligent AI assistant for immediate answers, or reach out to our team via Email.
+          Trò chuyện với trợ lý AI thông minh để nhận câu trả lời ngay lập tức, hoặc liên hệ đội ngũ qua Email.
         </p>
       </motion.div>
 
@@ -128,7 +128,7 @@ export default function SupportPage() {
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                   </CardTitle>
                   <CardDescription className="text-gray-400 text-xs">
-                    Usually replies instantly
+                    Phản hồi ngay lập tức
                   </CardDescription>
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function SupportPage() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type your message here..."
+                  placeholder="Nhập tin nhắn của bạn..."
                   className="w-full bg-[#0f1729] border border-purple-500/30 rounded-full py-3 pl-5 pr-14 text-white focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all placeholder:text-gray-500"
                   disabled={isLoading}
                 />
@@ -221,10 +221,10 @@ export default function SupportPage() {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-purple-400" />
-                Human Support
+                Hỗ trợ từ con người
               </CardTitle>
               <CardDescription className="text-gray-400">
-                Need more complex help? Talk to our real human agents directly.
+                Cần giúp đỡ phức tạp hơn? Hãy nói chuyện với đội ngũ thực của chúng tôi.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -235,7 +235,7 @@ export default function SupportPage() {
                     <Mail className="w-6 h-6" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-white font-medium">Email Us</h4>
+                    <h4 className="text-white font-medium">Gửi Email</h4>
                     <p className="text-gray-400 text-sm">khoalen205@gmail.com</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-white transition-colors" />
@@ -247,9 +247,9 @@ export default function SupportPage() {
 
           <Card className="bg-gradient-to-br from-indigo-600/10 to-purple-600/10 border-indigo-500/30 backdrop-blur">
             <CardContent className="p-6 text-center">
-              <h3 className="text-lg font-semibold text-white mb-2">Available 24/7</h3>
+              <h3 className="text-lg font-semibold text-white mb-2">Sẵn sàng 24/7</h3>
               <p className="text-indigo-200/80 text-sm">
-                Our AI assistant is available around the clock. Human agents usually respond within 1-2 hours during business days.
+                Trợ lý AI hoạt động mọi lúc. Đội ngũ con người thường phản hồi trong 1–2 giờ trong giờ làm việc.
               </p>
             </CardContent>
           </Card>

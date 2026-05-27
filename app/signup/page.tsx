@@ -41,7 +41,6 @@ export default function SignUpPage() {
     setIsLoading(true);
     try {
       await register(email, password, userName, phone);
-      // Navigate to login after successful register
       router.push("/login?from=signup");
     } catch (err: unknown) {
       const message =
@@ -57,16 +56,16 @@ export default function SignUpPage() {
       <div className="w-full max-w-[440px]">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Create Your Account</h1>
-          <p className="text-gray-400 text-base">Sign Up to your Immersive Visionary account</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Tạo tài khoản</h1>
+          <p className="text-gray-400 text-base">Đăng ký tài khoản Immersive Visionary của bạn</p>
         </div>
 
         {/* Card */}
         <div className="bg-[#161b33]/60 border border-purple-500/20 backdrop-blur-xl rounded-2xl p-8 shadow-2xl">
 
           <div className="mb-8">
-            <h2 className="text-white text-2xl font-semibold mb-1">Sign Up</h2>
-            <p className="text-gray-400 text-sm italic">Create your account to start your 3D/AR journey</p>
+            <h2 className="text-white text-2xl font-semibold mb-1">Đăng ký</h2>
+            <p className="text-gray-400 text-sm italic">Tạo tài khoản để bắt đầu hành trình 3D/AR của bạn</p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -74,14 +73,14 @@ export default function SignUpPage() {
             {/* Username Field */}
             <div className="space-y-2">
               <Label htmlFor="userName" className="text-gray-300 text-sm font-medium">
-                Username
+                Tên người dùng
               </Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="userName"
                   type="text"
-                  placeholder="your_username"
+                  placeholder="ten_nguoi_dung"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
                   className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
@@ -93,14 +92,14 @@ export default function SignUpPage() {
             {/* Email Field */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-300 text-sm font-medium">
-                Email Address
+                Địa chỉ Email
               </Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="ban@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
@@ -112,7 +111,7 @@ export default function SignUpPage() {
             {/* Phone Field */}
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-gray-300 text-sm font-medium">
-                Phone Number
+                Số điện thoại
               </Label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -130,14 +129,14 @@ export default function SignUpPage() {
             {/* Password Field */}
             <div className="space-y-2">
               <Label htmlFor="password" className="text-gray-300 text-sm font-medium">
-                Password
+                Mật khẩu
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="Nhập mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
@@ -156,14 +155,14 @@ export default function SignUpPage() {
             {/* Confirm Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-gray-300 text-sm font-medium">
-                Confirm Password
+                Xác nhận mật khẩu
               </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <Input
                   id="confirmPassword"
                   type={showConfirm ? "text" : "password"}
-                  placeholder="Confirm your password"
+                  placeholder="Xác nhận mật khẩu"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="pl-10 pr-10 h-11 bg-[#0d1225]/80 border-purple-500/20 text-white placeholder:text-gray-600 focus:border-purple-500 rounded-lg"
@@ -190,24 +189,24 @@ export default function SignUpPage() {
               disabled={isLoading}
               className="w-full bg-[#5145fa] hover:bg-[#4338ca] text-white h-11 text-base font-semibold rounded-lg mt-2 transition-all active:scale-[0.98] disabled:opacity-60"
             >
-              {isLoading ? "Creating Account..." : "Create Account"}
+              {isLoading ? "Đang tạo tài khoản..." : "Tạo tài khoản"}
             </Button>
           </form>
 
           {/* Sign In link */}
           <p className="text-center text-sm text-gray-500 mt-6">
-            Already have an account?{" "}
+            Đã có tài khoản?{" "}
             <Link href="/login" className="text-purple-400 hover:text-purple-300 font-medium transition-colors">
-              Sign In
+              Đăng nhập
             </Link>
           </p>
         </div>
 
         {/* Bottom Terms */}
         <p className="text-center text-[12px] text-gray-500 mt-8 opacity-70">
-          By creating an account, you agree to our{" "}
-          <span className="underline cursor-pointer">Terms of Service</span> and{" "}
-          <span className="underline cursor-pointer">Privacy Policy</span>
+          Bằng cách tạo tài khoản, bạn đồng ý với{" "}
+          <span className="underline cursor-pointer">Điều khoản dịch vụ</span> và{" "}
+          <span className="underline cursor-pointer">Chính sách bảo mật</span>
         </p>
       </div>
     </div>

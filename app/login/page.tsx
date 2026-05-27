@@ -8,7 +8,7 @@ import { Suspense } from "react";
 
 export default function SignInPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white italic">Loading sign in...</div>}>
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white italic">Đang tải...</div>}>
             <SignInContent />
         </Suspense>
     );
@@ -27,7 +27,6 @@ function SignInContent() {
     const fromSignup = searchParams.get("from") === "signup";
 
     // Pre-warm all dashboard routes so they are compiled BEFORE login completes
-    // This eliminates the compile delay after successful authentication
     useEffect(() => {
         router.prefetch('/customer-dashboard');
         router.prefetch('/manager-dashboard');
@@ -45,8 +44,6 @@ function SignInContent() {
         setIsLoading(true);
         try {
             await login(email, password);
-            // Login API succeeded — show redirect overlay immediately
-            // so user sees feedback while Next.js compiles the dashboard route
             setIsRedirecting(true);
             if (fromSignup) {
                 router.push("/customer-dashboard?tab=profile");
@@ -61,8 +58,7 @@ function SignInContent() {
 
     return (
         <div className={styles.page}>
-            {/* Full-screen redirect overlay — shown after login API succeeds
-                while Next.js compiles and navigates to the dashboard route */}
+            {/* Full-screen redirect overlay */}
             {isRedirecting && (
                 <div style={{
                     position: 'fixed', inset: 0, zIndex: 9999,
@@ -70,7 +66,6 @@ function SignInContent() {
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: '24px',
                 }}>
-                    {/* Animated logo mark */}
                     <div style={{
                         width: 64, height: 64, borderRadius: '50%',
                         background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
@@ -124,7 +119,6 @@ function SignInContent() {
 
                 {/* Card */}
                 <div className={styles.card}>
-                    {/* Card glow border accent */}
                     <div className={styles.cardGlow} />
 
                     <div className={styles.cardInner}>
@@ -132,11 +126,11 @@ function SignInContent() {
                         <div className={styles.header}>
                             <div className={styles.badge}>
                                 <span className={styles.badgeDot} />
-                                Welcome Back
+                                Chào mừng trở lại
                             </div>
-                            <h1 className={styles.title}>Sign In</h1>
+                            <h1 className={styles.title}>Đăng nhập</h1>
                             <p className={styles.subtitle}>
-                                Enter your credentials to access your workspace
+                                Nhập thông tin đăng nhập để truy cập tài khoản
                             </p>
                         </div>
 
@@ -144,7 +138,7 @@ function SignInContent() {
                         <form onSubmit={handleSubmit} className={styles.form}>
                             <div className={styles.field}>
                                 <label htmlFor="email" className={styles.label}>
-                                    Email Address
+                                    Địa chỉ Email
                                 </label>
                                 <div className={styles.inputWrapper}>
                                     <span className={styles.inputIcon}>
@@ -157,7 +151,7 @@ function SignInContent() {
                                         id="email"
                                         type="email"
                                         className={styles.input}
-                                        placeholder="you@example.com"
+                                        placeholder="ban@example.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
@@ -169,9 +163,9 @@ function SignInContent() {
                             <div className={styles.field}>
                                 <div className={styles.labelRow}>
                                     <label htmlFor="password" className={styles.label}>
-                                        Password
+                                        Mật khẩu
                                     </label>
-                                    <a href="#" className={styles.forgotLink}>Forgot password?</a>
+                                    <a href="#" className={styles.forgotLink}>Quên mật khẩu?</a>
                                 </div>
                                 <div className={styles.inputWrapper}>
                                     <span className={styles.inputIcon}>
@@ -194,7 +188,7 @@ function SignInContent() {
                                         type="button"
                                         className={styles.eyeBtn}
                                         onClick={() => setShowPassword((p) => !p)}
-                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
                                     >
                                         {showPassword ? (
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,7 +221,7 @@ function SignInContent() {
                                 ) : isLoading ? (
                                     <span className={styles.spinner} />
                                 ) : (
-                                    "Sign In"
+                                    "Đăng nhập"
                                 )}
                             </button>
                         </form>
@@ -235,17 +229,17 @@ function SignInContent() {
 
                         {/* Footer */}
                         <p className={styles.footerText}>
-                            Don&apos;t have an account?{" "}
-                            <Link href="/signup" className={styles.footerLink}>Create one free</Link>
+                            Chưa có tài khoản?{" "}
+                            <Link href="/signup" className={styles.footerLink}>Tạo tài khoản miễn phí</Link>
                         </p>
                     </div>
                 </div>
 
                 {/* Bottom note */}
                 <p className={styles.termsText}>
-                    By signing in, you agree to our{" "}
-                    <a href="#" className={styles.termsLink}>Terms of Service</a> and{" "}
-                    <a href="#" className={styles.termsLink}>Privacy Policy</a>
+                    Bằng cách đăng nhập, bạn đồng ý với{" "}
+                    <a href="#" className={styles.termsLink}>Điều khoản dịch vụ</a> và{" "}
+                    <a href="#" className={styles.termsLink}>Chính sách bảo mật</a>
                 </p>
             </div>
         </div>

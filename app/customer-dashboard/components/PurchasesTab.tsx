@@ -22,27 +22,27 @@ const STATUS_CONFIG: Record<string, {
   description: string; canDownload: boolean; icon: React.ReactNode;
 }> = {
   PENDING: {
-    label: "Pending Payment",
+    label: "Chờ thanh toán",
     color: "text-yellow-300", bgColor: "bg-yellow-500/15", borderColor: "border-yellow-500/30",
-    description: "Order placed — payment not yet confirmed. If you just paid, please refresh.",
+    description: "Đơn đã đặt — chưa xác nhận thanh toán. Nếu bạn vừa thanh toán, vui lòng làm mới trang.",
     canDownload: false, icon: <Clock className="w-3.5 h-3.5" />,
   },
   PAID: {
-    label: "Paid — Ready to Download",
+    label: "Đã thanh toán — Sẵn sàng tải",
     color: "text-green-300", bgColor: "bg-green-500/15", borderColor: "border-green-500/30",
-    description: "Payment confirmed. Your asset is ready for download now.",
+    description: "Đã xác nhận thanh toán. Tài sản của bạn sẵn sàng để tải xuống.",
     canDownload: true, icon: <CheckCircle2 className="w-3.5 h-3.5" />,
   },
   DELIVERED: {
-    label: "Delivered",
+    label: "Đã giao",
     color: "text-cyan-300", bgColor: "bg-cyan-500/15", borderColor: "border-cyan-500/30",
-    description: "Asset delivered and available for download.",
+    description: "Tài sản đã được giao và có thể tải xuống.",
     canDownload: true, icon: <Download className="w-3.5 h-3.5" />,
   },
   REFUNDED: {
-    label: "Refunded",
+    label: "Đã hoàn tiền",
     color: "text-red-300", bgColor: "bg-red-500/15", borderColor: "border-red-500/30",
-    description: "This order has been refunded.",
+    description: "Đơn hàng này đã được hoàn tiền.",
     canDownload: false, icon: <RotateCcw className="w-3.5 h-3.5" />,
   },
 };
@@ -55,11 +55,11 @@ const FORMAT_COLOR: Record<string, string> = {
 };
 
 const FILTER_OPTIONS = [
-  { value: "ALL",       label: "All" },
-  { value: "PENDING",   label: "Pending" },
-  { value: "PAID",      label: "Paid" },
-  { value: "DELIVERED", label: "Delivered" },
-  { value: "REFUNDED",  label: "Refunded" },
+  { value: "ALL",       label: "Tất cả" },
+  { value: "PENDING",   label: "Chờ" },
+  { value: "PAID",      label: "Đã thanh toán" },
+  { value: "DELIVERED", label: "Đã giao" },
+  { value: "REFUNDED",  label: "Đã hoàn tiền" },
 ];
 
 // ── Order Detail Panel ────────────────────────────────────────────────────────
@@ -104,9 +104,9 @@ function OrderDetail({
 
   const handleRefund = async () => {
     const ok = await confirm({
-      title: "Request Refund",
-      message: "Are you sure you want to request a refund for this order?",
-      confirmLabel: "Request Refund",
+      title: "Yêu cầu hoàn tiền",
+      message: "Bạn có chắc muốn yêu cầu hoàn tiền cho đơn hàng này không?",
+      confirmLabel: "Yêu cầu hoàn tiền",
       variant: "warning",
     });
     if (!ok) return;
@@ -117,9 +117,9 @@ function OrderDetail({
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Refund failed");
       onRefunded(data.data ?? data);
-      toast.success("Refund request submitted.");
+      toast.success("Đã gửi yêu cầu hoàn tiền.");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Refund failed.");
+      setError(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
     } finally {
       setRefunding(false);
     }
@@ -160,19 +160,19 @@ function OrderDetail({
   };
 
   const infoItems = [
-    { label: "Order Ref",      value: `#${order.MpOrderId}` },
-    { label: "Asset Name",     value: order.AssetName || "3D Asset" },
-    { label: "Category",       value: order.Category || "3D/AR Content" },
-    { label: "Industry",       value: order.Industry || "Generic" },
-    { label: "Seller",         value: order.SellerCompanyName || "Marketplace Provider" },
-    { label: "Price",          value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
-    { label: "Purchase Date",  value: new Date(order.CreatedAt).toLocaleDateString() },
+    { label: "Mã đơn",      value: `#${order.MpOrderId}` },
+    { label: "Tên tài sản", value: order.AssetName || "Tài sản 3D" },
+    { label: "Danh mục",    value: order.Category || "Nội dung 3D/AR" },
+    { label: "Ngành",       value: order.Industry || "Tổng quát" },
+    { label: "Người bán",   value: order.SellerCompanyName || "Nhà cung cấp" },
+    { label: "Giá",         value: order.Price != null ? `${order.Price.toLocaleString("vi-VN")} ₫` : "—" },
+    { label: "Ngày mua",    value: new Date(order.CreatedAt).toLocaleDateString("vi-VN") },
   ];
 
   return (
     <div className="space-y-4">
       <button onClick={onBack} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition text-sm">
-        ← Back to My Purchases
+        ← Quay lại danh sách mua hàng
       </button>
 
       <div className="rounded-2xl border border-white/10 bg-[var(--surface-2)] overflow-hidden">
@@ -185,7 +185,7 @@ function OrderDetail({
                 <Box className="w-4 h-4 text-cyan-400" />
                 <h2 className="text-white font-bold text-xl">{order.AssetName || "3D Marketplace Asset"}</h2>
               </div>
-              <p className="text-slate-500 text-sm">Order Reference: #{order.MpOrderId}</p>
+              <p className="text-slate-500 text-sm">Mã đơn: #{order.MpOrderId}</p>
             </div>
             <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border font-medium ${cfg.bgColor} ${cfg.color} ${cfg.borderColor}`}>
               {cfg.icon} {cfg.label}
@@ -209,8 +209,8 @@ function OrderDetail({
               style={{ background: "linear-gradient(135deg,#eab308,#ea580c)", boxShadow: "0 4px 20px rgba(234,88,12,0.2)" }}
             >
               {paying
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
-                : <><CreditCard className="w-4 h-4 mr-2" />Pay Now ({order.Price?.toLocaleString("vi-VN")} ₫)</>}
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Đang xử lý...</>
+                : <><CreditCard className="w-4 h-4 mr-2" />Thanh toán ngay ({order.Price?.toLocaleString("vi-VN")} ₫)</>}
             </Button>
           )}
 
@@ -218,16 +218,16 @@ function OrderDetail({
           {cfg.canDownload && (
             <div>
               <p className="text-slate-400 text-xs uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Download className="w-3.5 h-3.5" /> Download Files
+                <Download className="w-3.5 h-3.5" /> Tải tệp
               </p>
               {vLoading ? (
                 <div className="flex items-center gap-2 text-slate-400 text-sm">
-                  <LoadingSpinner size="sm" color="slate" /> Loading files…
+                  <LoadingSpinner size="sm" color="slate" /> Đang tải tệp…
                 </div>
               ) : versions.length === 0 ? (
                 <div className="rounded-xl bg-slate-900/50 border border-white/[0.08] p-4 text-center">
-                  <p className="text-slate-500 text-sm">No files uploaded yet.</p>
-                  <p className="text-slate-600 text-xs mt-1">Contact support if this persists.</p>
+                  <p className="text-slate-500 text-sm">Chưa có tệp nào được tải lên.</p>
+                  <p className="text-slate-600 text-xs mt-1">Liên hệ hỗ trợ nếu vấn đề tiếp diễn.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -249,10 +249,10 @@ function OrderDetail({
                           className="text-xs px-3 text-white"
                           style={{ background: "var(--gradient-accent)" }}
                         >
-                          <Download className="w-3.5 h-3.5 mr-1" /> Download
+                          <Download className="w-3.5 h-3.5 mr-1" /> Tải xuống
                         </Button>
                       ) : (
-                        <span className="text-slate-600 text-xs">Not available</span>
+                        <span className="text-slate-600 text-xs">Không có sẵn</span>
                       )}
                     </div>
                   ))}
@@ -277,8 +277,8 @@ function OrderDetail({
               className="w-full border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400 hover:bg-red-500/5"
             >
               {refunding
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Processing...</>
-                : <><RotateCcw className="w-4 h-4 mr-2" />Request Refund</>}
+                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Đang xử lý...</>
+                : <><RotateCcw className="w-4 h-4 mr-2" />Yêu cầu hoàn tiền</>}
             </Button>
           )}
         </div>
@@ -342,19 +342,19 @@ export function PurchasesTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-white font-semibold flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-purple-400" /> My Purchases
+            <ShoppingBag className="w-4 h-4 text-purple-400" /> Mua hàng của tôi
           </h2>
-          <p className="text-slate-500 text-xs mt-0.5">Your marketplace asset orders</p>
+          <p className="text-slate-500 text-xs mt-0.5">Các đơn mua tài sản trên Marketplace</p>
         </div>
         <div className="flex items-center gap-2">
           {paidCount > 0 && (
             <span className="text-xs bg-green-500/20 text-green-300 border border-green-500/30 rounded-full px-2.5 py-1 flex items-center gap-1">
-              <Download className="w-3 h-3" /> {paidCount} ready to download
+              <Download className="w-3 h-3" /> {paidCount} sẵn sàng tải
             </span>
           )}
           {pendingCount > 0 && (
             <span className="text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full px-2.5 py-1">
-              {pendingCount} pending
+              {pendingCount} chờ thanh toán
             </span>
           )}
           <button onClick={fetchOrders} className="p-2 text-slate-400 hover:text-white transition rounded-lg hover:bg-white/5">
@@ -373,15 +373,15 @@ export function PurchasesTab() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={ShoppingBag}
-          title="No purchases yet"
-          description="Browse the marketplace to find 3D/AR assets"
+          title="Chưa có đơn mua hàng"
+          description="Khám phá Marketplace để tìm tài sản 3D/AR"
           action={
             <button
               onClick={() => window.location.href = "/marketplace"}
               className="inline-flex items-center gap-2 px-5 py-2.5 text-white text-sm font-medium rounded-xl transition"
               style={{ background: "var(--gradient-accent)" }}
             >
-              <ShoppingBag className="w-4 h-4" /> Browse Marketplace
+              <ShoppingBag className="w-4 h-4" /> Khám phá Marketplace
             </button>
           }
         />
@@ -413,7 +413,7 @@ export function PurchasesTab() {
                     )}
                     <span>·</span>
                     <span className="flex items-center gap-0.5">
-                      <Clock className="w-3 h-3" />{new Date(order.CreatedAt).toLocaleDateString()}
+                      <Clock className="w-3 h-3" />{new Date(order.CreatedAt).toLocaleDateString("vi-VN")}
                     </span>
                   </div>
                 </div>

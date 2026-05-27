@@ -169,9 +169,9 @@ export default function OrderProductPage() {
       <div className="container mx-auto px-4 max-w-5xl">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Order 3D/AR Products</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">Đặt hàng sản phẩm 3D/AR</h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Choose from ready-made products or order custom 3D/AR production
+            Chọn sản phẩm có sẵn hoặc đặt sản xuất 3D/AR tùy chỉnh
           </p>
         </motion.div>
 
@@ -186,16 +186,16 @@ export default function OrderProductPage() {
               <CardContent className="space-y-6">
                 <AlertCircle className="w-16 h-16 text-red-400 mx-auto" />
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-white">Missing Company Information</h2>
+                  <h2 className="text-2xl font-bold text-white">Thiếu thông tin công ty</h2>
                   <p className="text-slate-300">
-                    You must assign a company to your profile before you can place orders or purchase items.
+                    Bạn phải gán công ty vào hồ sơ trước khi có thể đặt hàng hoặc mua sản phẩm.
                   </p>
                 </div>
                 <Button 
                   onClick={() => router.push("/customer-dashboard?tab=profile")}
                   className="bg-red-600 hover:bg-red-700 text-white mt-4"
                 >
-                  Go to Profile to Update Company
+                  Cập nhật hồ sơ để thêm công ty
                 </Button>
               </CardContent>
             </Card>
@@ -206,8 +206,8 @@ export default function OrderProductPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <Card className="bg-[#1a1f3a]/50 border-purple-500/20 backdrop-blur mb-8">
             <CardHeader>
-              <CardTitle className="text-white">Order Type</CardTitle>
-              <CardDescription className="text-gray-400">Select the type of product you want to order</CardDescription>
+              <CardTitle className="text-white">Loại đơn hàng</CardTitle>
+              <CardDescription className="text-gray-400">Chọn loại sản phẩm bạn muốn đặt</CardDescription>
             </CardHeader>
             <CardContent>
               <RadioGroup
@@ -225,9 +225,9 @@ export default function OrderProductPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Package className="w-5 h-5 text-indigo-400" />
-                      <span className="font-semibold text-white">Ready-Made Products</span>
+                      <span className="font-semibold text-white">Sản phẩm có sẵn</span>
                     </div>
-                    <p className="text-sm text-gray-400">Instant download from catalog</p>
+                    <p className="text-sm text-gray-400">Tải xuống ngay từ danh mục</p>
                   </div>
                 </Label>
 
@@ -241,9 +241,9 @@ export default function OrderProductPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <Camera className="w-5 h-5 text-purple-400" />
-                      <span className="font-semibold text-white">Custom Production</span>
+                      <span className="font-semibold text-white">Sản xuất tùy chỉnh</span>
                     </div>
-                    <p className="text-sm text-gray-400">Custom 3D/AR on demand</p>
+                    <p className="text-sm text-gray-400">3D/AR tùy chỉnh theo yêu cầu</p>
                   </div>
                 </Label>
               </RadioGroup>
@@ -256,17 +256,17 @@ export default function OrderProductPage() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Card className="bg-[#1a1f3a]/50 border-purple-500/20 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-white">Browse Catalog</CardTitle>
-                <CardDescription className="text-gray-400">Find ready-made 3D/AR products</CardDescription>
+                <CardTitle className="text-white">Duyệt danh mục</CardTitle>
+                <CardDescription className="text-gray-400">Tìm sản phẩm 3D/AR có sẵn</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <p className="text-gray-400 text-sm">
-                  Head to the Marketplace to browse all available products and purchase directly.
+                  Truy cập Marketplace để duyệt tất cả sản phẩm có sẵn và mua trực tiếp.
                 </p>
                 <Link href="/marketplace">
                   <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    Go to Marketplace
+                    Đến Marketplace
                   </Button>
                 </Link>
               </CardContent>
@@ -288,10 +288,10 @@ export default function OrderProductPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {/* Project Name */}
                   <div className="space-y-2">
-                    <Label htmlFor="project-name" className="text-white">Project Name *</Label>
+                    <Label htmlFor="project-name" className="text-white">Tên dự án *</Label>
                     <Input
                       id="project-name"
-                      placeholder="e.g., XYZ Phone 3D Model"
+                      placeholder="VD: Mô hình 3D điện thoại XYZ"
                       value={form.projectName}
                       onChange={(e) => updateForm("projectName", e.target.value)}
                       className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-slate-400"
@@ -300,19 +300,19 @@ export default function OrderProductPage() {
 
                   {/* Product Type */}
                   <div className="space-y-2">
-                    <Label htmlFor="product-type" className="text-white">Product Type *</Label>
+                    <Label htmlFor="product-type" className="text-white">Loại sản phẩm *</Label>
                     <Select onValueChange={(v) => updateForm("productType", v)}>
                       <SelectTrigger id="product-type" className="bg-[#0f1729] border-purple-500/30 text-white">
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder="Chọn loại" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
-                        <SelectItem value="Electronics">Electronics</SelectItem>
-                        <SelectItem value="Furniture">Furniture</SelectItem>
-                        <SelectItem value="Fashion">Fashion</SelectItem>
-                        <SelectItem value="Automotive">Automotive</SelectItem>
-                        <SelectItem value="Cosmetics">Cosmetics</SelectItem>
-                        <SelectItem value="Food & Beverage">Food & Beverage</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
+                        <SelectItem value="Electronics">Điện tử</SelectItem>
+                        <SelectItem value="Furniture">Nội thất</SelectItem>
+                        <SelectItem value="Fashion">Thời trang</SelectItem>
+                        <SelectItem value="Automotive">Ô tô / Xe cộ</SelectItem>
+                        <SelectItem value="Cosmetics">Mỹ phẩm</SelectItem>
+                        <SelectItem value="Food & Beverage">Thực phẩm & Đồ uống</SelectItem>
+                        <SelectItem value="Other">Khác</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -320,10 +320,10 @@ export default function OrderProductPage() {
 
                 {/* Description */}
                 <div className="space-y-2">
-                  <Label htmlFor="description" className="text-white">Detailed Description *</Label>
+                  <Label htmlFor="description" className="text-white">Mô tả chi tiết *</Label>
                   <Textarea
                     id="description"
-                    placeholder="Describe your product: dimensions, colors, materials, special requirements..."
+                    placeholder="Mô tả sản phẩm: kích thước, màu sắc, chất liệu, yêu cầu đặc biệt..."
                     rows={5}
                     value={form.description}
                     onChange={(e) => updateForm("description", e.target.value)}
@@ -334,31 +334,31 @@ export default function OrderProductPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                   {/* Deadline */}
                   <div className="space-y-2">
-                    <Label htmlFor="deadline" className="text-white">Desired Deadline</Label>
+                    <Label htmlFor="deadline" className="text-white">Thời hạn mong muốn</Label>
                     <Select onValueChange={(v) => updateForm("deadline", v)}>
                       <SelectTrigger id="deadline" className="bg-[#0f1729] border-purple-500/30 text-white">
-                        <SelectValue placeholder="Select deadline" />
+                        <SelectValue placeholder="Chọn thời hạn" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
-                        <SelectItem value="standard">Standard (7–10 days)</SelectItem>
-                        <SelectItem value="express">Express (3–5 days)</SelectItem>
-                        <SelectItem value="rush">Rush (1–2 days)</SelectItem>
+                        <SelectItem value="standard">Tiêu chuẩn (7–10 ngày)</SelectItem>
+                        <SelectItem value="express">Nhanh (3–5 ngày)</SelectItem>
+                        <SelectItem value="rush">Khẩn cấp (1–2 ngày)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Budget */}
                   <div className="space-y-2">
-                    <Label htmlFor="budget" className="text-white">Estimated Budget</Label>
+                    <Label htmlFor="budget" className="text-white">Ngân sách dự kiến</Label>
                     <Select onValueChange={(v) => updateForm("budget", v)}>
                       <SelectTrigger id="budget" className="bg-[#0f1729] border-purple-500/30 text-white">
-                        <SelectValue placeholder="Select budget" />
+                        <SelectValue placeholder="Chọn ngân sách" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
                         <SelectItem value="100k-250k">100.000 – 250.000 ₫</SelectItem>
                         <SelectItem value="250k-750k">250.000 – 750.000 ₫</SelectItem>
                         <SelectItem value="750k-1250k">750.000 – 1.250.000 ₫</SelectItem>
-                        <SelectItem value="1250k+">Over 1.250.000 ₫</SelectItem>
+                        <SelectItem value="1250k+">Trên 1.250.000 ₫</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -369,16 +369,16 @@ export default function OrderProductPage() {
             {/* File Upload */}
             <Card className="bg-[#1a1f3a]/50 border-purple-500/20 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-white">Upload Reference Materials</CardTitle>
-                <CardDescription className="text-gray-400">Product images, drawings, or documents</CardDescription>
+                <CardTitle className="text-white">Tải lên tài liệu tham khảo</CardTitle>
+                <CardDescription className="text-gray-400">Hình ảnh, bản vẽ hoặc tài liệu sản phẩm</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="border-2 border-dashed border-purple-500/30 rounded-lg p-8 text-center hover:border-purple-500/50 transition-colors">
                   <input type="file" multiple onChange={handleFileUpload} className="hidden" id="file-upload" accept="image/*,.pdf,.doc,.docx" />
                   <Label htmlFor="file-upload" className="cursor-pointer">
                     <Upload className="w-12 h-12 text-gray-500 mx-auto mb-4" />
-                    <p className="text-white mb-2">Drag & drop or click to select files</p>
-                    <p className="text-sm text-gray-400">JPG, PNG, PDF, DOC (Max 10MB per file)</p>
+                    <p className="text-white mb-2">Kéo thả hoặc nhấn để chọn tệp</p>
+                    <p className="text-sm text-gray-400">JPG, PNG, PDF, DOC (Tối đa 10MB mỗi tệp)</p>
                   </Label>
                 </div>
 
@@ -401,14 +401,14 @@ export default function OrderProductPage() {
             {/* Add-ons */}
             <Card className="bg-[#1a1f3a]/50 border-purple-500/20 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-white">Additional Options</CardTitle>
+                <CardTitle className="text-white">Tùy chọn thêm</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { key: "arOptimize", label: "AR optimization for web & mobile (+50.000 ₫)" },
-                  { key: "animation", label: "Add 3D animations (+7.500.000 ₫)" },
-                  { key: "multiVariant", label: "Multiple color/material variants (+350.000 ₫)" },
-                  { key: "sourceFiles", label: "Include editable source files (+250.000 ₫)" },
+                  { key: "arOptimize", label: "Tối ưu AR cho web & di động (+50.000 ₫)" },
+                  { key: "animation", label: "Thêm hoạt ảnh 3D (+7.500.000 ₫)" },
+                  { key: "multiVariant", label: "Nhiều biến thể màu/chất liệu (+350.000 ₫)" },
+                  { key: "sourceFiles", label: "Bao gồm tệp nguồn có thể chỉnh sửa (+250.000 ₫)" },
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center gap-2">
                     <Checkbox
@@ -429,12 +429,12 @@ export default function OrderProductPage() {
                 <div className="flex items-start gap-4 mb-6">
                   <Clock className="w-6 h-6 text-indigo-400 flex-shrink-0 mt-1" />
                   <div>
-                    <h3 className="text-white font-semibold mb-2">What happens next?</h3>
+                    <h3 className="text-white font-semibold mb-2">Bước tiếp theo là gì?</h3>
                     <ul className="text-sm text-gray-300 space-y-1 ml-2">
-                      <li>• Our team will contact you within 24 hours</li>
-                      <li>• Confirm requirements and provide accurate quote</li>
-                      <li>• Schedule photoshoot if needed</li>
-                      <li>• Begin 3D/AR production</li>
+                      <li>• Đội ngũ của chúng tôi sẽ liên hệ trong vòng 24 giờ</li>
+                      <li>• Xác nhận yêu cầu và báo giá chính xác</li>
+                      <li>• Lên lịch chụp ảnh nếu cần</li>
+                      <li>• Bắt đầu sản xuất 3D/AR</li>
                     </ul>
                   </div>
                 </div>
@@ -454,7 +454,7 @@ export default function OrderProductPage() {
                     className="flex-1 border-purple-500/30 text-white hover:bg-white/5"
                     disabled={submitting}
                   >
-                    Save Draft
+                    Lưu bản nháp
                   </Button>
                   <Button
                     onClick={handleSubmitCustom}
@@ -464,12 +464,12 @@ export default function OrderProductPage() {
                     {submitting ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Submitting...
+                        Đang gửi...
                       </>
                     ) : (
                       <>
                         <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Submit Request
+                        Gửi yêu cầu
                       </>
                     )}
                   </Button>

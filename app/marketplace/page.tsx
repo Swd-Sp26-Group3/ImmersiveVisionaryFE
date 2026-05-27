@@ -22,7 +22,7 @@ export default function MarketPlacePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -42,19 +42,19 @@ export default function MarketPlacePage() {
         );
         setAssets(validAssets);
       })
-      .catch((e) => setError(`Cannot load marketplace assets. (${e.message})`))
+      .catch((e) => setError(`Không thể tải danh sách sản phẩm. (${e.message})`))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchAssets(); }, []);
 
   const categories = [
-    "All",
+    "Tất cả",
     ...Array.from(new Set(assets.map((a) => a.Category).filter(Boolean) as string[])),
   ];
 
   const filteredItems = assets.filter((item) => {
-    const matchCategory = selectedCategory === "All" || item.Category === selectedCategory;
+    const matchCategory = selectedCategory === "Tất cả" || item.Category === selectedCategory;
     const matchSearch =
       item.AssetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.Description ?? "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -81,7 +81,7 @@ export default function MarketPlacePage() {
   if (loading) {
     return (
       <div className="min-h-screen -mt-25 pt-25 flex items-center justify-center" style={{ background: "var(--gradient-page)" }}>
-        <LoadingSpinner size="lg" color="cyan" label="Loading marketplace..." />
+        <LoadingSpinner size="lg" color="cyan" label="Đang tải marketplace..." />
       </div>
     );
   }
@@ -101,13 +101,13 @@ export default function MarketPlacePage() {
         {/* Header */}
         <div className="text-center mb-14">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-white via-cyan-200 to-blue-300 bg-clip-text text-transparent">
-            3D/AR Content Marketplace
+            Marketplace 3D/AR
           </h1>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
-            Browse our collection of professional 3D models and AR experiences across industries
+            Khám phá bộ sưu tập mô hình 3D và trải nghiệm AR chuyên nghiệp đa ngành nghề
           </p>
           {!isAuthenticated && (
-            <p className="mt-3 text-sm text-yellow-400/80">ℹ️ Login to purchase assets</p>
+            <p className="mt-3 text-sm text-yellow-400/80">ℹ️ Đăng nhập để mua sản phẩm</p>
           )}
         </div>
 
@@ -117,7 +117,7 @@ export default function MarketPlacePage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
             <Input
               type="text"
-              placeholder="Search by name or description..."
+              placeholder="Tìm kiếm theo tên hoặc mô tả..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 h-12 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition"
@@ -146,10 +146,10 @@ export default function MarketPlacePage() {
         {/* Count + filter */}
         <div className="flex items-center justify-between mb-6">
           <p className="text-gray-400">
-            {filteredItems.length} {filteredItems.length === 1 ? "asset" : "assets"} found
+            Tìm thấy {filteredItems.length} sản phẩm
           </p>
           <Button variant="outline" size="sm" className="border-blue-500/30 text-slate-300">
-            <Filter className="w-4 h-4 mr-2" /> More Filters
+            <Filter className="w-4 h-4 mr-2" /> Lọc thêm
           </Button>
         </div>
 
@@ -181,7 +181,7 @@ export default function MarketPlacePage() {
                       className="bg-white/90 text-slate-900 hover:bg-white"
                       onClick={() => handleViewDetail(asset.AssetId)}
                     >
-                      <Play className="w-4 h-4 mr-1" /> Preview
+                      <Play className="w-4 h-4 mr-1" /> Xem trước
                     </Button>
                   </div>
                 </div>
@@ -189,13 +189,13 @@ export default function MarketPlacePage() {
                 <CardHeader className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-gray-400 text-sm">{asset.Industry ?? "3D Asset"}</span>
+                    <span className="text-gray-400 text-sm">{asset.Industry ?? "Tài sản 3D"}</span>
                   </div>
                   <CardTitle className="text-white group-hover:text-cyan-400 transition-colors line-clamp-1">
                     {asset.AssetName}
                   </CardTitle>
                   <CardDescription className="text-gray-400 line-clamp-2">
-                    {asset.Description ?? "No description available."}
+                    {asset.Description ?? "Chưa có mô tả."}
                   </CardDescription>
                 </CardHeader>
 
@@ -208,7 +208,7 @@ export default function MarketPlacePage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-cyan-400">
-                      {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Contact for price"}
+                      {asset.Price != null ? `${asset.Price.toLocaleString("vi-VN")} ₫` : "Liên hệ để biết giá"}
                     </span>
                     <div className="flex gap-2">
                       <Button
@@ -225,7 +225,7 @@ export default function MarketPlacePage() {
                         style={{ background: "var(--gradient-accent)" }}
                         className="text-white"
                       >
-                        {isAuthenticated ? "Purchase" : "Login to buy"}
+                        {isAuthenticated ? "Mua ngay" : "Đăng nhập để mua"}
                       </Button>
                     </div>
                   </div>
@@ -237,13 +237,13 @@ export default function MarketPlacePage() {
 
         {filteredItems.length === 0 && !loading && (
           <div className="text-center py-16">
-            <p className="text-gray-400 text-lg">No assets found matching your criteria.</p>
+            <p className="text-gray-400 text-lg">Không tìm thấy sản phẩm phù hợp.</p>
             <Button
-              onClick={() => { setSearchQuery(""); setSelectedCategory("All"); }}
+              onClick={() => { setSearchQuery(""); setSelectedCategory("Tất cả"); }}
               variant="outline"
               className="mt-4 border-blue-500/50 text-slate-300"
             >
-              Clear Filters
+              Xóa bộ lọc
             </Button>
           </div>
         )}

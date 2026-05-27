@@ -80,10 +80,10 @@ export function BriefsTab() {
 
   const handleCancel = async (orderId: number) => {
     const ok = await confirm({
-      title: "Cancel Order",
-      message: "Are you sure you want to cancel this order?",
-      confirmLabel: "Yes, Cancel",
-      cancelLabel: "Keep It",
+      title: "Hủy đơn hàng",
+      message: "Bạn có chắc chắn muốn hủy đơn hàng này không?",
+      confirmLabel: "Có, Hủy",
+      cancelLabel: "Giữ lại",
       variant: "danger",
     });
     if (!ok) return;
@@ -94,9 +94,9 @@ export function BriefsTab() {
       setOrders((prev) =>
         prev.map((o) => (o.OrderId === orderId ? { ...o, Status: "CANCELLED" as const } : o))
       );
-      toast.success("Order cancelled.");
+      toast.success("Đã hủy đơn hàng.");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to cancel.");
+      toast.error(e instanceof Error ? e.message : "Không thể hủy đơn hàng.");
     } finally {
       setCancelling(null);
     }
@@ -108,9 +108,9 @@ export function BriefsTab() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-white font-semibold flex items-center gap-2">
-            <FileText className="w-4 h-4 text-blue-400" /> My Briefs / Custom Orders
+            <FileText className="w-4 h-4 text-blue-400" /> Yêu cầu / Đơn tùy chỉnh của tôi
           </h2>
-          <p className="text-slate-500 text-xs mt-0.5">Track your custom 3D/AR production requests</p>
+          <p className="text-slate-500 text-xs mt-0.5">Theo dõi các yêu cầu sản xuất 3D/AR tùy chỉnh của bạn</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -124,7 +124,7 @@ export function BriefsTab() {
             className="text-sm text-white"
             style={{ background: "var(--gradient-accent)" }}
           >
-            <Plus className="w-4 h-4 mr-1" /> New Brief
+            <Plus className="w-4 h-4 mr-1" /> Yêu cầu mới
           </Button>
         </div>
       </div>
@@ -137,15 +137,15 @@ export function BriefsTab() {
       ) : orders.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No custom orders yet"
-          description="Submit a brief to get started with custom 3D/AR production"
+          title="Chưa có đơn tùy chỉnh"
+          description="Gửi yêu cầu để bắt đầu sản xuất 3D/AR tùy chỉnh"
           action={
             <Button 
               onClick={() => router.push("/order")}
               className="text-white" 
               style={{ background: "var(--gradient-accent)" }}
             >
-              <Plus className="w-4 h-4 mr-2" /> Create First Brief
+              <Plus className="w-4 h-4 mr-2" /> Tạo yêu cầu đầu tiên
             </Button>
           }
         />
@@ -191,7 +191,7 @@ export function BriefsTab() {
                     >
                       {cancelling === order.OrderId
                         ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><XCircle className="w-4 h-4 mr-1" />Cancel</>}
+                        : <><XCircle className="w-4 h-4 mr-1" />Hủy</>}
                     </Button>
                   )}
                 </div>
@@ -224,7 +224,7 @@ export function BriefsTab() {
                 </div>
 
                 <p className="text-slate-600 text-[10px] mt-3">
-                  Created {new Date(order.CreatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  Ngày tạo {new Date(order.CreatedAt).toLocaleDateString("vi-VN", { month: "short", day: "numeric", year: "numeric" })}
                 </p>
               </div>
             );

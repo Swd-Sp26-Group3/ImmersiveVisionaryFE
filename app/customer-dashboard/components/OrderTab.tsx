@@ -54,7 +54,7 @@ function ReviewModal({
 
   const handleAction = async (action: "approve" | "revise") => {
     if (action === "revise" && !feedback.trim()) {
-      toast.error("Please provide feedback for revisions.");
+      toast.error("Vui lòng nhập phản hồi cho yêu cầu chỉnh sửa.");
       return;
     }
     setSubmitting(action);
@@ -71,14 +71,14 @@ function ReviewModal({
       if (!res.ok) throw new Error("Update failed");
       const updated = (await res.json()).data;
       if (action === "approve") {
-        toast.success("Order approved! Head to 'Purchases' tab to complete payment.");
+        toast.success("Đơn hàng đã được duyệt! Chuyển đến tab 'Mua hàng' để hoàn tất thanh toán.");
       } else {
-        toast.success("Revision request sent successfully.");
+        toast.success("Đã gửi yêu cầu chỉnh sửa thành công.");
       }
       onUpdated(updated);
       onClose();
     } catch {
-      toast.error("Failed to update order status.");
+      toast.error("Không thể cập nhật trạng thái đơn hàng.");
     } finally {
       setSubmitting(null);
     }
@@ -110,11 +110,11 @@ function ReviewModal({
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
               <Package className="w-12 h-12 mb-2 opacity-20" />
-              <p>No 3D model (.obj) found to preview.</p>
+              <p>Không tìm thấy mô hình 3D (.obj) để xem trước.</p>
             </div>
           )}
           <div className="absolute bottom-4 left-4 text-[10px] text-slate-500 bg-black/60 px-2 py-1 rounded">
-            Use mouse to orbit • Scroll to zoom
+            Di chuyển chuột để xoay • Cuộn để zoom
           </div>
         </div>
 
@@ -122,12 +122,12 @@ function ReviewModal({
         <div className="w-full md:w-80 flex flex-col gap-4">
           <div className="space-y-2">
             <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              Revision Feedback
+              Phản hồi chỉnh sửa
             </label>
             <textarea
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
-              placeholder="What needs to be changed? (Color, shape, texture...)"
+              placeholder="Cần thay đổi gì? (Màu sắc, hình dạng, chất liệu...)"
               rows={8}
               className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-slate-700 focus:border-purple-500/50 outline-none transition"
             />
@@ -139,7 +139,7 @@ function ReviewModal({
               variant="outline"
               className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 h-12 rounded-xl"
             >
-              {submitting === "revise" ? <Loader2 className="animate-spin" /> : <><Send className="w-4 h-4 mr-2" />Request Revisions</>}
+              {submitting === "revise" ? <Loader2 className="animate-spin" /> : <><Send className="w-4 h-4 mr-2" />Yêu cầu chỉnh sửa</>}
             </Button>
             <Button
               onClick={() => handleAction("approve")}
@@ -147,7 +147,7 @@ function ReviewModal({
               className="w-full h-12 rounded-xl font-bold text-white"
               style={{ background: "var(--gradient-success)", boxShadow: "0 4px 24px rgba(16,163,74,0.2)" }}
             >
-              {submitting === "approve" ? <Loader2 className="animate-spin" /> : <><Check className="w-4 h-4 mr-2" />Approve & Finish</>}
+              {submitting === "approve" ? <Loader2 className="animate-spin" /> : <><Check className="w-4 h-4 mr-2" />Duyệt & Hoàn tất</>}
             </Button>
           </div>
         </div>
@@ -240,10 +240,10 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
 
   const handleCancel = async (orderId: number) => {
     const ok = await confirm({
-      title: "Cancel Order",
-      message: "Are you sure you want to cancel this order? This action cannot be undone.",
-      confirmLabel: "Cancel Order",
-      cancelLabel: "Keep Order",
+      title: "Hủy đơn hàng",
+      message: "Bạn có chắc chắn muốn hủy đơn hàng này không? Hành động này không thể hoàn tác.",
+      confirmLabel: "Hủy đơn",
+      cancelLabel: "Giữ đơn",
       variant: "danger",
     });
     if (!ok) return;
@@ -252,9 +252,9 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
       const res = await apiFetch(`/orders/${orderId}/cancel`, { method: "PUT" });
       if (!res.ok) { const err = await res.json(); throw new Error(err.message ?? "Cancel failed"); }
       setOrders((prev) => prev.map((o) => (o.OrderId === orderId ? { ...o, Status: "CANCELLED" } : o)));
-      toast.success("Order cancelled successfully.");
+      toast.success("Đã hủy đơn hàng thành công.");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to cancel order.");
+      toast.error(e instanceof Error ? e.message : "Không thể hủy đơn hàng.");
     } finally {
       setCancelling(null);
     }
@@ -268,15 +268,15 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
     return (
       <EmptyState
         icon={Package}
-        title="No orders yet"
-        description="Place your first custom order to get started"
+        title="Chưa có đơn hàng"
+        description="Đặt đơn hàng tuỳ chỉnh đầu tiên của bạn để bắt đầu"
         action={
           <Button 
             onClick={() => router.push("/order")}
             style={{ background: "var(--gradient-accent)" }} 
             className="text-white"
           >
-            Place New Order
+            Đặt đơn mới
           </Button>
         }
       />
@@ -287,7 +287,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={fetchOrders} variant="outline" size="sm" className="border-slate-600 text-slate-300">
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Refresh
+          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Làm mới
         </Button>
       </div>
 
@@ -313,15 +313,15 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                     <div className="space-y-1">
                       {order.Status !== "CANCELLED" && (
                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <span>Progress:</span>
+                          <span>Tiến độ:</span>
                           <div className="w-32"><Progress value={progress} className="h-2" /></div>
                           <span>{progress}%</span>
                         </div>
                       )}
                       <div className="flex items-center gap-3 flex-wrap text-sm text-gray-400">
-                        <span>Created: {new Date(order.CreatedAt).toLocaleDateString()}</span>
-                        {order.DeliverySpeed && <span className="text-yellow-400">Speed: {order.DeliverySpeed}</span>}
-                        {order.Budget && <span className="text-green-400">Budget: {order.Budget}</span>}
+                        <span>Ngày tạo: {new Date(order.CreatedAt).toLocaleDateString("vi-VN")}</span>
+                        {order.DeliverySpeed && <span className="text-yellow-400">Tốc độ: {order.DeliverySpeed}</span>}
+                        {order.Budget && <span className="text-green-400">Ngân sách: {order.Budget}</span>}
                       </div>
                     </div>
                   </div>
@@ -338,7 +338,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                         disabled={downloading === order.OrderId}
                       >
                         {downloading === order.OrderId ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Download className="w-4 h-4 mr-1.5" />}
-                        Download Files
+                        Tải tệp
                       </Button>
                       <Button
                         size="sm"
@@ -346,7 +346,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                         className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
                         onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
                       >
-                        <ShoppingBag className="w-4 h-4 mr-1.5" /> Refund
+                        <ShoppingBag className="w-4 h-4 mr-1.5" /> Hoàn tiền
                       </Button>
                       <Button
                         size="sm"
@@ -354,19 +354,19 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                         className="text-slate-400 hover:text-white"
                         onClick={() => { toast.info("Order closed and moved to history."); handleUpdated({ ...order }); }}
                       >
-                        <Archive className="w-4 h-4 mr-1.5" /> Close
+                        <Archive className="w-4 h-4 mr-1.5" /> Đóng
                       </Button>
                     </>
                   )}
                   {order.Status === "DELIVERED" && (
                     <div className="flex flex-col items-end gap-2">
-                      <p className="text-[10px] text-yellow-400 font-medium font-mono">APPROVED - WAITING FOR PAYMENT</p>
+                      <p className="text-[10px] text-yellow-400 font-medium font-mono">ĐÃ DUYỆT - ĐᨌI THANH TOÁN</p>
                       <Button
                         size="sm"
                         className="bg-yellow-600 hover:bg-yellow-500 text-white"
                         onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
                       >
-                        <ShoppingBag className="w-4 h-4 mr-1.5" /> Go to Pay
+                        <ShoppingBag className="w-4 h-4 mr-1.5" /> Thanh toán ngay
                       </Button>
                     </div>
                   )}
@@ -377,7 +377,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       style={{ background: "var(--gradient-brand)" }}
                       onClick={() => setReviewOrder(order)}
                     >
-                      <Eye className="w-4 h-4 mr-2" /> Review Work
+                      <Eye className="w-4 h-4 mr-2" /> Xem xét sản phẩm
                     </Button>
                   )}
                   {order.Status === "NEW" && (
@@ -390,7 +390,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                     >
                       {cancelling === order.OrderId
                         ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><XCircle className="w-4 h-4 mr-1" />Cancel</>}
+                        : <><XCircle className="w-4 h-4 mr-1" />Hủy</>}
                     </Button>
                   )}
                 </div>
@@ -400,7 +400,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
             {order.Brief && (
               <CardContent className="pt-0">
                 <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg px-4 py-3">
-                  <p className="text-slate-500 text-xs mb-1">Brief</p>
+                  <p className="text-slate-500 text-xs mb-1">Mô tả tóm tắt</p>
                   <p className="text-slate-300 text-sm line-clamp-2 italic">{order.Brief}</p>
                 </div>
               </CardContent>

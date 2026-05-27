@@ -17,40 +17,40 @@ export default function HomePage() {
   };
 
   const stats = [
-    { value: "500+", label: "Projects Completed" },
-    { value: "98%", label: "Client Satisfaction" },
-    { value: "48h", label: "Average Delivery" },
+    { value: "500+", label: "Dự án hoàn thành" },
+    { value: "98%", label: "Khách hàng hài lòng" },
+    { value: "48h", label: "Thời gian giao hàng" },
   ];
 
   const services = [
     {
       icon: <Box className="w-6 h-6" />,
-      title: "Ready-Made Assets",
-      description: "Browse and purchase pre-made 3D/AR advertising files. Instant download, ready to deploy.",
-      cta: "Browse Marketplace",
+      title: "Sản phẩm có sẵn",
+      description: "Duyệt và mua các tệp quảng cáo 3D/AR được tạo sẵn. Tải xuống ngay, sẵn sàng triển khai.",
+      cta: "Khám phá Marketplace",
       link: "/marketplace",
     },
     {
       icon: <Palette className="w-6 h-6" />,
-      title: "Pre-Order Concepts",
-      description: "Reserve upcoming 3D content during concept stage. Early access pricing and priority delivery.",
-      cta: "Transfer Your Ideas into 3D Content",
+      title: "Đặt hàng theo ý tưởng",
+      description: "Đặt trước nội dung 3D đang trong giai đoạn ý tưởng. Mức giá ưu đãi và ưu tiên giao hàng sớm.",
+      cta: "Biến ý tưởng thành nội dung 3D",
       link: "/order",
     },
     {
       icon: <Layers className="w-6 h-6" />,
-      title: "Custom Production",
-      description: "Full-service 3D/AR production from your physical products. Photography to final AR-ready files.",
-      cta: "Start Project",
+      title: "Sản xuất theo yêu cầu",
+      description: "Dịch vụ sản xuất 3D/AR toàn diện từ sản phẩm thực tế của bạn. Từ chụp ảnh đến tệp AR hoàn chỉnh.",
+      cta: "Bắt đầu dự án",
       link: "/support",
     },
   ].filter(s => !(s.link === "/marketplace" && isAuthenticated && (user?.role === "MANAGER" || user?.role === "ADMIN")));
 
   const pipelineSteps = [
-    { step: "01", title: "Submit Brief", desc: "Share product details and requirements" },
-    { step: "02", title: "Photography", desc: "Professional product photography session" },
-    { step: "03", title: "3D Modeling", desc: "Expert artists create photorealistic models" },
-    { step: "04", title: "AR Integration", desc: "Optimize for web and mobile AR" },
+    { step: "01", title: "Gửi yêu cầu", desc: "Chia sẻ thông tin sản phẩm và yêu cầu của bạn" },
+    { step: "02", title: "Chụp ảnh", desc: "Phiên chụp ảnh sản phẩm chuyên nghiệp" },
+    { step: "03", title: "Dựng mô hình 3D", desc: "Các nghệ sĩ chuyên gia tạo mô hình siêu thực" },
+    { step: "04", title: "Tích hợp AR", desc: "Tối ưu hóa cho AR trên web và di động" },
   ];
 
   return (
@@ -85,7 +85,7 @@ export default function HomePage() {
                 }}
               >
                 <span className="text-xs font-medium" style={{ color: "#a5b4fc" }}>
-                  Professional 3D/AR Production
+                  Sản xuất 3D/AR chuyên nghiệp
                 </span>
               </div>
 
@@ -94,14 +94,14 @@ export default function HomePage() {
                 className="font-extrabold text-white mb-6"
                 style={{ fontSize: "clamp(2.2rem, 4vw, 3.8rem)", lineHeight: 1.1 }}
               >
-                Transform Products into{" "}
+                Chuyển hóa sản phẩm thành{" "}
                 <br />
-                Immersive Experiences
+                trải nghiệm sống động
               </h1>
 
               {/* Description */}
               <p className="text-base leading-relaxed mb-10" style={{ color: "#94a3b8", maxWidth: "460px" }}>
-                Enterprise-grade 3D modeling and AR advertising production. From physical products to interactive digital assets in days, not weeks.
+                Sản xuất mô hình 3D và quảng cáo AR cấp doanh nghiệp. Từ sản phẩm thực tế đến tài sản số tương tác trong vài ngày, không phải vài tuần.
               </p>
 
               {/* Buttons */}
@@ -115,7 +115,7 @@ export default function HomePage() {
                     boxShadow: "0 0 28px rgba(109,40,217,0.45)",
                   }}
                 >
-                  Start Custom Project
+                  Bắt đầu dự án tùy chỉnh
                 </Button>
                 {!(isAuthenticated && (user?.role === "MANAGER" || user?.role === "ADMIN")) && (
                   <Link href="/marketplace">
@@ -129,7 +129,7 @@ export default function HomePage() {
                         background: "transparent",
                       }}
                     >
-                      Browse Marketplace
+                      Khám phá Marketplace
                     </Button>
                   </Link>
                 )}              </div>
@@ -160,7 +160,7 @@ export default function HomePage() {
               >
                 <img
                   src="a940202526210112ed774ee070cb6e1f584158f8.png"
-                  alt="3D AR Product Showcase"
+                  alt="Trình diễn sản phẩm 3D AR"
                   className="w-full h-auto block"
                 />
                 {/* AR Ready badge */}
@@ -173,8 +173,8 @@ export default function HomePage() {
                   }}
                 >
                   <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span className="text-xs font-semibold text-white">AR Ready</span>
-                  <span className="text-xs" style={{ color: "#c4b5fd" }}>Instant Preview</span>
+                  <span className="text-xs font-semibold text-white">Sẵn sàng AR</span>
+                  <span className="text-xs" style={{ color: "#c4b5fd" }}>Xem trước ngay</span>
                 </div>
               </div>
             </motion.div>
@@ -182,7 +182,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Our Services ── */}
+      {/* ── Dịch vụ của chúng tôi ── */}
       <section
         className="py-12 md:py-24"
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
@@ -190,11 +190,11 @@ export default function HomePage() {
         <div className={W}>
           <div className=" flex flex-col items-center justify-center gap-3">
             <h2 className="text-4xl font-bold text-white">
-              Our Services
+              Dịch vụ của chúng tôi
             </h2>
 
             <p className="text-base max-w-2xl text-center text-slate-500">
-              Complete 3D/AR production pipeline from concept to delivery
+              Quy trình sản xuất 3D/AR toàn diện từ ý tưởng đến giao hàng
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 px-0 py-10 md:py-16">
@@ -247,16 +247,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Production Pipeline ── */}
+      {/* ── Quy trình sản xuất ── */}
       <section
         className="py-24 "
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       >
         <div className={W}>
           <div className="flex flex-col items-center justify-center gap-3">
-            <h2 className="text-4xl font-bold text-white mb-5">Production Pipeline</h2>
+            <h2 className="text-4xl font-bold text-white mb-5">Quy trình sản xuất</h2>
             <p className="text-base max-w-2xl mx-auto" style={{ color: "#64748b" }}>
-              From brief to delivery in 7 streamlined steps
+              Từ yêu cầu đến giao hàng qua 4 bước tinh gọn
             </p>
           </div>
 
@@ -306,11 +306,11 @@ export default function HomePage() {
             }}
           >
             <h2 className="text-4xl font-bold text-white mb-6 px-30">
-              Ready to Transform Your Advertising?
+              Sẵn sàng nâng tầm quảng cáo của bạn?
             </h2>
 
             <p className="text-lg mb-12 max-w-2xl mx-auto text-white/70">
-              Join leading brands using 3D/AR to create unforgettable customer experiences
+              Cùng các thương hiệu hàng đầu sử dụng 3D/AR để tạo ra những trải nghiệm khách hàng đáng nhớ
             </p>
 
             <Button
@@ -323,7 +323,7 @@ export default function HomePage() {
                 boxShadow: "0 0 40px rgba(109,40,217,0.45)",
               }}
             >
-              Begin Your 3D/AR Journey
+              Bắt đầu hành trình 3D/AR
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </div>

@@ -43,10 +43,10 @@ export function Header() {
   const dashboardPath = getHomeByRole(user?.role ?? "CUSTOMER");
 
   const navLinks = [
-    { name: "Introduction", path: "/",             requiresAuth: false },
-    { name: "Marketplace",  path: "/marketplace",  requiresAuth: false },
-    { name: "Order",        path: "/order",         requiresAuth: true  },
-    { name: "Support",      path: "/support",       requiresAuth: true  },
+    { name: "Giới thiệu",  path: "/",             requiresAuth: false },
+    { name: "Marketplace", path: "/marketplace",  requiresAuth: false },
+    { name: "Đặt hàng",   path: "/order",         requiresAuth: true  },
+    { name: "Hỗ trợ",     path: "/support",       requiresAuth: true  },
   ].filter((link) => {
     if (RESTRICTED_ROLES.includes(user?.role ?? "") && NAV_RESTRICTED_PATHS.includes(link.path)) {
       return false;
@@ -198,7 +198,7 @@ export function Header() {
                     className="flex items-center gap-2.5 px-4 py-3 text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
                   >
                     <User className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                    My Dashboard
+                    Bảng điều khiển
                   </Link>
                   <div className="h-px mx-4" style={{ background: "rgba(255,255,255,0.06)" }} />
                   <button
@@ -206,7 +206,7 @@ export function Header() {
                     className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-colors"
                   >
                     <LogOut className="w-4 h-4 flex-shrink-0" />
-                    Logout
+                    Đăng xuất
                   </button>
                 </div>
               )}
@@ -231,7 +231,7 @@ export function Header() {
                       opacity: signInHover ? 1 : 0,
                     }}
                   />
-                  <span className="relative">Sign In</span>
+                  <span className="relative">Đăng nhập</span>
                   {/* Bottom border slide */}
                   <span
                     className="absolute bottom-0.5 left-1/2 h-px bg-purple-400 transition-all duration-300"
@@ -270,7 +270,7 @@ export function Header() {
                     className="w-3.5 h-3.5 relative transition-transform duration-300"
                     style={{ transform: getStartedHover ? "rotate(12deg) scale(1.1)" : "none" }}
                   />
-                  <span className="relative">Get Started</span>
+                  <span className="relative">Bắt đầu ngay</span>
                 </button>
               </Link>
             </div>
@@ -340,7 +340,7 @@ export function Header() {
                   className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/5 transition-colors text-left"
                 >
                   <LogOut className="w-4 h-4" />
-                  Logout
+                  Đăng xuất
                 </button>
               </>
             ) : (
@@ -348,7 +348,7 @@ export function Header() {
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                   <div className="px-3 py-2.5 rounded-lg text-sm text-center border border-white/10 hover:border-purple-500/40 hover:bg-white/5 transition-all duration-200"
                     style={{ color: "var(--text-secondary)" }}>
-                    Sign In
+                    Đăng nhập
                   </div>
                 </Link>
                 <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
@@ -360,7 +360,7 @@ export function Header() {
                     }}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    Get Started
+                    Bắt đầu ngay
                   </div>
                 </Link>
               </>

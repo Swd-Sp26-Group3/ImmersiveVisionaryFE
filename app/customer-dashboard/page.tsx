@@ -13,10 +13,10 @@ import { PurchasesTab } from "./components/PurchasesTab";
 import { ProfileTab } from "./components/ProfileTab";
 
 const TABS = [
-  { id: "orders", label: "Orders", icon: Package },
-  { id: "briefs", label: "Briefs", icon: FileText },
-  { id: "purchases", label: "Purchases", icon: Download },
-  { id: "profile", label: "Profile", icon: User },
+  { id: "orders",    label: "Đơn hàng",  icon: Package },
+  { id: "briefs",    label: "Yêu cầu",   icon: FileText },
+  { id: "purchases", label: "Mua hàng",  icon: Download },
+  { id: "profile",   label: "Hồ sơ",    icon: User },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -99,12 +99,12 @@ export default function CustomerDashboard() {
             {profileLoading ? (
               <div className="flex items-center gap-2 mb-2">
                 <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
-                <span className="text-gray-400">Loading profile...</span>
+                <span className="text-gray-400">Đang tải hồ sơ...</span>
               </div>
             ) : (
               <>
                 <h1 className="text-3xl md:text-4xl font-bold mb-1 text-white">
-                  Welcome, {profile?.UserName ?? "Customer"} 👋
+                  Xin chào, {profile?.UserName ?? "Khách hàng"} 👋
                 </h1>
                 <div className="flex items-center gap-2">
                   <p className="text-gray-400 text-sm">{profile?.Email}</p>
@@ -122,7 +122,7 @@ export default function CustomerDashboard() {
           </div>
           <Link href="/order">
             <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-              <Plus className="w-4 h-4 mr-2" /> New Order
+              <Plus className="w-4 h-4 mr-2" /> Đặt hàng mới
             </Button>
           </Link>
         </div>
@@ -130,9 +130,9 @@ export default function CustomerDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
           {[
-            { label: "Active Orders", value: ordersLoading ? "..." : activeOrders, sub: "In progress", subColor: "text-green-400" },
-            { label: "Completed", value: ordersLoading ? "..." : completedOrders, sub: "All time", subColor: "text-gray-400" },
-            { label: "Total Orders", value: ordersLoading ? "..." : orders.length, sub: "All time", subColor: "text-gray-400" },
+            { label: "Đơn đang xử lý", value: ordersLoading ? "..." : activeOrders,    sub: "Đang tiến hành", subColor: "text-green-400" },
+            { label: "Hoàn thành",      value: ordersLoading ? "..." : completedOrders, sub: "Tổng cộng",       subColor: "text-gray-400" },
+            { label: "Tổng đơn hàng",  value: ordersLoading ? "..." : orders.length,   sub: "Tổng cộng",       subColor: "text-gray-400" },
           ].map(({ label, value, sub, subColor }) => (
             <Card key={label} className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
               <CardHeader className="pb-3">
@@ -152,12 +152,12 @@ export default function CustomerDashboard() {
           {/* Member since */}
           <Card className="bg-slate-800/50 border-blue-500/20 backdrop-blur">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm text-gray-400">Member Since</CardTitle>
+              <CardTitle className="text-sm text-gray-400">Ngày tham gia</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold text-white">
                 {profile?.CreatedAt
-                  ? new Date(profile.CreatedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+                  ? new Date(profile.CreatedAt).toLocaleDateString("vi-VN", { month: "short", year: "numeric" })
                   : "—"}
               </div>
               <p className="text-xs text-gray-400 mt-1">{profile?.RoleName ?? "Customer"}</p>
@@ -205,16 +205,16 @@ export default function CustomerDashboard() {
             <Card className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-blue-500/30 backdrop-blur hover:border-cyan-500/50 transition-colors cursor-pointer h-full">
               <CardHeader>
                 <Package className="w-8 h-8 text-cyan-400 mb-2" />
-                <CardTitle className="text-white">Browse Marketplace</CardTitle>
-                <CardDescription className="text-gray-300">Explore ready-made 3D/AR content</CardDescription>
+                <CardTitle className="text-white">Khám phá Marketplace</CardTitle>
+                <CardDescription className="text-gray-300">Tìm kiếm nội dung 3D/AR có sẵn</CardDescription>
               </CardHeader>
             </Card>
           </Link>
           <Card className="bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-blue-500/30 backdrop-blur hover:border-cyan-500/50 transition-colors cursor-pointer">
             <CardHeader>
               <MessageSquare className="w-8 h-8 text-cyan-400 mb-2" />
-              <CardTitle className="text-white">Get Consultation</CardTitle>
-              <CardDescription className="text-gray-300">Talk to our experts about your project</CardDescription>
+              <CardTitle className="text-white">Tư vấn dự án</CardTitle>
+              <CardDescription className="text-gray-300">Nói chuyện với chuyên gia về dự án của bạn</CardDescription>
             </CardHeader>
           </Card>
         </div>

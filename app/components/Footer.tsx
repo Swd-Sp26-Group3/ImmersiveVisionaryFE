@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/context/AuthContext";
-import { Box, Facebook, Mail } from "lucide-react";
+import { Facebook, Mail } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -13,7 +13,7 @@ export function Footer() {
       <div className="max-w-8xl mx-auto px-8 md:px-12 lg:px-20 pt-20 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
 
-          {/* Brand */}
+          {/* Thương hiệu */}
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold mb-4 w-fit group">
               <div
@@ -34,7 +34,7 @@ export function Footer() {
               <span className="text-white transition-opacity duration-200 group-hover:opacity-80">Immersive Visionary</span>
             </Link>
             <p className="text-gray-400 text-sm mb-6 max-w-sm leading-relaxed">
-              Transform your advertising with enterprise-grade 3D modeling and AR production. From concept to immersive reality.
+              Nâng tầm quảng cáo của bạn với dịch vụ mô hình 3D và sản xuất AR cấp doanh nghiệp. Từ ý tưởng đến thực tế sống động.
             </p>
             <div className="flex gap-3">
               <a
@@ -49,14 +49,14 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
+          {/* Liên kết nhanh */}
           <div>
-            <h3 className="font-semibold text-white mb-4">Quick Links</h3>
+            <h3 className="font-semibold text-white mb-4">Liên kết nhanh</h3>
             <ul className="space-y-2 text-sm">
               {!isRestricted && (
                 <li>
                   <Link href="/" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                    Home
+                    Trang chủ
                   </Link>
                 </li>
               )}
@@ -70,14 +70,14 @@ export function Footer() {
               {isAuthenticated && !isRestricted && (
                 <li>
                   <Link href="/order" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                    Order
+                    Đặt hàng
                   </Link>
                 </li>
               )}
               {isAuthenticated && user?.role?.toUpperCase() === "CUSTOMER" && (
                 <li>
                   <Link href="/support" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                    Support
+                    Hỗ trợ
                   </Link>
                 </li>
               )}
@@ -85,12 +85,12 @@ export function Footer() {
                 <>
                   <li>
                     <Link href="/login" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                      Login
+                      Đăng nhập
                     </Link>
                   </li>
                   <li>
                     <Link href="/signup" className="text-gray-400 hover:text-indigo-400 transition-colors">
-                      Sign Up
+                      Đăng ký
                     </Link>
                   </li>
                 </>
@@ -98,9 +98,9 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Contact */}
+          {/* Liên hệ */}
           <div>
-            <h3 className="font-semibold text-white mb-4">Contact</h3>
+            <h3 className="font-semibold text-white mb-4">Liên hệ</h3>
             <ul className="space-y-3 text-sm text-gray-400">
               <li>
                 <a
@@ -123,17 +123,17 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-purple-500/10 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-gray-400">
-            © 2026 Immersive Visionary. All rights reserved.
+            © 2026 Immersive Visionary. Tất cả quyền được bảo lưu.
           </p>
           <div className="flex gap-6 text-sm">
             <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
-              Privacy Policy
+              Chính sách bảo mật
             </a>
             <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
-              Terms of Service
+              Điều khoản dịch vụ
             </a>
             <a href="#" className="text-gray-400 hover:text-indigo-400 transition-colors">
-              Cookie Policy
+              Chính sách Cookie
             </a>
           </div>
         </div>
