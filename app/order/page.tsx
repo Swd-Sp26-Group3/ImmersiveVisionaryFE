@@ -29,15 +29,10 @@ export default function OrderProductPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [profileLoading, setProfileLoading] = useState(true);
-  const [hasCompany, setHasCompany] = useState<boolean | null>(null);
 
   useEffect(() => {
     apiFetch("/users/profile")
       .then(res => res.json())
-      .then(data => {
-        const p = data.data ?? data;
-        setHasCompany(!!p.CompanyId);
-      })
       .catch(err => console.error("Failed to fetch profile", err))
       .finally(() => setProfileLoading(false));
   }, []);
@@ -180,26 +175,6 @@ export default function OrderProductPage() {
           <div className="flex justify-center items-center py-20">
             <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
           </div>
-        ) : hasCompany === false ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-            <Card className="bg-red-500/10 border-red-500/30 backdrop-blur max-w-2xl mx-auto text-center py-8">
-              <CardContent className="space-y-6">
-                <AlertCircle className="w-16 h-16 text-red-400 mx-auto" />
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-white">Thiếu thông tin công ty</h2>
-                  <p className="text-slate-300">
-                    Bạn phải gán công ty vào hồ sơ trước khi có thể đặt hàng hoặc mua sản phẩm.
-                  </p>
-                </div>
-                <Button 
-                  onClick={() => router.push("/customer-dashboard?tab=profile")}
-                  className="bg-red-600 hover:bg-red-700 text-white mt-4"
-                >
-                  Cập nhật hồ sơ để thêm công ty
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
         ) : (
           <>
             {/* Order Type Toggle */}
