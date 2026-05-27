@@ -5,6 +5,8 @@ import { Header } from "./components/header";
 import { Footer } from "./components/Footer";
 import { MainWrapper } from "./components/MainWrapper";
 import { AuthProvider } from "@/context/AuthContext";
+import { CartProvider } from "@/context/CartContext";
+import { CartDrawer } from "./components/CartDrawer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -29,11 +31,14 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <Header />
-          <MainWrapper>
-            {children}
-          </MainWrapper>
-          <Footer />
+          <CartProvider>
+            <Header />
+            <CartDrawer />
+            <MainWrapper>
+              {children}
+            </MainWrapper>
+            <Footer />
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

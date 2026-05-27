@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { Button } from "@/app/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
@@ -21,6 +22,7 @@ import Link from "next/link";
 export default function OrderProductPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const { addItem, openCart } = useCart();
 
   const [orderType, setOrderType] = useState<"ready-made" | "custom">("ready-made");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -134,6 +136,18 @@ export default function OrderProductPage() {
       const newOrder = data.data ?? data;
 
       sessionStorage.setItem("customOrder", JSON.stringify(newOrder));
+
+      // Add order to cart before redirecting
+      addItem({
+        orderId: String(newOrder.OrderId ?? newOrder.orderId ?? Date.now()),
+        projectName: form.projectName,
+        productType: form.productType || null,
+        deliverySpeed: form.deadline || null,
+        budget: form.budget || null,
+        addedAt: new Date().toISOString(),
+        status: "submitted",
+      });
+      openCart();
 
       // Redirect to success page with real order ID
       router.push(`/order-success?orderId=${newOrder.OrderId}`);

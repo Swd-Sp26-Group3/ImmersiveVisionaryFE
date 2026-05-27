@@ -2,9 +2,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LogOut, User, ChevronRight, Sparkles } from "lucide-react";
+import { Menu, X, LogOut, User, ChevronRight, Sparkles, ShoppingCart } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { getHomeByRole } from "@/lib/roleRoutes";
 
 const NAV_RESTRICTED_PATHS = ["/marketplace", "/order", "/"];
@@ -15,6 +16,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const { totalCount, toggleCart } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [signInHover, setSignInHover] = useState(false);
   const [getStartedHover, setGetStartedHover] = useState(false);
@@ -123,6 +125,28 @@ export function Header() {
 
         {/* Desktop Auth Buttons */}
         <div className="hidden md:flex gap-3 flex-1 justify-end items-center">
+          {/* Cart Icon — only for authenticated non-restricted users */}
+          {isAuthenticated && !RESTRICTED_ROLES.includes(user?.role ?? "") && (
+            <button
+              onClick={toggleCart}
+              aria-label="Giỏ hàng"
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{
+                background: "rgba(109,40,217,0.12)",
+                border: "1px solid rgba(139,92,246,0.2)",
+              }}
+            >
+              <ShoppingCart className="w-4 h-4 text-indigo-300" />
+              {totalCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                  style={{ background: "var(--gradient-brand)" }}
+                >
+                  {totalCount > 99 ? "99+" : totalCount}
+                </span>
+              )}
+            </button>
+          )}
           {isAuthenticated ? (
             /* ── Authenticated: Avatar dropdown ── */
             <div ref={userMenuRef} className="relative">
