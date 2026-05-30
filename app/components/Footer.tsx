@@ -17,17 +17,17 @@ export function Footer() {
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold mb-4 w-fit group">
               <div
-                className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-0.5"
+                className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-1"
                 style={{
                   filter: "drop-shadow(0 0 8px rgba(139,92,246,0.4))",
                 }}
               >
                 <Image
-                  src="/imvrs-logo.png"
+                  src="/imvrs-logo.png?v=3"
                   alt="IMVRS Logo"
-                  width={36}
-                  height={36}
-                  className="object-cover w-7 h-7 md:w-9 md:h-9 rounded-[10px]"
+                  width={44}
+                  height={44}
+                  className="object-contain w-9 h-9 md:w-11 md:h-11"
                   priority
                 />
               </div>

@@ -20,11 +20,11 @@ export default function Navbar() {
                 <div className={styles.logo}>
                     <div className={styles.logoIcon} style={{ padding: 0, overflow: 'hidden' }}>
                         <Image
-                            src="/imvrs-logo.png"
+                            src="/imvrs-logo.png?v=3"
                             alt="IMVRS Logo"
-                            width={38}
-                            height={38}
-                            className="object-cover w-full h-full rounded-[10px]"
+                            width={44}
+                            height={44}
+                            className="object-contain w-full h-full"
                         />
                     </div>
                     <span className={styles.logoText}>Immersive Visionary</span>

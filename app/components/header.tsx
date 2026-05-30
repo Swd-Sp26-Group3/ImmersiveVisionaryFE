@@ -80,17 +80,17 @@ export function Header() {
         <div className="flex-1 min-w-0">
           <Link href="/" className="flex items-center gap-2 w-fit group">
             <div
-              className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-0.5"
+              className="relative flex-shrink-0 transition-all duration-300 group-hover:scale-110 rounded-xl overflow-hidden border border-white/10 bg-slate-950/40 p-1"
               style={{
                 filter: "drop-shadow(0 0 8px rgba(139,92,246,0.4))",
               }}
             >
               <Image
-                src="/imvrs-logo.png?v=2"
+                src="/imvrs-logo.png?v=3"
                 alt="IMVRS Logo"
-                width={40}
-                height={40}
-                className="object-contain w-8 h-8 md:w-10 md:h-10 rounded-[10px]"
+                width={48}
+                height={48}
+                className="object-contain w-10 h-10 md:w-12 md:h-12"
                 priority
               />
             </div>
