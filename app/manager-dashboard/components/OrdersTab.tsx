@@ -13,6 +13,7 @@ import {
 import { apiFetch } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
 import { motion, AnimatePresence } from "motion/react";
+import JSZip from "jszip";
 
 interface MarketplaceOrder {
   MpOrderId: number;
@@ -493,7 +494,7 @@ const compressFileToGzipBase64 = async (file: File): Promise<string> => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const cs = new CompressionStream("gzip");
   const writer = cs.writable.getWriter();
-  writer.write(bytes);
+  writer.write(bytes as any);
   writer.close();
   const reader = cs.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -517,28 +518,56 @@ const compressFileToGzipBase64 = async (file: File): Promise<string> => {
   return "gzip:" + btoa(binary);
 };
 
+const process3DModelFiles = async (files: File[]): Promise<string> => {
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+    const arrayBuf = await files[0].arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return "zip:" + btoa(binary);
+  }
+
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+    return compressFileToGzipBase64(files[0]);
+  }
+
+  const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
+  if (!hasObj) {
+    throw new Error("No .obj file found in the selected files.");
+  }
+
+  const zip = new JSZip();
+  for (const f of files) {
+    zip.file(f.name, f);
+  }
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const arrayBuf = await zipBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return "zip:" + btoa(binary);
+};
+
 // ===================== Edit Asset Modal =====================
 function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".obj")) {
-      setError("Please select a .obj file.");
-      return;
-    }
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
 
     setUploading(true); setError("");
     try {
-      const base64Data = await compressFileToGzipBase64(file);
+      const base64Data = await process3DModelFiles(files);
+      const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
+      const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
 
       const res = await apiFetch(`/asset-versions/${assetId}`, {
         method: "POST",
         body: JSON.stringify({
           FileFormat: "OBJ",
-          FileUrl: file.name,
+          FileUrl: displayName,
           Base64Data: base64Data,
           PolyCount: 0,
           TextureSize: "Unknown"
@@ -568,12 +597,19 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-slate-400 text-xs leading-relaxed">Upload a replacement OBJ compilation model file to automatically deploy a new asset version.</p>
+          <p className="text-slate-400 text-xs leading-relaxed">Upload a replacement OBJ model, MTL, textures, or a ZIP archive to deploy a new asset version.</p>
           <div className="border-2 border-dashed border-white/[0.06] rounded-xl p-8 text-center hover:border-purple-500/40 transition-colors relative bg-white/[0.01]">
-            <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
+            <input
+              type="file"
+              accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
+              multiple
+              onChange={handleUpload}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              disabled={uploading}
+            />
             <div className="flex flex-col items-center">
               {uploading ? <Loader2 className="w-8 h-8 text-purple-400 animate-spin" /> : <Upload className="w-8 h-8 text-slate-500 mb-2" />}
-              <p className="text-white text-xs font-medium">{uploading ? "Parsing OBJ file..." : "Click to select replacement OBJ"}</p>
+              <p className="text-white text-xs font-medium">{uploading ? "Parsing 3D files..." : "Click to select replacement files"}</p>
             </div>
           </div>
           {error && <p className="text-rose-400 text-xs bg-rose-500/10 p-2.5 border border-rose-500/20 rounded-xl">{error}</p>}

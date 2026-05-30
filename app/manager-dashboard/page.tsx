@@ -17,6 +17,7 @@ import { Artist, Company, CreativeOrder } from "./components/type";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
 import { motion, AnimatePresence } from "motion/react";
+import JSZip from "jszip";
 
 // ===================== Types & Constants =====================
 const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string; border: string }> = {
@@ -77,6 +78,65 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 25 } }
 };
 
+// Helper to compress file using gzip and encode to base64
+const compressFileToGzipBase64 = async (file: File): Promise<string> => {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const cs = new CompressionStream("gzip");
+  const writer = cs.writable.getWriter();
+  writer.write(bytes as any);
+  writer.close();
+  const reader = cs.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+  const compressedBytes = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    compressedBytes.set(chunk, offset);
+    offset += chunk.length;
+  }
+  let binary = "";
+  const len = compressedBytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(compressedBytes[i]);
+  }
+  return "gzip:" + btoa(binary);
+};
+
+const process3DModelFiles = async (files: File[]): Promise<string> => {
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+    const arrayBuf = await files[0].arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return "zip:" + btoa(binary);
+  }
+
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+    return compressFileToGzipBase64(files[0]);
+  }
+
+  const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
+  if (!hasObj) {
+    throw new Error("No .obj file found in the selected files.");
+  }
+
+  const zip = new JSZip();
+  for (const f of files) {
+    zip.file(f.name, f);
+  }
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const arrayBuf = await zipBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return "zip:" + btoa(binary);
+};
+
 // ===================== Asset Edit Modal =====================
 function AssetEditModal({
   asset, onClose, onSave,
@@ -97,22 +157,12 @@ function AssetEditModal({
   const [uploading, setUploading] = useState(false);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".obj")) {
-      setError("Please select a .obj file.");
-      return;
-    }
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
 
     setUploading(true); setError("");
     try {
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-      });
-      reader.readAsDataURL(file);
-      const base64Data = await base64Promise;
+      const base64Data = await process3DModelFiles(files);
 
       const res = await apiFetch(`/assets/${asset.AssetId}`, {
         method: "PUT",
@@ -211,13 +261,20 @@ function AssetEditModal({
 
           {/* Upload Section */}
           <div className="space-y-2 pt-4 border-t border-white/[0.06] mt-4">
-            <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Update 3D Model (.obj)</label>
+            <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Update 3D Model Files (.obj, .mtl, textures, or .zip)</label>
             <div className="border-2 border-dashed border-white/[0.06] hover:border-purple-500/40 rounded-xl p-4 text-center transition-colors relative bg-white/[0.01]">
-              <input type="file" accept=".obj" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" disabled={uploading} />
+              <input
+                type="file"
+                accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
+                multiple
+                onChange={handleUpload}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                disabled={uploading}
+              />
               <div className="flex flex-col items-center">
                 {uploading ? <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
-                <p className="text-white text-xs font-medium">{uploading ? "Uploading version..." : "Click to upload replacement .OBJ"}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">OBJ format only</p>
+                <p className="text-white text-xs font-medium">{uploading ? "Uploading version..." : "Click to upload replacement files"}</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">OBJ, MTL, Textures, or ZIP</p>
               </div>
             </div>
           </div>

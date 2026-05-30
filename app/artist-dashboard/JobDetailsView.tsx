@@ -13,6 +13,7 @@ import { CreativeOrder, ORDER_STATUS_CONFIG, PRODUCTION_STAGES } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../components/3d/OBJModelViewer";
 import { toast } from "sonner";
+import JSZip from "jszip";
 
 interface Props {
   order: CreativeOrder;
@@ -24,7 +25,7 @@ const compressFileToGzipBase64 = async (file: File): Promise<string> => {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const cs = new CompressionStream("gzip");
   const writer = cs.writable.getWriter();
-  writer.write(bytes);
+  writer.write(bytes as any);
   writer.close();
   const reader = cs.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -46,6 +47,36 @@ const compressFileToGzipBase64 = async (file: File): Promise<string> => {
     binary += String.fromCharCode(compressedBytes[i]);
   }
   return "gzip:" + btoa(binary);
+};
+
+const process3DModelFiles = async (files: File[]): Promise<string> => {
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+    const arrayBuf = await files[0].arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return "zip:" + btoa(binary);
+  }
+
+  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+    return compressFileToGzipBase64(files[0]);
+  }
+
+  const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
+  if (!hasObj) {
+    throw new Error("No .obj file found in the selected files.");
+  }
+
+  const zip = new JSZip();
+  for (const f of files) {
+    zip.file(f.name, f);
+  }
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const arrayBuf = await zipBlob.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuf);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return "zip:" + btoa(binary);
 };
 
 export function JobDetailView({ order, onBack }: Props) {
@@ -75,19 +106,19 @@ export function JobDetailView({ order, onBack }: Props) {
 
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".obj")) {
-      toast.error("Please select a .obj file.");
-      return;
-    }
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length === 0) return;
+    
     setUpdating(true);
     setMessage(null);
     try {
-      const base64 = await compressFileToGzipBase64(file);
+      const base64 = await process3DModelFiles(files);
+      const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
+      const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
+
       const res = await apiFetch(`/orders/${order.OrderId}/attachments`, {
         method: "POST",
-        body: JSON.stringify({ FileName: file.name, MimeType: "application/octet-stream", Base64Data: base64 }),
+        body: JSON.stringify({ FileName: displayName, MimeType: "application/octet-stream", Base64Data: base64 }),
       });
       if (!res.ok) throw new Error("Upload failed");
       setMessage({ type: "success", text: "3D model uploaded successfully!" });
@@ -259,7 +290,8 @@ export function JobDetailView({ order, onBack }: Props) {
               <div className="relative">
                 <input
                   type="file"
-                  accept=".obj"
+                  accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
+                  multiple
                   onChange={handleFileUpload}
                   className="hidden"
                   id="obj-upload"

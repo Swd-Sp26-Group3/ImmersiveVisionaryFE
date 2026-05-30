@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./SignIn.module.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -113,7 +114,15 @@ function SignInContent() {
             <div className={styles.container}>
                 {/* Logo / Back link */}
                 <Link href="/" className={styles.logoLink}>
-                    <div className={styles.logoIcon}>✦</div>
+                    <div className={styles.logoIcon} style={{ padding: 0, overflow: 'hidden' }}>
+                        <Image
+                            src="/imvrs-logo.png?v=2"
+                            alt="IMVRS Logo"
+                            width={38}
+                            height={38}
+                            className="object-contain w-full h-full rounded-[10px]"
+                        />
+                    </div>
                     <span className={styles.logoText}>Immersive Visionary</span>
                 </Link>
 

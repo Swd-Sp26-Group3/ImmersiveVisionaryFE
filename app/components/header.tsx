@@ -86,11 +86,11 @@ export function Header() {
               }}
             >
               <Image
-                src="/imvrs-logo.png"
+                src="/imvrs-logo.png?v=2"
                 alt="IMVRS Logo"
                 width={40}
                 height={40}
-                className="object-cover w-8 h-8 md:w-10 md:h-10 rounded-[10px]"
+                className="object-contain w-8 h-8 md:w-10 md:h-10 rounded-[10px]"
                 priority
               />
             </div>

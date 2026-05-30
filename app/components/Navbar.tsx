@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import styles from "./Navbar.module.css";
 import { useAuth } from "@/context/AuthContext";
 
@@ -17,7 +18,15 @@ export default function Navbar() {
         <header className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}>
             <nav className={styles.nav}>
                 <div className={styles.logo}>
-                    <div className={styles.logoIcon}>IV</div>
+                    <div className={styles.logoIcon} style={{ padding: 0, overflow: 'hidden' }}>
+                        <Image
+                            src="/imvrs-logo.png"
+                            alt="IMVRS Logo"
+                            width={38}
+                            height={38}
+                            className="object-cover w-full h-full rounded-[10px]"
+                        />
+                    </div>
                     <span className={styles.logoText}>Immersive Visionary</span>
                 </div>
 

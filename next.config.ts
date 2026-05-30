@@ -27,7 +27,12 @@ const nextConfig: NextConfig = {
     // → /api/chat (Next.js Route Handler) is served directly by Next.js.
     // → All other /api/* paths are proxied to the backend — avoids CORS in browser.
     return {
-      beforeFiles: [],
+      beforeFiles: [
+        {
+          source: "/:path*.map",
+          destination: "/empty.map",
+        },
+      ],
       afterFiles: [
         {
           source: "/api/:path*",

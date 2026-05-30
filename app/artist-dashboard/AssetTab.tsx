@@ -4,6 +4,7 @@ import {
   Loader2, Plus, Box, Send, Clock,
   ShoppingBag, ArrowRight, Sparkles, X, Upload, Eye, AlertCircle, RefreshCw, ImagePlus,
 } from "lucide-react";
+import JSZip from "jszip";
 import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import { Button } from "@/app/components/ui/button";
 import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
@@ -22,7 +23,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     AssetName: "", Description: "", Category: "",
     Industry: "", Price: "", PreviewImage: "",
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewImgFile, setPreviewImgFile] = useState<File | null>(null);
   const [previewImgDataUrl, setPreviewImgDataUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -87,7 +88,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     const arrayBuf = await f.arrayBuffer();
     const cs = new CompressionStream("gzip");
     const writer = cs.writable.getWriter();
-    writer.write(new Uint8Array(arrayBuf));
+    writer.write(new Uint8Array(arrayBuf) as any);
     writer.close();
     const compressed = await new Response(cs.readable).arrayBuffer();
     // Convert compressed bytes → base64
@@ -97,14 +98,43 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     return "gzip:" + btoa(binary);
   };
 
+  const process3DModelFiles = async (files: File[]): Promise<string> => {
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+      const arrayBuf = await files[0].arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      return "zip:" + btoa(binary);
+    }
+
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+      return compressFileToGzipBase64(files[0]);
+    }
+
+    const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
+    if (!hasObj) {
+      throw new Error("No .obj file found in the selected files.");
+    }
+
+    const zip = new JSZip();
+    for (const f of files) {
+      zip.file(f.name, f);
+    }
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const arrayBuf = await zipBlob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuf);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return "zip:" + btoa(binary);
+  };
+
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
-    if (!file) { setError("Please upload a .obj file."); return; }
+    if (selectedFiles.length === 0) { setError("Please upload 3D model files."); return; }
     setSaving(true);
     setError("");
     try {
-      // Compress .obj before sending → shrinks 70-90%, avoids mssql uint16 overflow
-      const base64Data = await compressFileToGzipBase64(file);
+      const base64Data = await process3DModelFiles(selectedFiles);
 
       // Always route through the Edge proxy at /api/proxy/assets.
       // This runs server-side on Vercel (no CORS) and streams the body
@@ -200,12 +230,25 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
         {/* 3D Model file */}
         <div className="space-y-1.5">
-          <label className="text-slate-300 text-xs font-medium">3D Model (.OBJ) *</label>
+          <label className="text-slate-300 text-xs font-medium">3D Model Files (.OBJ, .MTL, Textures, or ZIP) *</label>
           <div className="relative border border-dashed border-white/10 rounded-xl p-4 hover:border-cyan-500/40 transition group cursor-pointer">
-            <input type="file" accept=".obj" onChange={(e) => setFile(e.target.files?.[0] || null)} className="absolute inset-0 opacity-0 cursor-pointer" />
+            <input
+              type="file"
+              accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
+              multiple
+              onChange={(e) => {
+                const fileList = e.target.files ? Array.from(e.target.files) : [];
+                setSelectedFiles(fileList);
+              }}
+              className="absolute inset-0 opacity-0 cursor-pointer"
+            />
             <div className="flex flex-col items-center justify-center gap-1">
               <Upload className="w-5 h-5 text-slate-500 group-hover:text-cyan-400 transition" />
-              <p className="text-slate-400 text-xs truncate max-w-full px-2">{file ? file.name : "Click to select .obj file"}</p>
+              <p className="text-slate-400 text-xs truncate max-w-full px-2 text-center">
+                {selectedFiles.length > 0
+                  ? `${selectedFiles.length} file(s) selected: ${selectedFiles.map(f => f.name).join(', ')}`
+                  : "Click to select .obj, .mtl, textures or a .zip archive"}
+              </p>
             </div>
           </div>
         </div>
@@ -225,39 +268,16 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 }
 
 // ── Asset Card — lazy-loads Base64Data only when "Preview 3D" is clicked ──────
-function AssetCard({ asset, onSubmit, submitting }: {
+function AssetCard({ asset, onSubmit, submitting, onPreview }: {
   asset: Asset;
   onSubmit: (id: number) => void;
   submitting: boolean;
+  onPreview: (asset: Asset) => void;
 }) {
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewData, setPreviewData] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
-
   const pCfg = PUBLISH_CONFIG[asset.PublishStatus] ?? PUBLISH_CONFIG.DRAFT;
   const rawImg = asset.PreviewImage || CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default;
   const isBlocked = typeof rawImg === "string" && rawImg.includes("kyma.vn");
   const img = isBlocked ? (CATEGORY_IMAGES[asset.Category ?? "default"] || CATEGORY_IMAGES.default) : rawImg;
-
-  // ✅ Lazy-load: only fetch Base64Data when user opens the 3D preview
-  const handleOpen3D = async () => {
-    setPreviewOpen(true);
-    if (previewData) return; // already cached
-    setPreviewLoading(true);
-    try {
-      const res = await apiFetch(`/assets/${asset.AssetId}`);
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-      const b64 = (data.data ?? data).Base64Data ?? null;
-      if (!b64) throw new Error("No 3D data found.");
-      setPreviewData(b64);
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to load 3D model.");
-      setPreviewOpen(false);
-    } finally {
-      setPreviewLoading(false);
-    }
-  };
 
   return (
     <div className="bg-slate-900/40 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-cyan-500/20 transition-all group relative">
@@ -278,7 +298,7 @@ function AssetCard({ asset, onSubmit, submitting }: {
 
         {/* Preview 3D button — triggers lazy load */}
         <button
-          onClick={handleOpen3D}
+          onClick={() => onPreview(asset)}
           className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium gap-2"
         >
           <Eye className="w-4 h-4" /> Preview 3D
@@ -319,25 +339,6 @@ function AssetCard({ asset, onSubmit, submitting }: {
           </div>
         )}
       </div>
-
-      {/* 3D Preview Modal — data loaded on demand */}
-      <Modal
-        open={previewOpen}
-        onClose={() => setPreviewOpen(false)}
-        title={`${asset.AssetName} — 3D Preview`}
-        maxWidth="2xl"
-      >
-        <div className="p-6 h-[500px] flex items-center justify-center">
-          {previewLoading ? (
-            <div className="text-center">
-              <LoadingSpinner size="lg" color="cyan" />
-              <p className="text-slate-400 text-sm mt-3">Loading 3D model…</p>
-            </div>
-          ) : previewData ? (
-            <DynamicOBJModelViewer objData={previewData} />
-          ) : null}
-        </div>
-      </Modal>
     </div>
   );
 }
@@ -349,6 +350,9 @@ export function AssetsTab() {
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState<number | null>(null);
+  const [previewAsset, setPreviewAsset] = useState<Asset | null>(null);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const { confirm, ConfirmDialogComponent } = useConfirm();
 
   const fetchAssets = () => {
@@ -381,6 +385,25 @@ export function AssetsTab() {
       toast.error(e instanceof Error ? e.message : "Submit failed.");
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleOpen3D = async (asset: Asset) => {
+    setPreviewAsset(asset);
+    setPreviewData(null);
+    setPreviewLoading(true);
+    try {
+      const res = await apiFetch(`/assets/${asset.AssetId}`);
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      const b64 = (data.data ?? data).Base64Data ?? null;
+      if (!b64) throw new Error("No 3D data found.");
+      setPreviewData(b64);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to load 3D model.");
+      setPreviewAsset(null);
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -451,7 +474,8 @@ export function AssetsTab() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {assets.map((asset) => (
                   <AssetCard key={asset.AssetId} asset={asset}
-                    onSubmit={handleSubmit} submitting={submitting === asset.AssetId} />
+                    onSubmit={handleSubmit} submitting={submitting === asset.AssetId}
+                    onPreview={handleOpen3D} />
                 ))}
               </div>
             )}
@@ -462,6 +486,27 @@ export function AssetsTab() {
       {showModal && (
         <UploadAssetModal onClose={() => setShowModal(false)} onSaved={() => { setShowModal(false); fetchAssets(); }} />
       )}
+
+      {previewAsset && (
+        <Modal
+          open={!!previewAsset}
+          onClose={() => { setPreviewAsset(null); setPreviewData(null); }}
+          title={`${previewAsset.AssetName} — 3D Preview`}
+          maxWidth="2xl"
+        >
+          <div className="p-6 h-[500px] flex items-center justify-center">
+            {previewLoading ? (
+              <div className="text-center">
+                <LoadingSpinner size="lg" color="cyan" />
+                <p className="text-slate-400 text-sm mt-3">Loading 3D model…</p>
+              </div>
+            ) : previewData ? (
+              <DynamicOBJModelViewer objData={previewData} />
+            ) : null}
+          </div>
+        </Modal>
+      )}
+
       {ConfirmDialogComponent}
     </>
   );
