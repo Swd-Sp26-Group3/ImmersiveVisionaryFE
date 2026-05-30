@@ -81,6 +81,18 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     reader.readAsDataURL(imgFile);
   };
 
+  // Helper to convert Uint8Array to Base64 in chunks (high performance, avoids call stack overflow)
+  const bytesToBase64 = (bytes: Uint8Array): string => {
+    let binary = "";
+    const len = bytes.byteLength;
+    const chunk = 8192;
+    for (let i = 0; i < len; i += chunk) {
+      const slice = bytes.subarray(i, i + chunk);
+      binary += String.fromCharCode.apply(null, slice as any);
+    }
+    return btoa(binary);
+  };
+
   /** Gzip-compress a File and return "gzip:<base64>" string.
    *  .obj files are plain text → gzip shrinks them 70-90%, keeping
    *  the payload well under the 65535-byte TDS mssql packet limit. */
@@ -91,20 +103,13 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     writer.write(new Uint8Array(arrayBuf) as any);
     writer.close();
     const compressed = await new Response(cs.readable).arrayBuffer();
-    // Convert compressed bytes → base64
-    const bytes = new Uint8Array(compressed);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return "gzip:" + btoa(binary);
+    return "gzip:" + bytesToBase64(new Uint8Array(compressed));
   };
 
   const process3DModelFiles = async (files: File[]): Promise<string> => {
     if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
       const arrayBuf = await files[0].arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      return "zip:" + btoa(binary);
+      return "zip:" + bytesToBase64(new Uint8Array(arrayBuf));
     }
 
     if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
@@ -122,10 +127,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     }
     const zipBlob = await zip.generateAsync({ type: "blob" });
     const arrayBuf = await zipBlob.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuf);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return "zip:" + btoa(binary);
+    return "zip:" + bytesToBase64(new Uint8Array(arrayBuf));
   };
 
   const handleSave = async () => {

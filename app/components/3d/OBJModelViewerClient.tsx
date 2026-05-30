@@ -34,11 +34,26 @@ interface ZipModelData {
     texturesMissing: boolean;
     /** True when the MTL references textures but NONE of them matched a ZIP file (all fell back to white) */
     allTexturesMissing: boolean;
+    mtlTexRefCount: number;
+    missingTextureNames: string[];
 }
 
 // Removed hardcoded texture generators.
 
 function postProcessObject(object: THREE.Object3D, applyFallbackMaterial = false) {
+    // Diagnostic logic for dispersed geometry (e.g. Blender transforms not applied)
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const center = box.getCenter(new THREE.Vector3());
+    if (maxDim > 50 || Math.abs(center.x) > 20 || Math.abs(center.y) > 20) {
+        console.warn(
+            "[3D Loader] Model geometry is widely dispersed (size:",
+            size, "center:", center,
+            "). Re-export from Blender with Object > Apply > All Transforms."
+        );
+    }
+
     // BUG 1 FIX: pre-create a shared fallback material so models without textures
     // render as neutral grey instead of broken-looking bright white.
     const fallbackMat = applyFallbackMaterial
@@ -175,7 +190,16 @@ function ZippedModelWithMaterials({
     const materials = useLoader(MTLLoader as any, mtlBlobUrl, (loader: any) => {
         const manager = new THREE.LoadingManager();
         manager.addHandler(/\.tga$/i, new (TGALoader as any)(manager));
+        manager.setURLModifier((url) => {
+            if (url.startsWith("blob:") && url.includes("blob:http")) {
+                const parts = url.split("blob:http");
+                const lastPart = parts[parts.length - 1];
+                return "blob:http" + lastPart;
+            }
+            return url;
+        });
         loader.manager = manager;
+        loader.setResourcePath("");
     });
 
     // ── Reference-inspired: inject textures directly into materials ──
@@ -234,7 +258,21 @@ function ZippedModelWithMaterials({
                     .pop()
                     ?.toLowerCase() || "";
 
-                const blobUrl = basenameToUrl[basename];
+                let blobUrl = basenameToUrl[basename];
+                if (!blobUrl) {
+                    // Try extensionless match
+                    const baseLastDot = basename.lastIndexOf(".");
+                    const baseNoExt = baseLastDot !== -1 ? basename.slice(0, baseLastDot) : basename;
+                    
+                    const matchedKey = Object.keys(basenameToUrl).find((k) => {
+                        const kLastDot = k.lastIndexOf(".");
+                        const kNoExt = kLastDot !== -1 ? k.slice(0, kLastDot) : k;
+                        return kNoExt === baseNoExt;
+                    });
+                    if (matchedKey) {
+                        blobUrl = basenameToUrl[matchedKey];
+                    }
+                }
                 if (!blobUrl) return;
 
                 console.log(`[3D Loader] Injecting texture "${basename}" → material "${matName}.${matProp}"`);
@@ -358,45 +396,49 @@ const base64ToBytes = (str: string): Uint8Array => {
         cleanStr = cleanStr.slice(commaIdx + 1);
     }
 
-    // Decode URL-encoded base64 characters directly
-    cleanStr = cleanStr.replace(/%2B/gi, "+").replace(/%2F/gi, "/").replace(/%3D/gi, "=");
-
-    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    
-    // Support URL-safe base64 characters by mapping them
-    const normalized: string[] = [];
-    for (let i = 0; i < cleanStr.length; i++) {
-        const char = cleanStr[i];
-        if (char === "-") normalized.push("+");
-        else if (char === "_") normalized.push("/");
-        else if (alphabet.indexOf(char) !== -1) {
-            normalized.push(char);
-        }
+    // Decode URL-encoded base64 characters
+    if (cleanStr.includes("%")) {
+        cleanStr = cleanStr.replace(/%2B/gi, "+").replace(/%2F/gi, "/").replace(/%3D/gi, "=");
     }
-    const clean = normalized.join("");
-    
-    // Build lookup table
+
+    // Map URL-safe characters and remove invalid characters
+    const clean = cleanStr
+        .replace(/-/g, "+")
+        .replace(/_/g, "/")
+        .replace(/[^A-Za-z0-9+/=]/g, "");
+
+    // Native decode using atob (extremely fast)
+    try {
+        const binaryString = atob(clean);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    } catch (e) {
+        console.warn("Fallback to manual base64 decoding due to error:", e);
+    }
+
+    // Fallback: original manual decoder
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     const lookup = new Uint8Array(256);
     for (let i = 0; i < alphabet.length; i++) {
         lookup[alphabet.charCodeAt(i)] = i;
     }
-    
     const len = clean.length;
     const numBytes = Math.floor((len * 3) / 4);
     const bytes = new Uint8Array(numBytes);
-    
     let p = 0;
     for (let i = 0; i < len; i += 4) {
         const c1 = lookup[clean.charCodeAt(i)] || 0;
         const c2 = lookup[clean.charCodeAt(i + 1)] || 0;
         const c3 = lookup[clean.charCodeAt(i + 2)] || 0;
         const c4 = lookup[clean.charCodeAt(i + 3)] || 0;
-        
         if (p < numBytes) bytes[p++] = (c1 << 2) | (c2 >> 4);
         if (p < numBytes) bytes[p++] = ((c2 & 15) << 4) | (c3 >> 2);
         if (p < numBytes) bytes[p++] = ((c3 & 3) << 6) | c4;
     }
-    
     return bytes;
 };
 
@@ -520,21 +562,42 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 }
 
                 if (isZip && bytes) {
-                    const zip = await JSZip.loadAsync(bytes);
-                    const fileKeys = Object.keys(zip.files).filter((key) => {
-                        // Ignore macOS metadata and hidden files to prevent them from hijacking the load
-                        if (key.includes("__MACOSX")) return false;
-                        const filename = key.split(/[/\\]/).pop() || "";
-                        if (filename.startsWith(".")) return false;
-                        // BUG 4 FIX: skip Windows/macOS system metadata files
-                        const lowerFilename = filename.toLowerCase();
-                        if (lowerFilename.endsWith(".ini")) return false;
-                        if (lowerFilename.endsWith(".db")) return false;
-                        if (lowerFilename === "ds_store" || lowerFilename === ".ds_store") return false;
-                        // Skip directory entries (JSZip includes them with trailing slash)
-                        if (zip.files[key].dir) return false;
-                        return true;
-                    });
+                    const filesMap: Record<string, Uint8Array> = {};
+
+                    const extractZipRecursively = async (z: JSZip, currentPrefix = "") => {
+                        const keys = Object.keys(z.files);
+                        for (const key of keys) {
+                            if (z.files[key].dir) continue;
+                            if (key.includes("__MACOSX")) continue;
+                            const filename = key.split(/[/\\]/).pop() || "";
+                            if (filename.startsWith(".")) continue;
+                            
+                            const lowerFilename = filename.toLowerCase();
+                            if (lowerFilename.endsWith(".ini") || lowerFilename.endsWith(".db")) continue;
+                            if (lowerFilename === "ds_store" || lowerFilename === ".ds_store") continue;
+
+                            const content = await z.files[key].async("uint8array");
+                            const virtualKey = currentPrefix ? `${currentPrefix}/${key}` : key;
+                            
+                            if (lowerFilename.endsWith(".zip")) {
+                                try {
+                                    console.log(`[3D Loader] Unpacking nested ZIP: ${virtualKey}`);
+                                    const subZip = await JSZip.loadAsync(content);
+                                    await extractZipRecursively(subZip, virtualKey);
+                                } catch (e) {
+                                    console.error(`Failed to unpack nested zip ${virtualKey}:`, e);
+                                    filesMap[virtualKey] = content;
+                                }
+                            } else {
+                                filesMap[virtualKey] = content;
+                            }
+                        }
+                    };
+
+                    const outerZip = await JSZip.loadAsync(bytes);
+                    await extractZipRecursively(outerZip);
+
+                    const fileKeys = Object.keys(filesMap);
                     console.log("[3D Loader] ZIP Contents (filtered):", fileKeys);
                     
                     const objKey = fileKeys.find((key) => key.toLowerCase().endsWith(".obj"));
@@ -542,7 +605,6 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                         throw new Error("No valid .obj file found inside the ZIP archive.");
                     }
                     const mtlKey = fileKeys.find((key) => key.toLowerCase().endsWith(".mtl"));
-
 
                     // Extract all textures and create blob URLs
                     const textureMap: Record<string, string> = {};
@@ -554,14 +616,18 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                             lowerKey.endsWith(".png") ||
                             lowerKey.endsWith(".jpg") ||
                             lowerKey.endsWith(".jpeg") ||
-                            lowerKey.endsWith(".tga")
+                            lowerKey.endsWith(".tga") ||
+                            lowerKey.endsWith(".webp") ||
+                            lowerKey.endsWith(".bmp")
                         ) {
-                            const fileBlob = await zip.files[key].async("blob");
+                            const content = filesMap[key];
                             let mimeType = "image/jpeg";
                             if (lowerKey.endsWith(".png")) mimeType = "image/png";
                             else if (lowerKey.endsWith(".tga")) mimeType = "image/tga";
+                            else if (lowerKey.endsWith(".webp")) mimeType = "image/webp";
+                            else if (lowerKey.endsWith(".bmp")) mimeType = "image/bmp";
 
-                            const typedBlob = new Blob([fileBlob], { type: mimeType });
+                            const typedBlob = new Blob([content as any], { type: mimeType });
                             const url = URL.createObjectURL(typedBlob);
                             textureMap[key] = url;
                             localUrls.push(url);
@@ -569,8 +635,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     }
 
                     // Extract OBJ blob URL
-                    const objBlob = await zip.files[objKey].async("blob");
-                    const objUrl = URL.createObjectURL(new Blob([objBlob], { type: "text/plain" }));
+                    const objContent = filesMap[objKey];
+                    const objUrl = URL.createObjectURL(new Blob([objContent as any], { type: "text/plain" }));
                     localUrls.push(objUrl);
 
                     // Extract MTL blob URL if present, processing references to avoid missing texture errors
@@ -579,8 +645,16 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     // where allTexturesMissing is computed.
                     let mtlTexRefCount = 0; // total map_* / bump / disp lines seen
                     let mtlMatchCount = 0;  // how many were suffix-matched to a blob URL
+                    const missingTextureNames: string[] = [];
                     if (mtlKey) {
-                        const mtlText = await zip.files[mtlKey].async("text");
+                        const WHITE_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC";
+                        const whitePngBytes = Uint8Array.from(atob(WHITE_PNG_BASE64), c => c.charCodeAt(0));
+                        const whitePngBlob = new Blob([whitePngBytes], { type: "image/png" });
+                        const WHITE_FALLBACK_BLOB_URL = URL.createObjectURL(whitePngBlob);
+                        localUrls.push(WHITE_FALLBACK_BLOB_URL);
+
+                        const mtlBytes = filesMap[mtlKey];
+                        const mtlText = new TextDecoder("utf-8").decode(mtlBytes);
                         const mtlLines = mtlText.split(/\r?\n/);
                         const processedMtlLines = mtlLines.map((line) => {
                             const trimmed = line.trim();
@@ -601,7 +675,6 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                     // It also handles MTL loader options before the path ("-o 0 0 0 tex.png")
                                     // because we check whether remainder *ends with* the basename.
                                     const remainder = trimmed.slice(firstSpaceIdx).trim();
-                                    const WHITE_FALLBACK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC";
                                     mtlTexRefCount++;   // count every map_Kd / map_Ks / etc. line seen
 
                                     let suffixMatchUrl: string | null = null;
@@ -624,12 +697,34 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                         }
                                     }
 
+                                    // ── PASS 1.5: match by basename without extension ──
+                                    if (!suffixMatchUrl) {
+                                        const remainderFilename = remainder.split(/[/\\]/).pop() || remainder;
+                                        const remainderLastDot = remainderFilename.lastIndexOf(".");
+                                        const remainderNoExt = remainderLastDot !== -1 ? remainderFilename.slice(0, remainderLastDot).toLowerCase() : remainderFilename.toLowerCase();
+
+                                        for (const key of Object.keys(textureMap)) {
+                                            const basename = decodeURIComponent(key)
+                                                .replace(/\\/g, "/")
+                                                .split("/")
+                                                .pop() || "";
+                                            if (!basename) continue;
+                                            
+                                            const baseLastDot = basename.lastIndexOf(".");
+                                            const baseNoExt = baseLastDot !== -1 ? basename.slice(0, baseLastDot).toLowerCase() : basename.toLowerCase();
+                                            
+                                            if (remainderNoExt === baseNoExt) {
+                                                suffixMatchUrl = textureMap[key];
+                                                suffixMatchBasename = basename;
+                                                break;
+                                            }
+                                        }
+                                    }
+
                                     if (suffixMatchUrl) {
-                                        // Keep any MTL loader option flags that precede the filename
-                                        const prefixPart = remainder.slice(0, remainder.length - suffixMatchBasename.length);
                                         console.log(`[3D Loader] MTL suffix-matched texture "${suffixMatchBasename}"`);
                                         mtlMatchCount++;  // successfully resolved a texture reference
-                                        return `${trimmed.slice(0, firstSpaceIdx)} ${prefixPart}${suffixMatchUrl}`;
+                                        return `${trimmed.slice(0, firstSpaceIdx)} ${suffixMatchUrl}`;
                                     }
 
                                     // ── PASS 2: fallback quote/space extraction for unmatched paths ──
@@ -658,7 +753,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                             `[3D Loader] Texture "${filenameForWarning}" referenced in MTL was not found in the ZIP. ` +
                                             `Replacing with white fallback. Check that all texture files are included.`
                                         );
-                                        return `${trimmed.slice(0, firstSpaceIdx)} ${WHITE_FALLBACK}`;
+                                        missingTextureNames.push(filenameForWarning);
+                                        return `${trimmed.slice(0, firstSpaceIdx)} ${WHITE_FALLBACK_BLOB_URL}`;
                                     }
                                 }
                             }
@@ -677,7 +773,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     }
 
                     // BUG 1 FIX: detect when an MTL exists but the ZIP had no texture images
-                    const texturesMissing = !!mtlKey && Object.keys(textureMap).length === 0;
+                    // ONLY flag when MTL actually had map_ lines that couldn't be resolved:
+                    const texturesMissing = !!mtlKey && mtlTexRefCount > 0 && Object.keys(textureMap).length === 0;
                     // allTexturesMissing: MTL had texture lines but NONE matched anything in the ZIP.
                     // Happens when the ZIP contains images that don't match the MTL's references
                     // (e.g. user includes a screenshot.png but MTL references Fabric036.png).
@@ -697,6 +794,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                         textureMap,
                         texturesMissing,
                         allTexturesMissing,
+                        mtlTexRefCount,
+                        missingTextureNames,
                     });
                     setBlobUrl(null);
                     return;
@@ -821,13 +920,22 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 </div>
             </div>
 
-            {/* BUG 1 FIX: warn the user when textures were absent from the ZIP */}
-            {(zipModelData?.texturesMissing || zipModelData?.allTexturesMissing) && (
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-amber-900/80 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[10px] uppercase tracking-widest font-semibold px-3 py-1.5 rounded-full pointer-events-none">
-                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                    </svg>
-                    {zipModelData.texturesMissing ? "Textures not included in ZIP" : "Texture files not matching MTL references"}
+            {/* BUG 1 & 2 FIX: warn the user when textures are absent or not matching */}
+            {(zipModelData?.texturesMissing || zipModelData?.allTexturesMissing) && zipModelData.mtlTexRefCount > 0 && (
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 bg-amber-900/90 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[10px] uppercase tracking-widest font-semibold px-4 py-2.5 rounded-xl pointer-events-none text-center max-w-[90%] shadow-lg">
+                    <div className="flex items-center gap-1.5">
+                        <svg className="w-3.5 h-3.5 shrink-0 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                        </svg>
+                        <span>{zipModelData.texturesMissing ? "Textures not included in ZIP" : "Textures not matching MTL"}</span>
+                    </div>
+                    {zipModelData.allTexturesMissing && zipModelData.missingTextureNames.length > 0 && (
+                        <div className="font-mono text-[9px] text-amber-400 opacity-90 normal-case">
+                            Missing: {zipModelData.missingTextureNames.slice(0, 3).join(", ")}
+                            {zipModelData.missingTextureNames.length > 3 && 
+                                ` +${zipModelData.missingTextureNames.length - 3} more`}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
