@@ -59,7 +59,7 @@ export function JobDetailView({ order, onBack }: Props) {
       const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
 
       // Route through Edge proxy to bypass Vercel's 4.5 MB request payload limit and avoid CORS issues.
-      const res = await apiFetch(`/api/proxy/orders/${order.OrderId}/attachments`, {
+      const res = await apiFetch(`/proxy-api/orders/${order.OrderId}/attachments`, {
         method: "POST",
         body: JSON.stringify({ FileName: displayName, MimeType: "application/octet-stream", Base64Data: base64 }),
       });

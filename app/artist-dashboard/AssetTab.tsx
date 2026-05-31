@@ -91,7 +91,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       const base64Data = await process3DModelFiles(selectedFiles);
 
       // Route through Edge proxy to bypass Vercel's 4.5 MB request payload limit and avoid CORS issues.
-      const res = await apiFetch("/api/proxy/assets", {
+      const res = await apiFetch("/proxy-api/assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

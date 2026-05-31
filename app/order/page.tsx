@@ -105,7 +105,7 @@ export default function OrderProductPage() {
       }
 
       // Route through Edge proxy to bypass Vercel's 4.5 MB request payload limit and avoid CORS issues.
-      const res = await apiFetch("/api/proxy/orders", {
+      const res = await apiFetch("/proxy-api/orders", {
         method: "POST",
         body: JSON.stringify({
           ProjectName: form.projectName,
