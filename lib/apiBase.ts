@@ -19,6 +19,12 @@ export function buildApiUrl(endpoint: string): string {
     if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
         return endpoint;
     }
+    if (endpoint.startsWith("/proxy-api/")) {
+        if (typeof window === "undefined") {
+            return `${getApiBaseUrl()}${endpoint}`;
+        }
+        return endpoint;
+    }
     const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const apiPath = normalizedEndpoint.startsWith("/api/")
         ? normalizedEndpoint
