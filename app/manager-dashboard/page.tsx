@@ -12,12 +12,11 @@ import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { apiFetch, getApiBaseUrl } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
 import { Artist, Company, CreativeOrder } from "./components/type";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
 import { motion, AnimatePresence } from "motion/react";
-import JSZip from "jszip";
 
 // ===================== Types & Constants =====================
 const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string; border: string }> = {
@@ -78,64 +77,7 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 25 } }
 };
 
-// Helper to compress file using gzip and encode to base64
-const compressFileToGzipBase64 = async (file: File): Promise<string> => {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const cs = new CompressionStream("gzip");
-  const writer = cs.writable.getWriter();
-  writer.write(bytes as any);
-  writer.close();
-  const reader = cs.readable.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-  const compressedBytes = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    compressedBytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  let binary = "";
-  const len = compressedBytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(compressedBytes[i]);
-  }
-  return "gzip:" + btoa(binary);
-};
 
-const process3DModelFiles = async (files: File[]): Promise<string> => {
-  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
-    const arrayBuf = await files[0].arrayBuffer();
-    const bytes = new Uint8Array(arrayBuf);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return "zip:" + btoa(binary);
-  }
-
-  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
-    return compressFileToGzipBase64(files[0]);
-  }
-
-  const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
-  if (!hasObj) {
-    throw new Error("No .obj file found in the selected files.");
-  }
-
-  const zip = new JSZip();
-  for (const f of files) {
-    zip.file(f.name, f);
-  }
-  const zipBlob = await zip.generateAsync({ type: "blob" });
-  const arrayBuf = await zipBlob.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return "zip:" + btoa(binary);
-};
 
 // ===================== Asset Edit Modal =====================
 function AssetEditModal({

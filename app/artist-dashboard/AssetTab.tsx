@@ -4,7 +4,6 @@ import {
   Loader2, Plus, Box, Send, Clock,
   ShoppingBag, ArrowRight, Sparkles, X, Upload, Eye, AlertCircle, RefreshCw, ImagePlus,
 } from "lucide-react";
-import JSZip from "jszip";
 import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import { Button } from "@/app/components/ui/button";
 import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
@@ -13,7 +12,7 @@ import { ErrorState } from "@/app/components/ui/error-state";
 import { StatusBadge } from "@/app/components/ui/status-badge";
 import { Modal } from "@/app/components/ui/modal";
 import { useConfirm } from "@/app/components/ui/confirm-dialog";
-import { apiFetch, getApiBaseUrl } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
 import { toast } from "sonner";
 
@@ -81,60 +80,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     reader.readAsDataURL(imgFile);
   };
 
-  // Helper to convert Uint8Array to Base64 in chunks (high performance, avoids call stack overflow)
-  const bytesToBase64 = (bytes: Uint8Array): string => {
-    let binary = "";
-    const len = bytes.byteLength;
-    const chunk = 8192;
-    for (let i = 0; i < len; i += chunk) {
-      const slice = bytes.subarray(i, i + chunk);
-      binary += String.fromCharCode.apply(null, slice as any);
-    }
-    return btoa(binary);
-  };
 
-  /** Gzip-compress a File and return "gzip:<base64>" string.
-   *  .obj files are plain text → gzip shrinks them 70-90%, keeping
-   *  the payload well under the 65535-byte TDS mssql packet limit. */
-  const compressFileToGzipBase64 = async (f: File): Promise<string> => {
-    const arrayBuf = await f.arrayBuffer();
-    const cs = new CompressionStream("gzip");
-    const writer = cs.writable.getWriter();
-    writer.write(new Uint8Array(arrayBuf) as any);
-    writer.close();
-    const compressed = await new Response(cs.readable).arrayBuffer();
-    return "gzip:" + bytesToBase64(new Uint8Array(compressed));
-  };
-
-  const process3DModelFiles = async (files: File[]): Promise<string> => {
-    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
-      const arrayBuf = await files[0].arrayBuffer();
-      return "zip:" + bytesToBase64(new Uint8Array(arrayBuf));
-    }
-
-    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
-      return compressFileToGzipBase64(files[0]);
-    }
-
-    const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
-    if (!hasObj) {
-      throw new Error("No .obj file found in the selected files.");
-    }
-
-    const zip = new JSZip();
-    for (const f of files) {
-      // Preserve subfolder structure (e.g. textures/Knit_Fabric_basecolor.jpg)
-      // when files were selected via webkitdirectory. Fall back to just filename
-      // for flat multi-file selections.
-      const zipPath = (f as any).webkitRelativePath
-        ? (f as any).webkitRelativePath as string
-        : f.name;
-      zip.file(zipPath, f);
-    }
-    const zipBlob = await zip.generateAsync({ type: "blob" });
-    const arrayBuf = await zipBlob.arrayBuffer();
-    return "zip:" + bytesToBase64(new Uint8Array(arrayBuf));
-  };
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }

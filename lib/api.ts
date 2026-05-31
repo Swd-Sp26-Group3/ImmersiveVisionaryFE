@@ -149,4 +149,74 @@ const api = {
     },
 };
 
+/**
+ * Converts a Blob or File to a Base64 string without data URL prefix.
+ * Uses native FileReader which is memory-efficient and fast.
+ */
+export function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1] || result;
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
+ * Compresses a File using Gzip via CompressionStream and returns "gzip:<base64>".
+ * Super fast, low memory footprint.
+ */
+export async function compressFileToGzipBase64(file: File): Promise<string> {
+    const cs = new CompressionStream("gzip");
+    const compressedStream = file.stream().pipeThrough(cs);
+    const response = new Response(compressedStream);
+    const blob = await response.blob();
+    const b64 = await blobToBase64(blob);
+    return `gzip:${b64}`;
+}
+
+/**
+ * Processes list of 3D model files (OBJ, MTL, textures, ZIP) and returns base64.
+ * If multiple files are uploaded, compresses them into a single DEFLATED zip archive
+ * with level 9 compression to minimize payload size.
+ */
+export async function process3DModelFiles(files: File[]): Promise<string> {
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
+        const b64 = await blobToBase64(files[0]);
+        return `zip:${b64}`;
+    }
+
+    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+        return compressFileToGzipBase64(files[0]);
+    }
+
+    const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
+    if (!hasObj) {
+        throw new Error("No .obj file found in the selected files.");
+    }
+
+    const JSZip = (await import("jszip")).default;
+    const zip = new JSZip();
+    for (const f of files) {
+        // Preserve relative folder structure when directory uploading
+        const zipPath = (f as any).webkitRelativePath || f.name;
+        zip.file(zipPath, f);
+    }
+
+    // Generate deflated zip to optimize payload size
+    const zipBlob = await zip.generateAsync({
+        type: "blob",
+        compression: "DEFLATE",
+        compressionOptions: { level: 9 },
+    });
+
+    const b64 = await blobToBase64(zipBlob);
+    return `zip:${b64}`;
+}
+
 export default api;
+

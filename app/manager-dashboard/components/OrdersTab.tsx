@@ -10,10 +10,9 @@ import {
   RefreshCw, X, ArrowLeft, Package, ShoppingBag,
   Building2, DollarSign, Clock, RotateCcw, Upload, Plus, Edit, Tag
 } from "lucide-react";
-import { apiFetch, getApiBaseUrl } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
 import { motion, AnimatePresence } from "motion/react";
-import JSZip from "jszip";
 
 interface MarketplaceOrder {
   MpOrderId: number;
