@@ -5,7 +5,7 @@
  *  - Vercel's /api/* rewrite has a hard 4.5 MB body limit → breaks large .obj uploads.
  *  - Calling the backend directly from the browser requires CORS and can fail due to Nginx settings.
  *  - This Edge Route Handler sits on the same origin as the FE (no CORS),
- *    then streams the body server-to-server (no size limit, no CORS check).
+ *    and buffers/forwards the payload server-to-server with a Content-Length header.
  */
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -36,22 +36,22 @@ async function handleRequest(
   params: Promise<{ path: string[] }>
 ) {
   const authHeader = request.headers.get('Authorization')
-  // Reconstruct the upstream route path (e.g., ['assets'] -> 'assets', ['orders', '1', 'attachments'] -> 'orders/1/attachments')
+  // Reconstruct the upstream route path
   const { path: pathParts } = await params
   const path = pathParts.join('/')
 
   try {
+    // Buffer the request body as text to ensure a Content-Length header is set.
+    // This avoids using Transfer-Encoding: chunked, which is rejected by some Nginx configurations.
+    const bodyText = await request.text()
+
     const backendRes = await fetch(`${BACKEND}/api/${path}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
-      // Stream body directly — avoids buffering the entire payload in memory
-      // and sidesteps Vercel's 4.5 MB serverless body limit.
-      body: request.body,
-      // @ts-expect-error duplex is required when body is a ReadableStream (Node fetch spec)
-      duplex: 'half',
+      body: bodyText,
     })
 
     const text = await backendRes.text()
