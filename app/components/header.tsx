@@ -86,7 +86,7 @@ export function Header() {
               }}
             >
               <Image
-                src="/imvrs-logo.png?v=3"
+                src="/imvrs-logo.png?v=8"
                 alt="IMVRS Logo"
                 width={48}
                 height={48}

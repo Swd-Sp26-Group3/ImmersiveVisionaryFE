@@ -123,7 +123,13 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
     const zip = new JSZip();
     for (const f of files) {
-      zip.file(f.name, f);
+      // Preserve subfolder structure (e.g. textures/Knit_Fabric_basecolor.jpg)
+      // when files were selected via webkitdirectory. Fall back to just filename
+      // for flat multi-file selections.
+      const zipPath = (f as any).webkitRelativePath
+        ? (f as any).webkitRelativePath as string
+        : f.name;
+      zip.file(zipPath, f);
     }
     const zipBlob = await zip.generateAsync({ type: "blob" });
     const arrayBuf = await zipBlob.arrayBuffer();
@@ -233,26 +239,67 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         {/* 3D Model file */}
         <div className="space-y-1.5">
           <label className="text-slate-300 text-xs font-medium">3D Model Files (.OBJ, .MTL, Textures, or ZIP) *</label>
-          <div className="relative border border-dashed border-white/10 rounded-xl p-4 hover:border-cyan-500/40 transition group cursor-pointer">
-            <input
-              type="file"
-              accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
-              multiple
-              onChange={(e) => {
-                const fileList = e.target.files ? Array.from(e.target.files) : [];
-                setSelectedFiles(fileList);
-              }}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-            />
-            <div className="flex flex-col items-center justify-center gap-1">
-              <Upload className="w-5 h-5 text-slate-500 group-hover:text-cyan-400 transition" />
-              <p className="text-slate-400 text-xs truncate max-w-full px-2 text-center">
-                {selectedFiles.length > 0
-                  ? `${selectedFiles.length} file(s) selected: ${selectedFiles.map(f => f.name).join(', ')}`
-                  : "Click to select .obj, .mtl, textures or a .zip archive"}
-              </p>
+          <p className="text-slate-500 text-[10px] -mt-0.5 mb-1">
+            Chọn 1 file ZIP, hoặc chọn nhiều file (.obj, .mtl, textures...), hoặc chọn cả folder chứa model.
+          </p>
+          <div className="flex gap-2">
+            {/* Upload flat files */}
+            <div className="relative flex-1 border border-dashed border-white/10 rounded-xl p-4 hover:border-cyan-500/40 transition group cursor-pointer">
+              <input
+                id="file-input-flat"
+                type="file"
+                accept=".obj,.mtl,.zip,.png,.jpg,.jpeg,.tga,.webp,.bmp"
+                multiple
+                onChange={(e) => {
+                  const fileList = e.target.files ? Array.from(e.target.files) : [];
+                  setSelectedFiles(fileList);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
+                <Upload className="w-5 h-5 text-slate-500 group-hover:text-cyan-400 transition" />
+                <p className="text-slate-400 text-xs text-center">
+                  {selectedFiles.length > 0 && !(selectedFiles[0] as any).webkitRelativePath
+                    ? `${selectedFiles.length} file(s)`
+                    : "Chọn files"}
+                </p>
+                <p className="text-slate-600 text-[10px] text-center">ZIP, OBJ, MTL, textures...</p>
+              </div>
+            </div>
+
+            {/* Upload entire folder (preserves textures/ subfolder) */}
+            <div className="relative flex-1 border border-dashed border-white/10 rounded-xl p-4 hover:border-purple-500/40 transition group cursor-pointer">
+              <input
+                id="file-input-folder"
+                type="file"
+                {...{ webkitdirectory: "true", directory: "true" } as any}
+                multiple
+                onChange={(e) => {
+                  const fileList = e.target.files ? Array.from(e.target.files) : [];
+                  setSelectedFiles(fileList);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+              <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
+                <Box className="w-5 h-5 text-slate-500 group-hover:text-purple-400 transition" />
+                <p className="text-slate-400 text-xs text-center">
+                  {selectedFiles.length > 0 && (selectedFiles[0] as any).webkitRelativePath
+                    ? `${selectedFiles.length} file(s) từ folder`
+                    : "Chọn folder"}
+                </p>
+                <p className="text-slate-600 text-[10px] text-center">Chọn cả folder model</p>
+              </div>
             </div>
           </div>
+
+          {/* Show selected files summary */}
+          {selectedFiles.length > 0 && (
+            <p className="text-slate-500 text-[10px] mt-1 truncate">
+              ✓ {selectedFiles.length} file(s): {selectedFiles.slice(0, 3).map(f =>
+                (f as any).webkitRelativePath || f.name
+              ).join(", ")}{selectedFiles.length > 3 ? ` +${selectedFiles.length - 3} more` : ""}
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <label className="text-slate-300 text-xs font-medium">Description</label>

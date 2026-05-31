@@ -40,7 +40,125 @@ interface ZipModelData {
 
 // Removed hardcoded texture generators.
 
-function postProcessObject(object: THREE.Object3D, applyFallbackMaterial = false) {
+function convertToStandardMaterial(phongMat: any): THREE.MeshStandardMaterial {
+    const standardMat = new THREE.MeshStandardMaterial({
+        name: phongMat.name,
+        color: phongMat.color,
+        map: phongMat.map,
+        lightMap: phongMat.lightMap,
+        lightMapIntensity: phongMat.lightMapIntensity,
+        aoMap: phongMat.aoMap,
+        aoMapIntensity: phongMat.aoMapIntensity,
+        emissive: phongMat.emissive,
+        emissiveIntensity: phongMat.emissiveIntensity,
+        emissiveMap: phongMat.emissiveMap,
+        bumpMap: phongMat.bumpMap,
+        bumpScale: phongMat.bumpScale,
+        normalMap: phongMat.normalMap,
+        normalScale: phongMat.normalScale,
+        displacementMap: phongMat.displacementMap,
+        displacementScale: phongMat.displacementScale,
+        displacementBias: phongMat.displacementBias,
+        alphaMap: phongMat.alphaMap,
+        envMap: phongMat.envMap,
+        envMapIntensity: phongMat.envMapIntensity,
+        wireframe: phongMat.wireframe,
+        wireframeLinewidth: phongMat.wireframeLinewidth,
+        flatShading: phongMat.flatShading,
+        side: phongMat.side,
+        transparent: phongMat.transparent,
+        opacity: phongMat.opacity,
+        depthFunc: phongMat.depthFunc,
+        depthTest: phongMat.depthTest,
+        depthWrite: phongMat.depthWrite,
+        colorWrite: phongMat.colorWrite,
+        stencilWrite: phongMat.stencilWrite,
+        stencilWriteMask: phongMat.stencilWriteMask,
+        stencilFunc: phongMat.stencilFunc,
+        stencilRef: phongMat.stencilRef,
+        stencilFuncMask: phongMat.stencilFuncMask,
+        stencilFail: phongMat.stencilFail,
+        stencilZFail: phongMat.stencilZFail,
+        stencilZPass: phongMat.stencilZPass,
+        premultipliedAlpha: phongMat.premultipliedAlpha,
+        shadowSide: phongMat.shadowSide,
+    });
+
+    if (phongMat.precision) standardMat.precision = phongMat.precision;
+
+    // Convert shininess (Ns) typically 0 to 1000 to roughness (0 to 1)
+    if (phongMat.shininess !== undefined) {
+        standardMat.roughness = Math.min(1, Math.max(0, 1 - (phongMat.shininess / 1000)));
+    } else {
+        standardMat.roughness = 0.8;
+    }
+
+    if (phongMat.specular && (phongMat.specular.r > 0.1 || phongMat.specular.g > 0.1 || phongMat.specular.b > 0.1)) {
+        standardMat.metalness = 0.2;
+    } else {
+        standardMat.metalness = 0.1;
+    }
+
+    return standardMat;
+}
+
+function useTextureScaleEffect(
+    processedObj: THREE.Object3D | null,
+    textureScale: number,
+    applyToAll: boolean
+) {
+    useEffect(() => {
+        if (!processedObj) return;
+
+        const TILING_KEYWORDS = [
+            "fabric", "knit", "weave", "rattan", "pattern", "carpet", "cloth", "wool", 
+            "leather", "wood", "stone", "brick", "tile", "tiling", "mesh_fabric", "material_fabric"
+        ];
+
+        const texProps = ["map", "normalMap", "roughnessMap", "aoMap", "bumpMap", "metalnessMap", "emissiveMap", "alphaMap"];
+
+        processedObj.traverse((child: any) => {
+            if (child.isMesh && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach((mat: any) => {
+                    const matName = (mat.name || "").toLowerCase();
+                    
+                    // Determine if this material or its textures contain tiling keywords
+                    const isTiling = applyToAll || 
+                        TILING_KEYWORDS.some(kw => matName.includes(kw)) ||
+                        texProps.some(prop => {
+                            const tex = mat[prop];
+                            return tex && tex.isTexture && tex.name && TILING_KEYWORDS.some(kw => tex.name.toLowerCase().includes(kw));
+                        });
+
+                    const scale = isTiling ? textureScale : 1.0;
+
+                    let hasAnyTexture = false;
+                    texProps.forEach((prop) => {
+                        if (mat[prop] && mat[prop].isTexture) {
+                            hasAnyTexture = true;
+                            const tex = mat[prop];
+                            tex.wrapS = THREE.RepeatWrapping;
+                            tex.wrapT = THREE.RepeatWrapping;
+                            tex.repeat.set(scale, scale);
+                            tex.needsUpdate = true;
+                        }
+                    });
+
+                    if (hasAnyTexture) {
+                        mat.needsUpdate = true;
+                    }
+                });
+            }
+        });
+    }, [processedObj, textureScale, applyToAll]);
+}
+
+function postProcessObject(
+    object: THREE.Object3D,
+    applyFallbackMaterial = false,
+    textureMap: Record<string, string> | null = null
+) {
     // Diagnostic logic for dispersed geometry (e.g. Blender transforms not applied)
     const box = new THREE.Box3().setFromObject(object);
     const size = box.getSize(new THREE.Vector3());
@@ -54,11 +172,29 @@ function postProcessObject(object: THREE.Object3D, applyFallbackMaterial = false
         );
     }
 
-    // BUG 1 FIX: pre-create a shared fallback material so models without textures
+    // Pre-create a shared fallback material so models without textures
     // render as neutral grey instead of broken-looking bright white.
-    const fallbackMat = applyFallbackMaterial
-        ? new THREE.MeshStandardMaterial({ color: 0xaaaaaa, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.1 })
-        : null;
+    const fallbackMat = new THREE.MeshStandardMaterial({
+        color: 0xaaaaaa,
+        side: THREE.DoubleSide,
+        roughness: 0.8,
+        metalness: 0.1
+    });
+
+    const texLoader = new THREE.TextureLoader();
+
+    // Build basenameToUrl for auto-injection
+    const basenameToUrl: Record<string, string> = {};
+    if (textureMap) {
+        for (const [key, url] of Object.entries(textureMap)) {
+            const basename = decodeURIComponent(key)
+                .replace(/\\/g, "/")
+                .split("/")
+                .pop()
+                ?.toLowerCase() || "";
+            if (basename) basenameToUrl[basename] = url;
+        }
+    }
 
     object.traverse((child: any) => {
         if (child.isMesh) {
@@ -70,30 +206,168 @@ function postProcessObject(object: THREE.Object3D, applyFallbackMaterial = false
                 child.geometry.computeBoundingBox();
             }
 
-            // BUG 1 FIX: override material with neutral grey when no textures are present
-            if (fallbackMat) {
-                child.material = fallbackMat;
-                return;
-            }
-
             if (child.material) {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
-                materials.forEach((mat: any) => {
-                    // Make double sided so models without thickness render correctly
-                    mat.side = THREE.DoubleSide;
-                    // Prevent precision crashes by forcing medium precision on the material
-                    mat.precision = 'mediump';
+                const processedMaterials = materials.map((originalMat: any) => {
+                    let mat = originalMat;
+                    
+                    // Convert MeshPhongMaterial to MeshStandardMaterial to support full PBR maps
+                    if (mat.isMeshPhongMaterial || mat.type === "MeshPhongMaterial") {
+                        mat = convertToStandardMaterial(mat);
+                    }
 
-                    // Ensure transparency flag matches opacity
+                    // Perform auto-injection of textures from ZIP if textureMap is available
+                    let injectedAny = false;
+                    if (Object.keys(basenameToUrl).length > 0) {
+                        const propRoles: Array<{ prop: string; keywords: string[] }> = [
+                            { prop: "map", keywords: ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff", "color"] },
+                            { prop: "aoMap", keywords: ["ambientocclusion", "occlusion", "_ao", "ambient"] },
+                            { prop: "specularMap", keywords: ["specular", "_spec", "spec"] },
+                            { prop: "roughnessMap", keywords: ["roughness", "glossiness", "_rough", "_gloss", "_rgh", "rough"] },
+                            { prop: "metalnessMap", keywords: ["metallic", "metalness", "metal", "_metal", "_met"] },
+                            { prop: "normalMap", keywords: ["normal", "normalmap", "_nrm", "_nor", "_normal"] },
+                            { prop: "bumpMap", keywords: ["bump", "height", "displacement", "disp", "_height", "_h"] },
+                            { prop: "alphaMap", keywords: ["opacity", "alpha", "transparency", "_opa", "_alpha"] },
+                            { prop: "emissiveMap", keywords: ["emission", "emissive", "_emit", "_emissive"] }
+                        ];
+
+                        const ALL_MAP_KEYWORDS = [
+                            "basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff", "color",
+                            "ambientocclusion", "occlusion", "_ao", "ambient", "ao",
+                            "specular", "_spec", "spec",
+                            "roughness", "glossiness", "_rough", "_gloss", "_rgh", "rough",
+                            "metallic", "metalness", "metal", "_metal", "_met",
+                            "normalmap", "_nrm", "_nor", "_normal", "normal",
+                            "bump",
+                            "opacity", "alpha", "transparency", "_opa", "_alpha",
+                            "height", "displacement", "disp", "_height", "_h",
+                            "emissive", "emission", "_emit", "_emissive"
+                        ];
+
+                        const getMaterialPrefix = (filename: string): string => {
+                            let name = filename.toLowerCase();
+                            const lastDot = name.lastIndexOf(".");
+                            if (lastDot !== -1) {
+                                name = name.slice(0, lastDot);
+                            }
+                            ALL_MAP_KEYWORDS.forEach((kw) => {
+                                name = name.replace(kw, "");
+                            });
+                            name = name.replace(/_2k$|_4k$|_1k$|_8k$/g, "");
+                            name = name.replace(/(^[\s-_]+|[\s-_]+$)/g, "");
+                            return name.replace(/[\s-_]+/g, "");
+                        };
+
+                        const matName = mat.name || "";
+                        const matNameLower = matName.toLowerCase().replace(/[\s-_]+/g, "");
+
+                        propRoles.forEach(({ prop, keywords }) => {
+                            // Check if a real texture is already assigned
+                            const existingTex = mat[prop] as THREE.Texture | null | undefined;
+                            const isRealTexture = existingTex &&
+                                existingTex.image &&
+                                (existingTex.image as HTMLImageElement).width > 1 &&
+                                (existingTex.image as HTMLImageElement).height > 1;
+                            if (isRealTexture) return;
+
+                            // Priority 1: Exact material prefix match (e.g. Knit_Fabric_basecolor -> Knit_Fabric)
+                            let matchedKey = Object.keys(basenameToUrl).find((filename) => {
+                                const prefix = getMaterialPrefix(filename);
+                                const fnLower = filename.toLowerCase().replace(/[\s-_]+/g, "");
+                                const isRole = keywords.some((kw) => fnLower.includes(kw));
+                                return isRole && prefix === matNameLower;
+                            });
+
+                            // Priority 2: Generic texture file match (e.g. no material prefix like "basecolor.png")
+                            if (!matchedKey) {
+                                matchedKey = Object.keys(basenameToUrl).find((filename) => {
+                                    const prefix = getMaterialPrefix(filename);
+                                    const fnLower = filename.toLowerCase().replace(/[\s-_]+/g, "");
+                                    const isRole = keywords.some((kw) => fnLower.includes(kw));
+                                    const isGenericPrefix = !prefix || ["texture", "material", "default", "unnamed"].includes(prefix);
+                                    return isRole && isGenericPrefix;
+                                });
+                            }
+
+                            if (matchedKey) {
+                                const blobUrl = basenameToUrl[matchedKey];
+                                console.log(`[3D Loader] Auto-injected unreferenced texture "${matchedKey}" → material "${matName}.${prop}"`);
+                                const tex = texLoader.load(blobUrl);
+                                tex.name = matchedKey; // Store original filename for tiling detection
+                                if (prop === "map") tex.colorSpace = THREE.SRGBColorSpace;
+                                mat[prop] = tex;
+                                if (prop === "alphaMap" || prop === "map" && matchedKey.toLowerCase().includes("opacity")) {
+                                    mat.transparent = true;
+                                    mat.opacity = 1.0;
+                                }
+                                if (prop === "normalMap") {
+                                    mat.normalScale = new THREE.Vector2(1.5, 1.5);
+                                }
+                                mat.needsUpdate = true;
+                                injectedAny = true;
+                            }
+                        });
+                    }
+
+                    // Convert bumpMap to normalMap if the texture name contains normal keywords
+                    if (mat.bumpMap && mat.bumpMap.isTexture) {
+                        const texName = (mat.bumpMap.name || "").toLowerCase();
+                        if (texName.includes("normal") || texName.includes("nrm") || texName.includes("nor")) {
+                            mat.normalMap = mat.bumpMap;
+                            mat.bumpMap = null;
+                            mat.normalScale = new THREE.Vector2(1.5, 1.5);
+                        }
+                    }
+
+                    // Procedural color enhancements for materials that are missing diffuse textures
+                    if (!mat.map) {
+                        const mName = (mat.name || "").toLowerCase();
+                        if (mName === "woven_rattan_pattern.002" || mName === "woven_rattan_pattern.001") {
+                            // Dark brown/black rattan legs/base
+                            mat.color.setRGB(0.18, 0.15, 0.13);
+                            mat.roughness = 0.85;
+                            mat.metalness = 0.05;
+                        } else if (mName === "woven_rattan_pattern") {
+                            // Cream/beige rattan seat/tabletop
+                            mat.color.setRGB(0.87, 0.80, 0.70);
+                            mat.roughness = 0.75;
+                            mat.metalness = 0.05;
+                        } else if (mName === "light_iron") {
+                            // Dark charcoal metal legs
+                            mat.color.setRGB(0.13, 0.13, 0.13);
+                            mat.roughness = 0.45;
+                            mat.metalness = 0.85;
+                        } else if (mName === "fabric") {
+                            // Cream seat cushion
+                            mat.color.setRGB(0.90, 0.87, 0.84);
+                            mat.roughness = 0.95;
+                            mat.metalness = 0.0;
+                        } else if (mName === "fabric.001") {
+                            // Soft blue cushion/pillow
+                            mat.color.setRGB(0.56, 0.66, 0.75);
+                            mat.roughness = 0.90;
+                            mat.metalness = 0.0;
+                        }
+                    }
+
+                    // Apply fallback grey material only if fallback is requested and we did not inject any textures
+                    // and also didn't apply procedural color mapping
+                    const hasProceduralColor = ["woven_rattan_pattern.002", "woven_rattan_pattern.001", "woven_rattan_pattern", "light_iron", "fabric", "fabric.001"].includes((mat.name || "").toLowerCase());
+                    if (applyFallbackMaterial && !injectedAny && !hasProceduralColor) {
+                        return fallbackMat;
+                    }
+
+                    // Common material settings
+                    mat.side = THREE.DoubleSide;
+                    mat.precision = 'mediump';
                     if (mat.opacity < 1.0) {
                         mat.transparent = true;
                     }
-
-                    // FIX (Problem 4): Set correct colorSpace on diffuse/emissive/specular textures.
-                    // Three.js r152+ requires SRGBColorSpace for color-data textures; without this
-                    // colors render too dark or washed out even when the texture is loaded correctly.
                     if (mat.map) {
                         mat.map.colorSpace = THREE.SRGBColorSpace;
+                    }
+                    if (mat.normalMap) {
+                        mat.normalScale = new THREE.Vector2(1.5, 1.5);
                     }
                     if (mat.emissiveMap) {
                         mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
@@ -101,21 +375,21 @@ function postProcessObject(object: THREE.Object3D, applyFallbackMaterial = false
                     if (mat.specularMap) {
                         mat.specularMap.colorSpace = THREE.SRGBColorSpace;
                     }
-
-                    // Enhance emissive materials to simulate neon/holographic glow
                     if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
-                        mat.emissiveIntensity = 3.0; // Boost glow brightness
-                        mat.toneMapped = false;      // Bypass tone mapping to render self-luminous colors vibrantly
+                        mat.emissiveIntensity = 3.0;
+                        mat.toneMapped = false;
                     }
-
                     mat.needsUpdate = true;
+                    return mat;
                 });
+
+                child.material = Array.isArray(child.material) ? processedMaterials : processedMaterials[0];
             }
         }
     });
 }
 
-function Model({ blobUrl }: { blobUrl: string }) {
+function Model({ blobUrl, textureScale, applyToAll }: { blobUrl: string; textureScale: number; applyToAll: boolean }) {
     // useLoader handles caching and Suspense automatically
     const obj = useLoader(OBJLoader as any, blobUrl);
 
@@ -127,6 +401,8 @@ function Model({ blobUrl }: { blobUrl: string }) {
         postProcessObject(clone);
         return clone;
     }, [obj]);
+
+    useTextureScaleEffect(processedObj, textureScale, applyToAll);
 
     // Clean up when unmounted or blobUrl changes
     useEffect(() => {
@@ -172,12 +448,16 @@ function ZippedModelWithMaterials({
     textureMap,
     texturesMissing,
     allTexturesMissing,
+    textureScale,
+    applyToAll,
 }: {
     objBlobUrl: string;
     mtlBlobUrl: string;
     textureMap: Record<string, string>;
     texturesMissing: boolean;
     allTexturesMissing: boolean;
+    textureScale: number;
+    applyToAll: boolean;
 }) {
     // FIX (Problem 1): The MTL text already has inline blob URLs written in by processModel()
     // (every map_Kd / map_Ka / etc. path was replaced with the actual blob: URL before the MTL
@@ -245,8 +525,15 @@ function ZippedModelWithMaterials({
             if (!mat || !info) return;
 
             mapFields.forEach(([infoKey, matProp]) => {
-                // Skip if Three.js already loaded a real texture for this slot
-                if ((mat as any)[matProp]) return;
+                const existingTex = (mat as any)[matProp] as THREE.Texture | null | undefined;
+                // Skip if Three.js already loaded a real (non-trivial) texture for this slot.
+                // A 1×1 texture indicates a white fallback was substituted during MTL preprocessing;
+                // in that case we should still try to inject the proper texture from the ZIP.
+                const isRealTexture = existingTex &&
+                    existingTex.image &&
+                    (existingTex.image as HTMLImageElement).width > 1 &&
+                    (existingTex.image as HTMLImageElement).height > 1;
+                if (isRealTexture) return;
 
                 const storedPath: string = info[infoKey] || "";
                 if (!storedPath) return;
@@ -257,6 +544,12 @@ function ZippedModelWithMaterials({
                     .split("/")
                     .pop()
                     ?.toLowerCase() || "";
+
+                let targetProp = matProp;
+                // Route normal maps to normalMap instead of bumpMap
+                if ((infoKey === "map_bump" || infoKey === "bump") && (basename.includes("normal") || basename.includes("nrm") || basename.includes("nor"))) {
+                    targetProp = "normalMap";
+                }
 
                 let blobUrl = basenameToUrl[basename];
                 if (!blobUrl) {
@@ -273,13 +566,42 @@ function ZippedModelWithMaterials({
                         blobUrl = basenameToUrl[matchedKey];
                     }
                 }
+                // Role-based fallback: if still no match, infer texture purpose from map key
+                // e.g. if mat.map is missing and infoKey=map_kd, look for *basecolor* file
+                if (!blobUrl) {
+                    const ROLE_KEYWORDS: Record<string, string[]> = {
+                        "map_kd":   ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
+                        "map_ka":   ["ambientocclusion", "occlusion", "_ao", "ambient"],
+                        "map_ks":   ["specular", "metallic", "_spec", "_metal", "_met"],
+                        "map_ns":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                        "map_bump": ["normal", "_nrm", "_nor", "_normal"],
+                        "bump":     ["normal", "_nrm", "_nor", "_normal", "bump", "height"],
+                        "map_d":    ["opacity", "alpha", "_opa", "_alpha"],
+                        "disp":     ["height", "displacement", "_height"],
+                        "map_ke":   ["emission", "emissive", "_emit"],
+                    };
+                    const roleWords = ROLE_KEYWORDS[infoKey] ?? [];
+                    if (roleWords.length > 0) {
+                        const roleMatch = Object.keys(basenameToUrl).find((k) =>
+                            roleWords.some((w) => k.toLowerCase().includes(w))
+                        );
+                        if (roleMatch) {
+                            blobUrl = basenameToUrl[roleMatch];
+                            console.log(`[3D Loader] Injection role-matched "${infoKey}" → "${roleMatch}"`);
+                        }
+                    }
+                }
                 if (!blobUrl) return;
 
-                console.log(`[3D Loader] Injecting texture "${basename}" → material "${matName}.${matProp}"`);
+                console.log(`[3D Loader] Injecting texture "${basename}" → material "${matName}.${targetProp}"`);
                 const tex = texLoader.load(blobUrl);
+                tex.name = basename; // Store original filename for tiling detection
                 // Diffuse maps need SRGBColorSpace for correct colour rendering
-                if (matProp === "map") tex.colorSpace = THREE.SRGBColorSpace;
-                (mat as any)[matProp] = tex;
+                if (targetProp === "map") tex.colorSpace = THREE.SRGBColorSpace;
+                (mat as any)[targetProp] = tex;
+                if (targetProp === "normalMap") {
+                    mat.normalScale = new THREE.Vector2(1.5, 1.5);
+                }
                 mat.needsUpdate = true;
             });
         });
@@ -297,9 +619,11 @@ function ZippedModelWithMaterials({
         // Apply grey fallback when:
         //  - texturesMissing: ZIP had no image files at all
         //  - allTexturesMissing: ZIP had images but none matched what the MTL referenced
-        postProcessObject(clone, texturesMissing || allTexturesMissing);
+        postProcessObject(clone, texturesMissing || allTexturesMissing, textureMap);
         return clone;
-    }, [obj, texturesMissing, allTexturesMissing]);
+    }, [obj, texturesMissing, allTexturesMissing, textureMap]);
+
+    useTextureScaleEffect(processedObj, textureScale, applyToAll);
 
     // Clean up when unmounted or blob URLs change
     useEffect(() => {
@@ -340,7 +664,7 @@ function ZippedModelWithMaterials({
     );
 }
 
-function SimpleModel({ objBlobUrl }: { objBlobUrl: string }) {
+function SimpleModel({ objBlobUrl, textureScale, applyToAll }: { objBlobUrl: string; textureScale: number; applyToAll: boolean }) {
     const obj = useLoader(OBJLoader as any, objBlobUrl);
 
     const processedObj = useMemo(() => {
@@ -349,6 +673,8 @@ function SimpleModel({ objBlobUrl }: { objBlobUrl: string }) {
         postProcessObject(clone);
         return clone;
     }, [obj]);
+
+    useTextureScaleEffect(processedObj, textureScale, applyToAll);
 
     // Clean up when unmounted or blobUrl changes
     useEffect(() => {
@@ -478,6 +804,8 @@ const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
 export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
     const [zipModelData, setZipModelData] = useState<ZipModelData | null>(null);
+    const [textureScale, setTextureScale] = useState<number>(8);
+    const [applyToAll, setApplyToAll] = useState<boolean>(false);
     const activeBlobUrlsRef = useRef<string[]>([]);
     const glRef = useRef<THREE.WebGLRenderer | null>(null);
 
@@ -575,6 +903,13 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                             const lowerFilename = filename.toLowerCase();
                             if (lowerFilename.endsWith(".ini") || lowerFilename.endsWith(".db")) continue;
                             if (lowerFilename === "ds_store" || lowerFilename === ".ds_store") continue;
+                            // Skip Windows system metadata files even without extension
+                            if (lowerFilename === "desktop" || lowerFilename === "thumbs" || lowerFilename === "thumbs.db") continue;
+                            // Skip files with no extension that are not 3D-related —
+                            // e.g. Windows desktop.ini saved without ".ini" by some zip tools
+                            const hasKnown3DExt = /\.(obj|mtl|png|jpg|jpeg|tga|webp|bmp|zip|gzip|gz)$/i.test(filename);
+                            const hasAnyExt = filename.includes(".");
+                            if (!hasAnyExt && !hasKnown3DExt) continue;
 
                             const content = await z.files[key].async("uint8array");
                             const virtualKey = currentPrefix ? `${currentPrefix}/${key}` : key;
@@ -717,6 +1052,43 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                                 suffixMatchUrl = textureMap[key];
                                                 suffixMatchBasename = basename;
                                                 break;
+                                            }
+                                        }
+                                    }
+
+                                    // ── PASS 2: semantic role-based matching ──
+                                    // When basename/extensionless matching both fail, infer the
+                                    // texture's purpose from the MTL keyword and look for any
+                                    // ZIP texture whose filename contains matching role keywords.
+                                    // e.g. MTL: "map_Kd Fabric036_2K_Color.png" → finds "Knit_Fabric_basecolor.jpg"
+                                    if (!suffixMatchUrl) {
+                                        const ROLE_KEYWORDS: Record<string, string[]> = {
+                                            "map_kd":   ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
+                                            "map_ka":   ["ambientocclusion", "occlusion", "_ao", "ambient"],
+                                            "map_ks":   ["specular", "metallic", "_spec", "_metal", "_met"],
+                                            "map_ns":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                                            "map_bump": ["normal", "normalmap", "_nrm", "_nor", "_normal"],
+                                            "bump":     ["normal", "normalmap", "_nrm", "_nor", "_normal", "bump", "height"],
+                                            "map_d":    ["opacity", "alpha", "transparency", "_opa", "_alpha"],
+                                            "disp":     ["height", "displacement", "disp", "_height", "_h"],
+                                            "map_ke":   ["emission", "emissive", "_emit", "_emissive"],
+                                            "decal":    ["decal"],
+                                        };
+                                        const roleWords = ROLE_KEYWORDS[keyword] ?? [];
+                                        if (roleWords.length > 0) {
+                                            for (const key of Object.keys(textureMap)) {
+                                                const bn = decodeURIComponent(key)
+                                                    .replace(/\\/g, "/")
+                                                    .split("/")
+                                                    .pop() || "";
+                                                if (!bn) continue;
+                                                const bnLower = bn.toLowerCase();
+                                                if (roleWords.some(w => bnLower.includes(w))) {
+                                                    suffixMatchUrl = textureMap[key];
+                                                    suffixMatchBasename = bn;
+                                                    console.log(`[3D Loader] MTL role-matched "${keyword}" → "${bn}"`);
+                                                    break;
+                                                }
                                             }
                                         }
                                     }
@@ -899,17 +1271,71 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                     textureMap={zipModelData.textureMap}
                                     texturesMissing={zipModelData.texturesMissing}
                                     allTexturesMissing={zipModelData.allTexturesMissing}
+                                    textureScale={textureScale}
+                                    applyToAll={applyToAll}
                                 />
                             ) : (
-                                <SimpleModel objBlobUrl={zipModelData.objBlobUrl} />
+                                <SimpleModel 
+                                    objBlobUrl={zipModelData.objBlobUrl} 
+                                    textureScale={textureScale}
+                                    applyToAll={applyToAll}
+                                />
                             )
                         ) : blobUrl ? (
-                            <Model blobUrl={blobUrl} />
+                            <Model 
+                                blobUrl={blobUrl} 
+                                textureScale={textureScale}
+                                applyToAll={applyToAll}
+                            />
                         ) : null}
                     </Stage>
                     <OrbitControls makeDefault autoRotate autoRotateSpeed={0.5} />
                 </Canvas>
             </Suspense>
+
+            {/* Texture Tiling Controls */}
+            <div className="absolute top-4 right-4 bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl p-3 flex flex-col gap-2 pointer-events-auto max-w-[200px] transition-all duration-300 shadow-xl z-10">
+                <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-1.5">
+                    <span className="text-[10px] text-white font-bold uppercase tracking-widest flex items-center gap-1 select-none">
+                        <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        Texture Tiling
+                    </span>
+                    <button 
+                        onClick={() => {
+                            setTextureScale(8);
+                            setApplyToAll(false);
+                        }}
+                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer uppercase transition-colors"
+                    >
+                        Reset
+                    </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-[9px] text-slate-400 font-medium select-none">
+                        <span>Scale: {textureScale}x</span>
+                    </div>
+                    <input 
+                        type="range"
+                        min="1"
+                        max="20"
+                        step="1"
+                        value={textureScale}
+                        onChange={(e) => setTextureScale(parseInt(e.target.value))}
+                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[9px] text-slate-400 hover:text-slate-300 font-medium mt-0.5 select-none">
+                    <input 
+                        type="checkbox"
+                        checked={applyToAll}
+                        onChange={(e) => setApplyToAll(e.target.checked)}
+                        className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-500 bg-slate-900 w-3.5 h-3.5"
+                    />
+                    <span>Tile all materials</span>
+                </label>
+            </div>
 
             <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
                 <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-cyan-400 uppercase tracking-widest font-bold">
