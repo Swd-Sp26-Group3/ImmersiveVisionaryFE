@@ -16,6 +16,9 @@ export function getAbsoluteApiUrl(endpoint: string): string {
 
 // Relative path — dùng cho client-side fetch, đi qua Next.js proxy → tránh CORS
 export function buildApiUrl(endpoint: string): string {
+    if (endpoint.startsWith("http://") || endpoint.startsWith("https://")) {
+        return endpoint;
+    }
     const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
     const apiPath = normalizedEndpoint.startsWith("/api/")
         ? normalizedEndpoint

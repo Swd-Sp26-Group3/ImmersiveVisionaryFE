@@ -1,4 +1,5 @@
-import { buildApiUrl } from "./apiBase";
+import { buildApiUrl, getApiBaseUrl } from "./apiBase";
+export { getApiBaseUrl };
 
 function getAccessToken(): string | null {
     if (typeof window === "undefined") return null;

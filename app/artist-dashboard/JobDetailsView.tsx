@@ -8,7 +8,7 @@ import { StatusBadge } from "@/app/components/ui/status-badge";
 import {
   CheckCircle2, AlertCircle, Send, Upload, ArrowLeft, FileBox, Trash2, Eye, Plus, Loader2,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { CreativeOrder, ORDER_STATUS_CONFIG, PRODUCTION_STAGES } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../components/3d/OBJModelViewer";
@@ -116,7 +116,8 @@ export function JobDetailView({ order, onBack }: Props) {
       const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
       const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
 
-      const res = await apiFetch(`/orders/${order.OrderId}/attachments`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/orders/${order.OrderId}/attachments`, {
         method: "POST",
         body: JSON.stringify({ FileName: displayName, MimeType: "application/octet-stream", Base64Data: base64 }),
       });

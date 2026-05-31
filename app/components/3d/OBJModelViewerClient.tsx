@@ -40,6 +40,85 @@ interface ZipModelData {
 
 // Removed hardcoded texture generators.
 
+const cleanForFuzzyComparison = (str: string): string => {
+    return str
+        .toLowerCase()
+        .replace(/[^a-z]/g, ""); // Remove all digits, dots, spaces, underscores, dashes, leaving only alphabetic chars
+};
+
+const getUrlLastPart = (url: string): string => {
+    if (!url) return "";
+    return url.replace(/\\/g, "/").split("/").pop()?.toLowerCase() || "";
+};
+
+function applyGenericPBRFallback(mat: any): boolean {
+    const name = (mat.name || "").toLowerCase();
+    let matched = false;
+
+    if (name.includes("rattan") || name.includes("weave") || name.includes("woven") || name.includes("bamboo")) {
+        matched = true;
+        if (name.includes("dark") || name.includes(".001") || name.includes(".002") || name.includes(".003") || name.includes("base") || name.includes("leg")) {
+            mat.color.setRGB(0.72, 0.60, 0.44); // Darker rattan/wood
+        } else {
+            mat.color.setRGB(0.82, 0.70, 0.52); // Warm sandy rattan
+        }
+        mat.roughness = 0.88;
+        mat.metalness = 0.0;
+    } else if (name.includes("fabric") || name.includes("cloth") || name.includes("knit") || name.includes("wool") || name.includes("cushion") || name.includes("cotton")) {
+        matched = true;
+        if (name.includes(".001") || name.includes("yellow") || name.includes("gold") || name.includes("accent")) {
+            mat.color.setRGB(0.88, 0.72, 0.40); // Yellow/gold accent fabric
+        } else if (name.includes("blue") || name.includes("seat") || name.includes("fabric")) {
+            if (name.includes("fabric.001")) {
+                mat.color.setRGB(0.88, 0.72, 0.40);
+            } else {
+                mat.color.setRGB(0.75, 0.80, 0.88);
+            }
+        } else {
+            mat.color.setRGB(0.85, 0.83, 0.80); // Neutral off-white fabric
+        }
+        mat.roughness = 0.95;
+        mat.metalness = 0.0;
+    } else if (name.includes("gold") || name.includes("brass")) {
+        matched = true;
+        mat.color.setRGB(0.85, 0.65, 0.25);
+        mat.metalness = 0.9;
+        mat.roughness = 0.25;
+    } else if (name.includes("copper") || name.includes("bronze")) {
+        matched = true;
+        mat.color.setRGB(0.72, 0.45, 0.30);
+        mat.metalness = 0.9;
+        mat.roughness = 0.3;
+    } else if (name.includes("chrome") || name.includes("silver") || name.includes("steel")) {
+        matched = true;
+        mat.color.setRGB(0.85, 0.85, 0.85);
+        mat.metalness = 0.95;
+        mat.roughness = 0.15;
+    } else if (name.includes("iron") || name.includes("metal") || name.includes("metallic")) {
+        matched = true;
+        if (name.includes("light")) {
+            mat.color.setRGB(0.20, 0.18, 0.16);
+            mat.roughness = 0.50;
+            mat.metalness = 0.77;
+        } else {
+            mat.color.setRGB(0.25, 0.25, 0.25);
+            mat.roughness = 0.4;
+            mat.metalness = 0.8;
+        }
+    } else if (name.includes("wood") || name.includes("timber") || name.includes("oak") || name.includes("walnut") || name.includes("mahogany")) {
+        matched = true;
+        mat.color.setRGB(0.55, 0.38, 0.22); // Warm brown wood
+        mat.roughness = 0.75;
+        mat.metalness = 0.0;
+    } else if (name.includes("plastic") || name.includes("gloss")) {
+        matched = true;
+        mat.roughness = 0.2;
+        mat.metalness = 0.0;
+    }
+
+    return matched;
+}
+
 function convertToStandardMaterial(phongMat: any): THREE.MeshStandardMaterial {
     const standardMat = new THREE.MeshStandardMaterial({
         name: phongMat.name,
@@ -97,6 +176,15 @@ function convertToStandardMaterial(phongMat: any): THREE.MeshStandardMaterial {
         standardMat.metalness = 0.2;
     } else {
         standardMat.metalness = 0.1;
+    }
+
+    // map_Ns in MTL → specularMap in MeshPhongMaterial → roughnessMap in MeshStandardMaterial
+    // This is the PBR-equivalent conversion since Ns (specular exponent) maps to roughness.
+    if (phongMat.specularMap && phongMat.specularMap.isTexture) {
+        const roughTex = phongMat.specularMap;
+        roughTex.colorSpace = THREE.LinearSRGBColorSpace;
+        standardMat.roughnessMap = roughTex;
+        standardMat.needsUpdate = true;
     }
 
     return standardMat;
@@ -270,12 +358,18 @@ function postProcessObject(
                                 (existingTex.image as HTMLImageElement).height > 1;
                             if (isRealTexture) return;
 
-                            // Priority 1: Exact material prefix match (e.g. Knit_Fabric_basecolor -> Knit_Fabric)
+                            // Priority 1: Exact/Fuzzy material prefix match (e.g. Fabric036_2K_Normal -> Fabric.001)
                             let matchedKey = Object.keys(basenameToUrl).find((filename) => {
                                 const prefix = getMaterialPrefix(filename);
                                 const fnLower = filename.toLowerCase().replace(/[\s-_]+/g, "");
                                 const isRole = keywords.some((kw) => fnLower.includes(kw));
-                                return isRole && prefix === matNameLower;
+                                
+                                const prefixClean = cleanForFuzzyComparison(prefix);
+                                const matNameClean = cleanForFuzzyComparison(matNameLower);
+                                const isMatch = prefixClean === matNameClean || 
+                                                (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) || 
+                                                (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
+                                return isRole && isMatch;
                             });
 
                             // Priority 2: Generic texture file match (e.g. no material prefix like "basecolor.png")
@@ -290,6 +384,13 @@ function postProcessObject(
                             }
 
                             if (matchedKey) {
+                                // Guard: skip assigning packed textures (ao, roughness, normal, etc) to alphaMap
+                                if (prop === "alphaMap") {
+                                    const fnLower = matchedKey.toLowerCase();
+                                    if (fnLower.includes("ao") || fnLower.includes("rough") || fnLower.includes("height") || fnLower.includes("normal") || fnLower.includes("bump")) {
+                                        return;
+                                    }
+                                }
                                 const blobUrl = basenameToUrl[matchedKey];
                                 console.log(`[3D Loader] Auto-injected unreferenced texture "${matchedKey}" → material "${matName}.${prop}"`);
                                 const tex = texLoader.load(blobUrl);
@@ -320,39 +421,14 @@ function postProcessObject(
                     }
 
                     // Procedural color enhancements for materials that are missing diffuse textures
+                    // Apply generic PBR color/specular properties based on common material name keywords
+                    let hasProceduralColor = false;
                     if (!mat.map) {
-                        const mName = (mat.name || "").toLowerCase();
-                        if (mName === "woven_rattan_pattern.002" || mName === "woven_rattan_pattern.001") {
-                            // Dark brown/black rattan legs/base
-                            mat.color.setRGB(0.18, 0.15, 0.13);
-                            mat.roughness = 0.85;
-                            mat.metalness = 0.05;
-                        } else if (mName === "woven_rattan_pattern") {
-                            // Cream/beige rattan seat/tabletop
-                            mat.color.setRGB(0.87, 0.80, 0.70);
-                            mat.roughness = 0.75;
-                            mat.metalness = 0.05;
-                        } else if (mName === "light_iron") {
-                            // Dark charcoal metal legs
-                            mat.color.setRGB(0.13, 0.13, 0.13);
-                            mat.roughness = 0.45;
-                            mat.metalness = 0.85;
-                        } else if (mName === "fabric") {
-                            // Cream seat cushion
-                            mat.color.setRGB(0.90, 0.87, 0.84);
-                            mat.roughness = 0.95;
-                            mat.metalness = 0.0;
-                        } else if (mName === "fabric.001") {
-                            // Soft blue cushion/pillow
-                            mat.color.setRGB(0.56, 0.66, 0.75);
-                            mat.roughness = 0.90;
-                            mat.metalness = 0.0;
-                        }
+                        hasProceduralColor = applyGenericPBRFallback(mat);
                     }
 
                     // Apply fallback grey material only if fallback is requested and we did not inject any textures
                     // and also didn't apply procedural color mapping
-                    const hasProceduralColor = ["woven_rattan_pattern.002", "woven_rattan_pattern.001", "woven_rattan_pattern", "light_iron", "fabric", "fabric.001"].includes((mat.name || "").toLowerCase());
                     if (applyFallbackMaterial && !injectedAny && !hasProceduralColor) {
                         return fallbackMat;
                     }
@@ -502,6 +578,22 @@ function ZippedModelWithMaterials({
     // still points to a data: fallback (meaning preprocessing missed it) and
     // directly assign the correct blob URL via TextureLoader. This mirrors the
     // reference pattern: "inject textures into materials BEFORE preload()".
+    // After MTLLoader resolves, build a reverse lookup from blob URL → original filename
+    // so we can tag loaded textures with their real names for bump→normal detection.
+    const reverseBlobMap = useMemo(() => {
+        const map: Record<string, string> = {};
+        for (const [key, url] of Object.entries(textureMap)) {
+            const basename = decodeURIComponent(key)
+                .replace(/\\/g, "/")
+                .split("/")
+                .pop()
+                ?.toLowerCase() || "";
+            const urlPart = getUrlLastPart(url);
+            if (basename && urlPart) map[urlPart] = basename;
+        }
+        return map;
+    }, [textureMap]);
+
     useMemo(() => {
         if (!materials || !Object.keys(basenameToUrl).length) return;
 
@@ -510,11 +602,53 @@ function ZippedModelWithMaterials({
         const matObjMap: Record<string, any> = creator.materials || {};
         const texLoader = new THREE.TextureLoader();
 
+        // First pass: tag every already-loaded texture with its original filename
+        // so bump→normal detection in postProcessObject works.
+        Object.values(matObjMap).forEach((mat: any) => {
+            if (!mat) return;
+            const texProps = ["map", "bumpMap", "normalMap", "specularMap", "alphaMap", "aoMap", "emissiveMap", "roughnessMap", "metalnessMap"];
+            texProps.forEach(prop => {
+                const tex = mat[prop];
+                if (tex && tex.isTexture && !tex.name && tex.image) {
+                    const src = (tex.image as any).src || "";
+                    const srcPart = getUrlLastPart(src);
+                    if (srcPart && reverseBlobMap[srcPart]) {
+                        tex.name = reverseBlobMap[srcPart];
+                    }
+                }
+            });
+
+            // Also convert specularMap → roughnessMap for MeshPhongMaterial loaded by MTLLoader
+            if (mat.specularMap && mat.specularMap.isTexture && !mat.roughnessMap) {
+                const texName = (mat.specularMap.name || "").toLowerCase();
+                if (texName.includes("rough") || texName.includes("gloss")) {
+                    mat.roughnessMap = mat.specularMap;
+                    mat.specularMap = null;
+                    mat.needsUpdate = true;
+                }
+            }
+
+            // Convert bumpMap → normalMap if original filename contains "normal"
+            if (mat.bumpMap && mat.bumpMap.isTexture) {
+                const texName = (mat.bumpMap.name || "").toLowerCase();
+                if (texName.includes("normal") || texName.includes("nrm") || texName.includes("nor")) {
+                    mat.normalMap = mat.bumpMap;
+                    mat.bumpMap = null;
+                    mat.normalScale = new THREE.Vector2(1.5, 1.5);
+                    mat.needsUpdate = true;
+                }
+            }
+        });
+
+        // Second pass: inject textures from ZIP for any MTL references not yet loaded
         // Map keys from MTL spec → Three.js material property
         const mapFields: Array<[string, string]> = [
             ["map_kd",   "map"],
             ["map_ka",   "aoMap"],
             ["map_ks",   "specularMap"],
+            ["map_ns",   "roughnessMap"],
+            ["map_pr",   "roughnessMap"],
+            ["map_pm",   "metalnessMap"],
             ["map_bump", "bumpMap"],
             ["bump",     "bumpMap"],
             ["map_d",    "alphaMap"],
@@ -527,8 +661,6 @@ function ZippedModelWithMaterials({
             mapFields.forEach(([infoKey, matProp]) => {
                 const existingTex = (mat as any)[matProp] as THREE.Texture | null | undefined;
                 // Skip if Three.js already loaded a real (non-trivial) texture for this slot.
-                // A 1×1 texture indicates a white fallback was substituted during MTL preprocessing;
-                // in that case we should still try to inject the proper texture from the ZIP.
                 const isRealTexture = existingTex &&
                     existingTex.image &&
                     (existingTex.image as HTMLImageElement).width > 1 &&
@@ -605,7 +737,7 @@ function ZippedModelWithMaterials({
                 mat.needsUpdate = true;
             });
         });
-    }, [materials, basenameToUrl]);
+    }, [materials, basenameToUrl, reverseBlobMap]);
 
     // Load OBJ model and apply materials
     const obj = useLoader(OBJLoader as any, objBlobUrl, (loader: any) => {
@@ -1067,6 +1199,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                             "map_ka":   ["ambientocclusion", "occlusion", "_ao", "ambient"],
                                             "map_ks":   ["specular", "metallic", "_spec", "_metal", "_met"],
                                             "map_ns":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                                            "map_pr":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                                            "map_pm":   ["metallic", "metalness", "metal", "_metal", "_met"],
                                             "map_bump": ["normal", "normalmap", "_nrm", "_nor", "_normal"],
                                             "bump":     ["normal", "normalmap", "_nrm", "_nor", "_normal", "bump", "height"],
                                             "map_d":    ["opacity", "alpha", "transparency", "_opa", "_alpha"],

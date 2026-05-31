@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/app/components/ui/button";
@@ -104,8 +104,9 @@ export default function OrderProductPage() {
         deadlineDate.setDate(deadlineDate.getDate() + 14); // Default 2 weeks
       }
 
-      // Call POST /api/orders with the correct schema
-      const res = await apiFetch("/orders", {
+      // Call POST to the absolute backend URL to bypass Vercel's 4.5 MB request limit
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/orders`, {
         method: "POST",
         body: JSON.stringify({
           ProjectName: form.projectName,
@@ -123,8 +124,15 @@ export default function OrderProductPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message ?? "Gửi yêu cầu thất bại.");
+        const text = await res.text();
+        let errMsg = "Gửi yêu cầu thất bại.";
+        try {
+          const err = JSON.parse(text);
+          errMsg = err.message || errMsg;
+        } catch {
+          errMsg = text || errMsg;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

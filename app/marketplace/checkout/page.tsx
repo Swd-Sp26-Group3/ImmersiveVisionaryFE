@@ -99,7 +99,13 @@ function CheckoutContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ AssetId: Number(assetId) }),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) throw new Error(text || `Failed to create order (Status ${res.status})`);
+    }
 
     // Đã mua rồi → dùng order cũ
     if (!res.ok && (data.message ?? "").toLowerCase().includes("already purchased")) {
@@ -136,7 +142,13 @@ function CheckoutContent() {
         PaymentType: "ASSET",
       }),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) throw new Error(text || `Failed to create payment (Status ${res.status})`);
+    }
     if (!res.ok) throw new Error(data.message ?? "Failed to create payment");
     const payment = data.data ?? data;
     return payment.PaymentId ?? payment.paymentId ?? null;
@@ -150,7 +162,13 @@ function CheckoutContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paymentId: pid }),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (!res.ok) throw new Error(text || `Failed to confirm payment (Status ${res.status})`);
+    }
     if (!res.ok) throw new Error(data.message ?? "Failed to confirm payment");
   };
 

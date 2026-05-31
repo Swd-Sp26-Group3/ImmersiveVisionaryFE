@@ -13,7 +13,7 @@ import { ErrorState } from "@/app/components/ui/error-state";
 import { StatusBadge } from "@/app/components/ui/status-badge";
 import { Modal } from "@/app/components/ui/modal";
 import { useConfirm } from "@/app/components/ui/confirm-dialog";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
 import { toast } from "sonner";
 
@@ -144,10 +144,9 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     try {
       const base64Data = await process3DModelFiles(selectedFiles);
 
-      // Always route through the Edge proxy at /api/proxy/assets.
-      // This runs server-side on Vercel (no CORS) and streams the body
-      // without Vercel's 4.5 MB rewrite limit. Works on localhost too.
-      const res = await apiFetch("/proxy/assets", {
+      // Route directly to the backend to bypass Vercel's 4.5 MB request payload limit.
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/assets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -163,8 +162,14 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         }),
       });
       if (!res.ok) {
-        const errBody = await res.json();
-        const detail = [errBody.message, errBody.error, errBody.detail].filter(Boolean).join(' | ');
+        const text = await res.text();
+        let detail = "";
+        try {
+          const errBody = JSON.parse(text);
+          detail = [errBody.message, errBody.error, errBody.detail].filter(Boolean).join(' | ');
+        } catch {
+          detail = text || `Request failed with status ${res.status}`;
+        }
         throw new Error(detail || "Create failed");
       }
       toast.success("Asset created successfully!");

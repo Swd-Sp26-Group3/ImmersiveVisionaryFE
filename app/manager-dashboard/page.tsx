@@ -12,7 +12,7 @@ import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, getApiBaseUrl } from "@/lib/api";
 import { Artist, Company, CreativeOrder } from "./components/type";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
@@ -164,7 +164,8 @@ function AssetEditModal({
     try {
       const base64Data = await process3DModelFiles(files);
 
-      const res = await apiFetch(`/assets/${asset.AssetId}`, {
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/assets/${asset.AssetId}`, {
         method: "PUT",
         body: JSON.stringify({
           Base64Data: base64Data
