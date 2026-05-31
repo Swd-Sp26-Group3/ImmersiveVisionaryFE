@@ -51,6 +51,47 @@ const getUrlLastPart = (url: string): string => {
     return url.replace(/\\/g, "/").split("/").pop()?.toLowerCase() || "";
 };
 
+const isTextureCompatibleWithMaterial = (filename: string, materialName: string): boolean => {
+    if (!materialName) return true;
+
+    const ALL_MAP_KEYWORDS = [
+        "basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff", "color",
+        "ambientocclusion", "occlusion", "_ao", "ambient", "ao",
+        "specular", "_spec", "spec",
+        "roughness", "glossiness", "_rough", "_gloss", "_rgh", "rough",
+        "metallic", "metalness", "metal", "_metal", "_met",
+        "normalmap", "_nrm", "_nor", "_normal", "normal",
+        "bump",
+        "opacity", "alpha", "transparency", "_opa", "_alpha",
+        "height", "displacement", "disp", "_height", "_h",
+        "emissive", "emission", "_emit", "_emissive"
+    ];
+
+    let name = filename.toLowerCase();
+    const lastDot = name.lastIndexOf(".");
+    if (lastDot !== -1) {
+        name = name.slice(0, lastDot);
+    }
+    ALL_MAP_KEYWORDS.forEach((kw) => {
+        name = name.replace(kw, "");
+    });
+    name = name.replace(/_2k$|_4k$|_1k$|_8k$/g, "");
+    name = name.replace(/(^[\s-_]+|[\s-_]+$)/g, "");
+    const prefix = name.replace(/[\s-_]+/g, "");
+
+    const isGenericPrefix = !prefix || ["texture", "material", "default", "unnamed"].includes(prefix);
+    if (isGenericPrefix) {
+        return true;
+    }
+
+    const prefixClean = cleanForFuzzyComparison(prefix);
+    const matNameClean = cleanForFuzzyComparison(materialName.toLowerCase());
+
+    return prefixClean === matNameClean || 
+           (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) || 
+           (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
+};
+
 function applyGenericPBRFallback(mat: any): boolean {
     const name = (mat.name || "").toLowerCase();
     let matched = false;
@@ -379,7 +420,7 @@ function postProcessObject(
                                     const fnLower = filename.toLowerCase().replace(/[\s-_]+/g, "");
                                     const isRole = keywords.some((kw) => fnLower.includes(kw));
                                     const isGenericPrefix = !prefix || ["texture", "material", "default", "unnamed"].includes(prefix);
-                                    return isRole && isGenericPrefix;
+                                    return isRole && isGenericPrefix && isTextureCompatibleWithMaterial(filename, matName);
                                 });
                             }
 
@@ -715,7 +756,8 @@ function ZippedModelWithMaterials({
                     const roleWords = ROLE_KEYWORDS[infoKey] ?? [];
                     if (roleWords.length > 0) {
                         const roleMatch = Object.keys(basenameToUrl).find((k) =>
-                            roleWords.some((w) => k.toLowerCase().includes(w))
+                            roleWords.some((w) => k.toLowerCase().includes(w)) &&
+                            isTextureCompatibleWithMaterial(k, matName)
                         );
                         if (roleMatch) {
                             blobUrl = basenameToUrl[roleMatch];
@@ -1123,9 +1165,15 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                         const mtlBytes = filesMap[mtlKey];
                         const mtlText = new TextDecoder("utf-8").decode(mtlBytes);
                         const mtlLines = mtlText.split(/\r?\n/);
+                        let currentMaterialName = "";
                         const processedMtlLines = mtlLines.map((line) => {
                             const trimmed = line.trim();
                             if (trimmed.startsWith("#") || !trimmed) return line;
+
+                            if (trimmed.toLowerCase().startsWith("newmtl ")) {
+                                currentMaterialName = trimmed.slice(7).trim();
+                                return line;
+                            }
 
                             const firstSpaceIdx = trimmed.indexOf(" ");
                             if (firstSpaceIdx !== -1) {
@@ -1218,10 +1266,12 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                                 if (!bn) continue;
                                                 const bnLower = bn.toLowerCase();
                                                 if (roleWords.some(w => bnLower.includes(w))) {
-                                                    suffixMatchUrl = textureMap[key];
-                                                    suffixMatchBasename = bn;
-                                                    console.log(`[3D Loader] MTL role-matched "${keyword}" → "${bn}"`);
-                                                    break;
+                                                    if (isTextureCompatibleWithMaterial(bn, currentMaterialName)) {
+                                                        suffixMatchUrl = textureMap[key];
+                                                        suffixMatchBasename = bn;
+                                                        console.log(`[3D Loader] MTL role-matched "${keyword}" → "${bn}" (material: "${currentMaterialName}")`);
+                                                        break;
+                                                    }
                                                 }
                                             }
                                         }
