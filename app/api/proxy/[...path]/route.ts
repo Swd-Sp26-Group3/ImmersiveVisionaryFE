@@ -1,9 +1,9 @@
 /**
- * Edge Runtime proxy for asset uploads.
+ * Edge Runtime catch-all proxy for large uploads (POST & PUT).
  *
  * Why this exists:
  *  - Vercel's /api/* rewrite has a hard 4.5 MB body limit → breaks large .obj uploads.
- *  - Calling the backend directly from the browser requires CORS → fragile.
+ *  - Calling the backend directly from the browser requires CORS and can fail due to Nginx settings.
  *  - This Edge Route Handler sits on the same origin as the FE (no CORS),
  *    then streams the body server-to-server (no size limit, no CORS check).
  */
@@ -16,12 +16,33 @@ const BACKEND =
   (process.env.NEXT_PUBLIC_API_URL ?? '').trim() ||
   'https://api.immersivevisionary.name.vn'
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  return handleRequest('POST', request, params)
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> }
+) {
+  return handleRequest('PUT', request, params)
+}
+
+async function handleRequest(
+  method: string,
+  request: NextRequest,
+  params: Promise<{ path: string[] }>
+) {
   const authHeader = request.headers.get('Authorization')
+  // Reconstruct the upstream route path (e.g., ['assets'] -> 'assets', ['orders', '1', 'attachments'] -> 'orders/1/attachments')
+  const { path: pathParts } = await params
+  const path = pathParts.join('/')
 
   try {
-    const backendRes = await fetch(`${BACKEND}/api/assets`, {
-      method: 'POST',
+    const backendRes = await fetch(`${BACKEND}/api/${path}`, {
+      method,
       headers: {
         'Content-Type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
@@ -39,7 +60,7 @@ export async function POST(request: NextRequest) {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('[proxy/assets POST] upstream error:', err)
+    console.error(`[proxy/${path} ${method}] upstream error:`, err)
     return NextResponse.json(
       { success: false, message: 'Upload proxy error — please try again.' },
       { status: 502 }
