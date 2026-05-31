@@ -104,8 +104,8 @@ export default function OrderProductPage() {
         deadlineDate.setDate(deadlineDate.getDate() + 14); // Default 2 weeks
       }
 
-      // Route through Edge proxy to bypass Vercel's 4.5 MB request payload limit and avoid CORS issues.
-      const res = await apiFetch("/proxy-api/orders", {
+      // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
+      const res = await apiFetch(`${getApiBaseUrl()}/api/orders`, {
         method: "POST",
         body: JSON.stringify({
           ProjectName: form.projectName,
