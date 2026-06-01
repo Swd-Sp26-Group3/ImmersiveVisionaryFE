@@ -40,7 +40,10 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
       if (!res.ok) throw new Error("Could not load attachments");
       const data = await res.json();
       const attachments: Attachment[] = data.data ?? data;
-      const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj") || a.FileName.toLowerCase().endsWith(".zip"));
+      const objFile = attachments.find((a) => {
+        const name = a.FileName.toLowerCase();
+        return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
+      });
       if (objFile) {
         setShowPreview(objFile);
       } else {
@@ -268,7 +271,7 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                     <Button
                       size="sm"
                       className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold"
-                      onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
+                      onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
                     >
                       <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Thanh toán ngay
                     </Button>

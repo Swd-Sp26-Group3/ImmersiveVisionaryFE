@@ -190,13 +190,21 @@ export async function process3DModelFiles(files: File[]): Promise<string> {
         return `zip:${b64}`;
     }
 
-    if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
+    if (files.length === 1 && (
+        files[0].name.toLowerCase().endsWith(".obj") ||
+        files[0].name.toLowerCase().endsWith(".blend") ||
+        files[0].name.toLowerCase().endsWith(".glb") ||
+        files[0].name.toLowerCase().endsWith(".gltf")
+    )) {
         return compressFileToGzipBase64(files[0]);
     }
 
-    const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
-    if (!hasObj) {
-        throw new Error("No .obj file found in the selected files.");
+    const hasModel = files.some(f => {
+        const name = f.name.toLowerCase();
+        return name.endsWith(".obj") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
+    });
+    if (!hasModel) {
+        throw new Error("No 3D model file (.obj, .blend, .glb, .gltf) found in the selected files.");
     }
 
     const JSZip = (await import("jszip")).default;

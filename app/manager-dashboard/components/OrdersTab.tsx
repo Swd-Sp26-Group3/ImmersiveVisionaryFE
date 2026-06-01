@@ -401,7 +401,10 @@ function CreativeOrderDetail({
   const statusLabel = STATUS_CONFIG[order.Status]?.label ?? order.Status;
   const statusColor = STATUS_CONFIG[order.Status]?.color ?? "bg-slate-600";
 
-  const hasObjFile = useMemo(() => attachments.some(a => a.FileName.toLowerCase().endsWith(".obj")), [attachments]);
+  const hasObjFile = useMemo(() => attachments.some(a => {
+    const name = a.FileName.toLowerCase();
+    return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
+  }), [attachments]);
   const isPreviewRequirementSatisfied = !hasObjFile || hasPreviewed;
 
   return (
@@ -550,7 +553,7 @@ function CreativeOrderDetail({
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {att.FileName.toLowerCase().endsWith(".obj") && (
+                        {(att.FileName.toLowerCase().endsWith(".obj") || att.FileName.toLowerCase().endsWith(".zip") || att.FileName.toLowerCase().endsWith(".blend") || att.FileName.toLowerCase().endsWith(".glb") || att.FileName.toLowerCase().endsWith(".gltf")) && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -670,7 +673,12 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
     setUploading(true); setError("");
     try {
       const base64Data = await process3DModelFiles(files);
-      const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
+      const mainFile = files.find(f => 
+        f.name.toLowerCase().endsWith(".obj") || 
+        f.name.toLowerCase().endsWith(".blend") ||
+        f.name.toLowerCase().endsWith(".glb") ||
+        f.name.toLowerCase().endsWith(".gltf")
+      ) || files[0];
       const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
 
       // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.

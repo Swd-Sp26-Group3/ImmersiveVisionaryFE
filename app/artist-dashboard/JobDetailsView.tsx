@@ -55,12 +55,16 @@ export function JobDetailView({ order, onBack }: Props) {
     setMessage(null);
     try {
       const base64 = await process3DModelFiles(files);
-      const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
+      const mainFile = files.find(f => 
+        f.name.toLowerCase().endsWith(".obj") || 
+        f.name.toLowerCase().endsWith(".blend") ||
+        f.name.toLowerCase().endsWith(".glb") ||
+        f.name.toLowerCase().endsWith(".gltf")
+      ) || files[0];
       let displayName = mainFile.name;
       if (files.length > 1) {
-        displayName = `${mainFile.name.replace(/\.obj$/i, '')}_package.obj`;
-      } else if (!displayName.toLowerCase().endsWith(".obj")) {
-        displayName = displayName + ".obj";
+        const ext = mainFile.name.split('.').pop() || 'obj';
+        displayName = `${mainFile.name.replace(new RegExp(`\\.${ext}$`, 'i'), '')}_package.zip`;
       }
 
       // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
@@ -276,7 +280,7 @@ export function JobDetailView({ order, onBack }: Props) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {(att.FileName.toLowerCase().endsWith(".obj") || att.FileName.toLowerCase().endsWith(".zip")) && (
+                      {(att.FileName.toLowerCase().endsWith(".obj") || att.FileName.toLowerCase().endsWith(".zip") || att.FileName.toLowerCase().endsWith(".blend") || att.FileName.toLowerCase().endsWith(".glb") || att.FileName.toLowerCase().endsWith(".gltf")) && (
                         <Button
                           size="icon"
                           variant="ghost"

@@ -203,14 +203,11 @@ function OrderDetail({
           {/* Pay Now for PENDING */}
           {order.Status === "PENDING" && (
             <Button
-              onClick={handlePayNow}
-              disabled={paying}
+              onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
               className="w-full text-white font-semibold py-6 rounded-xl shadow-lg"
               style={{ background: "linear-gradient(135deg,#eab308,#ea580c)", boxShadow: "0 4px 20px rgba(234,88,12,0.2)" }}
             >
-              {paying
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Đang xử lý...</>
-                : <><CreditCard className="w-4 h-4 mr-2" />Thanh toán ngay ({order.Price?.toLocaleString("vi-VN")} ₫)</>}
+              <CreditCard className="w-4 h-4 mr-2" />Thanh toán ngay ({order.Price?.toLocaleString("vi-VN")} ₫)
             </Button>
           )}
 

@@ -2,6 +2,7 @@
 import React, { Suspense, useMemo, useEffect, useState, useRef } from "react";
 import { Canvas, useLoader } from "@react-three/fiber";
 import { OrbitControls, Stage, Center, Environment } from "@react-three/drei";
+import { toast } from "sonner";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { TGALoader } from "three/addons/loaders/TGALoader.js";
@@ -978,6 +979,8 @@ const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
 export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
     const [zipModelData, setZipModelData] = useState<ZipModelData | null>(null);
+    const [isBlend, setIsBlend] = useState<boolean>(false);
+    const [extractedBlendBytes, setExtractedBlendBytes] = useState<Uint8Array | null>(null);
     const [textureScale, setTextureScale] = useState<number>(8);
     const [applyToAll, setApplyToAll] = useState<boolean>(false);
     const activeBlobUrlsRef = useRef<string[]>([]);
@@ -1031,6 +1034,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
         const prevUrls = [...activeBlobUrlsRef.current];
         activeBlobUrlsRef.current = [];
         let isCancelled = false;
+        setIsBlend(false);
+        setExtractedBlendBytes(null);
 
         const processModel = async () => {
             try {
@@ -1109,6 +1114,14 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     const fileKeys = Object.keys(filesMap);
                     console.log("[3D Loader] ZIP Contents (filtered):", fileKeys);
                     
+                    const blendKey = fileKeys.find((key) => key.toLowerCase().endsWith(".blend"));
+                    if (blendKey) {
+                        const blendContent = filesMap[blendKey];
+                        setIsBlend(true);
+                        setExtractedBlendBytes(blendContent);
+                        return;
+                    }
+
                     const objKey = fileKeys.find((key) => key.toLowerCase().endsWith(".obj"));
                     if (!objKey) {
                         throw new Error("No valid .obj file found inside the ZIP archive.");
@@ -1363,6 +1376,19 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     finalBytes = await decompressIfGzip(bytes);
                 }
 
+                // Check magic bytes for Blender (.blend): BLENDER
+                if (finalBytes && finalBytes.length >= 7 &&
+                    finalBytes[0] === 66 && // B
+                    finalBytes[1] === 76 && // L
+                    finalBytes[2] === 69 && // E
+                    finalBytes[3] === 78 && // N
+                    finalBytes[4] === 68 && // D
+                    finalBytes[5] === 69 && // E
+                    finalBytes[6] === 82    // R
+                ) {
+                    setIsBlend(true);
+                }
+
                 let singleUrl: string;
                 if (finalBytes) {
                     const blob = new Blob([finalBytes as any], { type: "text/plain" });
@@ -1405,6 +1431,64 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
 
     // Create a stable Timer instance to avoid THREE.Clock deprecation warning
     const timer = useMemo(() => new Timer(), []);
+
+    if (isBlend) {
+        return (
+            <div className="w-full h-[400px] bg-slate-950/70 rounded-2xl border border-white/10 flex flex-col items-center justify-center p-6 text-center select-none relative overflow-hidden shadow-2xl">
+                {/* Visual accent backdrops */}
+                <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-orange-500/10 blur-3xl pointer-events-none" />
+                <div className="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
+
+                <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-4 relative shadow-inner">
+                    <svg className="w-8 h-8 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M8 12a4 4 0 018 0M12 8v4" />
+                        <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    </svg>
+                </div>
+                <h3 className="text-white font-semibold text-base mb-1.5">Tệp nguồn Blender (.blend)</h3>
+                <p className="text-slate-400 text-xs max-w-sm leading-relaxed mb-6">
+                    Định dạng này là tệp nguồn 3D gốc từ Blender. Do trình duyệt web không hỗ trợ dựng hình trực tiếp tệp .blend, bạn có thể tải xuống để chỉnh sửa và làm việc trực tiếp trong Blender.
+                </p>
+                <div className="flex gap-3 pointer-events-auto">
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            try {
+                                let decompressed: Uint8Array;
+                                if (extractedBlendBytes) {
+                                    decompressed = extractedBlendBytes;
+                                } else {
+                                    const cleanData = objData.startsWith("gzip:") ? objData.slice(5) : objData.startsWith("zip:") ? objData.slice(4) : objData;
+                                    const bytes = base64ToBytes(cleanData);
+                                    decompressed = await decompressIfGzip(bytes);
+                                }
+                                const blob = new Blob([decompressed as any], { type: "application/octet-stream" });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement("a");
+                                a.href = url;
+                                a.download = "model.blend";
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                                toast.success("Đang tải xuống tệp nguồn .blend...");
+                            } catch (err) {
+                                console.error("Failed to download blend file:", err);
+                                toast.error("Không thể giải nén và tải xuống tệp.");
+                            }
+                        }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-xl text-xs font-semibold shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Tải xuống tệp .blend
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const hasModelData = zipModelData ? !!zipModelData.objBlobUrl : !!blobUrl;
     const canvasKey = zipModelData ? zipModelData.objBlobUrl : blobUrl || "default";

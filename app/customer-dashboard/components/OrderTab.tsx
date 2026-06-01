@@ -84,7 +84,10 @@ function ReviewModal({
     }
   };
 
-  const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj") || a.FileName.toLowerCase().endsWith(".zip"));
+  const objFile = attachments.find((a) => {
+    const name = a.FileName.toLowerCase();
+    return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
+  });
 
   return (
     <Modal
@@ -364,7 +367,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       <Button
                         size="sm"
                         className="bg-yellow-600 hover:bg-yellow-500 text-white"
-                        onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
+                        onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
                       >
                         <ShoppingBag className="w-4 h-4 mr-1.5" /> Thanh toán ngay
                       </Button>
