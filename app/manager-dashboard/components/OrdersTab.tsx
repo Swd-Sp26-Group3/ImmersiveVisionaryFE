@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -8,11 +9,14 @@ import { Textarea } from "@/app/components/ui/textarea";
 import {
   Eye, UserCheck, Loader2, AlertCircle, CheckCircle2,
   RefreshCw, X, ArrowLeft, Package, ShoppingBag,
-  Building2, DollarSign, Clock, RotateCcw, Upload, Plus, Edit, Tag
+  Building2, DollarSign, Clock, RotateCcw, Upload, Plus, Edit, Tag, Send
 } from "lucide-react";
 import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
 import { motion, AnimatePresence } from "motion/react";
+import { Modal } from "@/app/components/ui/modal";
+import OBJModelViewer from "@/app/components/3d/OBJModelViewer";
+import type { Attachment } from "@/lib/types";
 
 interface MarketplaceOrder {
   MpOrderId: number;
@@ -65,6 +69,11 @@ function AssignTaskModal({
   const [note, setNote] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleAssign = async () => {
     if (!selectedArtist) return;
@@ -72,7 +81,11 @@ function AssignTaskModal({
     try {
       const res = await apiFetch(`/orders/${order.OrderId}/status`, {
         method: "PUT",
-        body: JSON.stringify({ Status: "IN_PRODUCTION", ArtistId: selectedArtist }),
+        body: JSON.stringify({ 
+          Status: "IN_PRODUCTION", 
+          ArtistId: selectedArtist,
+          Brief: note || undefined
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).message ?? "Failed to assign");
       const data = await res.json();
@@ -84,7 +97,9 @@ function AssignTaskModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -116,9 +131,10 @@ function AssignTaskModal({
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
                 {artists.map((artist) => (
                   <button
+                    type="button"
                     key={artist.UserId}
-                    onClick={() => setSelectedArtist(artist.UserId)}
-                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left cursor-pointer ${selectedArtist === artist.UserId
+                    onClick={() => setSelectedArtist(Number(artist.UserId))}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left cursor-pointer ${selectedArtist == artist.UserId
                       ? "border-purple-500 bg-purple-500/10"
                       : "border-white/[0.06] bg-white/[0.01] hover:border-slate-600"
                       }`}
@@ -172,7 +188,8 @@ function AssignTaskModal({
           </Button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -192,6 +209,11 @@ function EditOrderModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSave = async () => {
     setSaving(true); setError("");
@@ -211,7 +233,9 @@ function EditOrderModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[160] p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -276,7 +300,8 @@ function EditOrderModal({
           </Button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -295,6 +320,33 @@ function CreativeOrderDetail({
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState("");
 
+  // Attachments & Preview State
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [showPreview, setShowPreview] = useState<Attachment | null>(null);
+  const [hasPreviewed, setHasPreviewed] = useState(false);
+
+  const fetchAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const res = await apiFetch(`/orders/${order.OrderId}/attachments`);
+      if (res.ok) {
+        const data = await res.json();
+        setAttachments(data.data ?? data);
+      }
+    } catch (e) {
+      console.error("Failed to fetch attachments", e);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
+
+  useEffect(() => {
+    if (order.Status !== "NEW") {
+      fetchAttachments();
+    }
+  }, [order.OrderId, order.Status]);
+
   const handleStatusChange = async (newStatus: CreativeOrderStatus) => {
     setUpdatingStatus(true); setStatusError("");
     try {
@@ -312,6 +364,24 @@ function CreativeOrderDetail({
     }
   };
 
+  const handleSendToCustomer = async () => {
+    setUpdatingStatus(true); setStatusError("");
+    try {
+      const newBrief = order.Brief ? `${order.Brief}\n[SENT_TO_CUSTOMER]` : "[SENT_TO_CUSTOMER]";
+      const res = await apiFetch(`/orders/${order.OrderId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ Status: "REVIEW", Brief: newBrief }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Update failed");
+      const updated = (await res.json()).data;
+      setOrder(updated); onOrderUpdated(updated);
+    } catch (err: any) {
+      setStatusError(err.message ?? "Send to customer failed.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const STAGES = [
     { key: "NEW", label: "Order Received" },
     { key: "IN_PRODUCTION", label: "3D Production" },
@@ -320,14 +390,19 @@ function CreativeOrderDetail({
     { key: "DELIVERED", label: "Delivered" },
   ];
 
+  // Note: Only NEW status allows manual status change to IN_PRODUCTION (via DispatchTaskModal).
+  // The rest are updated by the Artist or Customer or Payment Flow.
   const NEXT_STATUS_MAP: Partial<Record<CreativeOrderStatus, CreativeOrderStatus>> = {
-    NEW: "IN_PRODUCTION", IN_PRODUCTION: "REVIEW", REVIEW: "COMPLETED",
+    NEW: "IN_PRODUCTION",
   };
   const nextStatus = NEXT_STATUS_MAP[order.Status];
   const stageIdx = STAGES.findIndex(s => s.key === order.Status);
 
   const statusLabel = STATUS_CONFIG[order.Status]?.label ?? order.Status;
   const statusColor = STATUS_CONFIG[order.Status]?.color ?? "bg-slate-600";
+
+  const hasObjFile = useMemo(() => attachments.some(a => a.FileName.toLowerCase().endsWith(".obj")), [attachments]);
+  const isPreviewRequirementSatisfied = !hasObjFile || hasPreviewed;
 
   return (
     <div className="space-y-4">
@@ -358,7 +433,7 @@ function CreativeOrderDetail({
                 </span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               <Button
                 onClick={() => setEditModal(true)}
                 variant="outline"
@@ -371,15 +446,27 @@ function CreativeOrderDetail({
                   <UserCheck className="w-3.5 h-3.5 mr-1.5" /> Dispatch to Artist
                 </Button>
               )}
-              {nextStatus && order.Status !== "NEW" && (
-                <Button
-                  onClick={() => handleStatusChange(nextStatus)}
-                  disabled={updatingStatus}
-                  className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl h-9"
-                >
-                  {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />}
-                  Promote to {STATUS_CONFIG[nextStatus]?.label}
-                </Button>
+              {order.Status === "REVIEW" && (
+                order.Brief?.includes("[SENT_TO_CUSTOMER]") ? (
+                  <span className="text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 text-xs font-semibold px-3.5 py-2 rounded-xl">
+                    Sent to Customer (Awaiting Review & Payment)
+                  </span>
+                ) : (
+                  <div className="flex flex-col items-end">
+                    <Button
+                      onClick={handleSendToCustomer}
+                      disabled={updatingStatus || !isPreviewRequirementSatisfied}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl h-9"
+                      title={!isPreviewRequirementSatisfied ? "Please preview the 3D model first" : ""}
+                    >
+                      {updatingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Send className="w-3.5 h-3.5 mr-1.5" />}
+                      Send to Customer
+                    </Button>
+                    {!isPreviewRequirementSatisfied && (
+                      <span className="text-red-400/80 text-[10px] mt-1 font-medium">Preview model to enable</span>
+                    )}
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -427,6 +514,60 @@ function CreativeOrderDetail({
             <div className="bg-[#080d1a]/50 rounded-xl p-4 border border-white/[0.04] space-y-1">
               <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Creative Brief</p>
               <p className="text-white text-sm leading-relaxed">{order.Brief}</p>
+            </div>
+          )}
+
+          {/* 3D Assets & Attachments (For Manager Review) */}
+          {order.Status !== "NEW" && (
+            <div className="mt-8 border-t border-white/[0.06] pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-slate-400 text-xs uppercase tracking-widest font-bold">3D Deliverables / Attachments</p>
+              </div>
+
+              {loadingAttachments ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                </div>
+              ) : attachments.length === 0 ? (
+                <div className="text-center py-8 rounded-xl bg-[#080d1a]/40 border border-dashed border-white/[0.06]">
+                  <Package className="w-8 h-8 text-slate-700 mx-auto mb-2" />
+                  <p className="text-slate-500 text-xs italic">No deliverables uploaded yet</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {attachments.map((att) => (
+                    <div
+                      key={att.AttachmentId}
+                      className="flex items-center justify-between p-3.5 bg-[#080d1a]/60 border border-white/[0.06] rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                          <Package className="w-4 h-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-white text-sm font-medium">{att.FileName}</p>
+                          <p className="text-slate-500 text-[10px]">{new Date(att.CreatedAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {att.FileName.toLowerCase().endsWith(".obj") && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-3 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10 rounded-lg flex items-center gap-1 text-xs font-semibold"
+                            onClick={() => {
+                              setShowPreview(att);
+                              setHasPreviewed(true);
+                            }}
+                          >
+                            <Eye className="w-3.5 h-3.5" /> Preview Model
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -481,6 +622,32 @@ function CreativeOrderDetail({
           onUpdated={(updated) => { setOrder(updated); onOrderUpdated(updated); }}
         />
       )}
+
+      {/* 3D Preview Modal */}
+      <Modal
+        open={!!showPreview}
+        onClose={() => setShowPreview(null)}
+        title={
+          showPreview ? (
+            <span className="flex items-center gap-2 text-white">
+              <Eye className="w-4 h-4 text-cyan-400" />
+              Preview: {showPreview.FileName}
+            </span>
+          ) : undefined
+        }
+        maxWidth="2xl"
+        footer={
+          <div className="text-center text-xs text-slate-500">
+            Drag to rotate • Scroll to zoom • Right-click to pan
+          </div>
+        }
+      >
+        {showPreview && (
+          <div className="p-6">
+            <OBJModelViewer objData={showPreview.Base64Data} />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
@@ -490,6 +657,11 @@ function CreativeOrderDetail({
 function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
@@ -523,7 +695,9 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -557,7 +731,8 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
           <Button onClick={onClose} variant="ghost" className="text-slate-400 hover:bg-white/[0.02] hover:text-white text-xs font-semibold">Cancel</Button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

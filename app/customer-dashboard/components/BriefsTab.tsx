@@ -12,7 +12,7 @@ import { useConfirm } from "@/app/components/ui/confirm-dialog";
 import { Progress } from "@/app/components/ui/progress";
 import {
   FileText, Plus, XCircle, Clock, CheckCircle2, Package,
-  Eye, Loader2, RefreshCw,
+  Eye, Loader2, RefreshCw, Download, ShoppingBag,
 } from "lucide-react";
 // Link not used here
 import { ApiOrder, ORDER_STATUS_CONFIG, getOrderProgress } from "./types";
@@ -20,12 +20,13 @@ import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../../components/3d/OBJModelViewer";
 import { toast } from "sonner";
 
-export function BriefsTab() {
+export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void }) {
   const router = useRouter();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState<Attachment | null>(null);
   const [previewingOrderId, setPreviewingOrderId] = useState<number | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -39,7 +40,7 @@ export function BriefsTab() {
       if (!res.ok) throw new Error("Could not load attachments");
       const data = await res.json();
       const attachments: Attachment[] = data.data ?? data;
-      const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj"));
+      const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj") || a.FileName.toLowerCase().endsWith(".zip"));
       if (objFile) {
         setShowPreview(objFile);
       } else {
@@ -50,6 +51,48 @@ export function BriefsTab() {
     } finally {
       setLoadingPreview(false);
       setPreviewingOrderId(null);
+    }
+  };
+
+  const handleDownloadAttachments = async (orderId: number) => {
+    setDownloading(orderId);
+    try {
+      const res = await apiFetch(`/orders/${orderId}/attachments`);
+      if (!res.ok) throw new Error("Failed to fetch attachments");
+      const attachments: Attachment[] = (await res.json()).data ?? [];
+      if (attachments.length === 0) { toast.warning("No deliverables found for this order."); return; }
+      
+      attachments.forEach((att) => {
+        if (att.Base64Data) {
+          try {
+            const base64Data = att.Base64Data.includes(',') ? att.Base64Data.split(',')[1] : att.Base64Data;
+            const byteCharacters = atob(base64Data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: "application/octet-stream" });
+            const blobUrl = URL.createObjectURL(blob);
+            
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = att.FileName || `delivery_${orderId}.obj`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+          } catch (err) {
+            console.error("Failed to decode base64 data:", err);
+            toast.error("Failed to process file for download.");
+          }
+        }
+      });
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to download deliverables.");
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -207,7 +250,7 @@ export function BriefsTab() {
                   <p className="text-slate-500 text-xs line-clamp-2 mt-1">{order.Brief}</p>
                 )}
 
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex gap-2 flex-wrap items-center">
                   {(order.Status === "REVIEW" || order.Status === "COMPLETED" || order.Status === "DELIVERED") && (
                     <Button
                       size="sm"
@@ -219,6 +262,26 @@ export function BriefsTab() {
                         ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
                         : <Eye className="w-3 h-3 mr-1" />}
                       View 3D Preview
+                    </Button>
+                  )}
+                  {order.Status === "DELIVERED" && (
+                    <Button
+                      size="sm"
+                      className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold"
+                      onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Thanh toán ngay
+                    </Button>
+                  )}
+                  {order.Status === "COMPLETED" && (
+                    <Button
+                      size="sm"
+                      className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold"
+                      onClick={() => handleDownloadAttachments(order.OrderId)}
+                      disabled={downloading === order.OrderId}
+                    >
+                      {downloading === order.OrderId ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Download className="w-3 h-3 mr-1.5" />}
+                      Tải tệp
                     </Button>
                   )}
                 </div>

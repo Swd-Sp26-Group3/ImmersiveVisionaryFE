@@ -84,7 +84,7 @@ function ReviewModal({
     }
   };
 
-  const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj"));
+  const objFile = attachments.find((a) => a.FileName.toLowerCase().endsWith(".obj") || a.FileName.toLowerCase().endsWith(".zip"));
 
   return (
     <Modal
@@ -371,14 +371,20 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                     </div>
                   )}
                   {order.Status === "REVIEW" && (
-                    <Button
-                      size="sm"
-                      className="text-white"
-                      style={{ background: "var(--gradient-brand)" }}
-                      onClick={() => setReviewOrder(order)}
-                    >
-                      <Eye className="w-4 h-4 mr-2" /> Xem xét sản phẩm
-                    </Button>
+                    order.Brief?.includes("[SENT_TO_CUSTOMER]") ? (
+                      <Button
+                        size="sm"
+                        className="text-white"
+                        style={{ background: "var(--gradient-brand)" }}
+                        onClick={() => setReviewOrder(order)}
+                      >
+                        <Eye className="w-4 h-4 mr-2" /> Xem xét sản phẩm
+                      </Button>
+                    ) : (
+                      <span className="text-xs bg-slate-700/50 text-slate-400 border border-slate-600/30 rounded-xl px-3 py-1.5 font-medium">
+                        Đang chờ quản lý kiểm duyệt
+                      </span>
+                    )
                   )}
                   {order.Status === "NEW" && (
                     <Button

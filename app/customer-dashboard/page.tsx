@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
-import { Package, FileText, Download, Plus, MessageSquare, Loader2, User } from "lucide-react";
+import { Package, FileText, Download, Plus, MessageSquare, Loader2, User, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { UserProfile, ApiOrder } from "./components/types";
@@ -36,6 +36,17 @@ export default function CustomerDashboard() {
   // Real purchase stats
   const [purchases, setPurchases] = useState<MarketplaceOrder[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(true);
+
+  // Read tab from query parameters on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab") as TabId;
+      if (tabParam && TABS.some(t => t.id === tabParam)) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     apiFetch("/users/profile")
@@ -191,7 +202,7 @@ export default function CustomerDashboard() {
 
           <div>
             {activeTab === "orders" && <OrdersTab onTabChange={(tab) => setActiveTab(tab as TabId)} />}
-            {activeTab === "briefs" && <BriefsTab />}
+            {activeTab === "briefs" && <BriefsTab onTabChange={(tab) => setActiveTab(tab as TabId)} />}
             {activeTab === "purchases" && <PurchasesTab />}
             {activeTab === "profile" && (
               <ProfileTab profile={profile} loading={profileLoading} onProfileUpdated={setProfile} />

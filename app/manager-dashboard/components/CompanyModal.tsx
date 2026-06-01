@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
@@ -64,7 +65,14 @@ export function CompanyModal({ company, onClose, onSave }: CompanyModalProps) {
     }
   };
 
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -180,6 +188,7 @@ export function CompanyModal({ company, onClose, onSave }: CompanyModalProps) {
           </Button>
         </div>
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 }

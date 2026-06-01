@@ -56,7 +56,12 @@ export function JobDetailView({ order, onBack }: Props) {
     try {
       const base64 = await process3DModelFiles(files);
       const mainFile = files.find(f => f.name.toLowerCase().endsWith(".obj")) || files[0];
-      const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
+      let displayName = mainFile.name;
+      if (files.length > 1) {
+        displayName = `${mainFile.name.replace(/\.obj$/i, '')}_package.obj`;
+      } else if (!displayName.toLowerCase().endsWith(".obj")) {
+        displayName = displayName + ".obj";
+      }
 
       // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
       const res = await apiFetch(`${getApiBaseUrl()}/api/orders/${order.OrderId}/attachments`, {
@@ -156,24 +161,19 @@ export function JobDetailView({ order, onBack }: Props) {
             </div>
             <div className="flex gap-2">
               {currentStatus === "IN_PRODUCTION" && (
-                <Button
-                  onClick={() => handleUpdateStatus("REVIEW")}
-                  disabled={updating}
-                  className="bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-xl"
-                >
-                  {updating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
-                  Submit for Review
-                </Button>
-              )}
-              {currentStatus === "COMPLETED" && (
-                <Button
-                  onClick={() => handleUpdateStatus("DELIVERED")}
-                  disabled={updating}
-                  className="bg-cyan-600 hover:bg-cyan-700 text-white text-sm rounded-xl"
-                >
-                  {updating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Upload className="w-4 h-4 mr-1" />}
-                  Mark Delivered
-                </Button>
+                <div className="flex flex-col items-end">
+                  <Button
+                    onClick={() => handleUpdateStatus("REVIEW")}
+                    disabled={updating || attachments.length === 0}
+                    className="bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-xl"
+                  >
+                    {updating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}
+                    Submit for Review
+                  </Button>
+                  {attachments.length === 0 && (
+                    <span className="text-red-400/80 text-[10px] mt-1 font-medium font-mono">Upload files to submit</span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -276,7 +276,7 @@ export function JobDetailView({ order, onBack }: Props) {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {att.FileName.toLowerCase().endsWith(".obj") && (
+                      {(att.FileName.toLowerCase().endsWith(".obj") || att.FileName.toLowerCase().endsWith(".zip")) && (
                         <Button
                           size="icon"
                           variant="ghost"
