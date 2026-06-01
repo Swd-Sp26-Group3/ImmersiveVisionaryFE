@@ -86,7 +86,7 @@ function AssignTaskModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -118,21 +118,19 @@ function AssignTaskModal({
                   <button
                     key={artist.UserId}
                     onClick={() => setSelectedArtist(artist.UserId)}
-                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left cursor-pointer ${
-                      selectedArtist === artist.UserId
-                        ? "border-purple-500 bg-purple-500/10"
-                        : "border-white/[0.06] bg-white/[0.01] hover:border-slate-600"
-                    }`}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all text-left cursor-pointer ${selectedArtist === artist.UserId
+                      ? "border-purple-500 bg-purple-500/10"
+                      : "border-white/[0.06] bg-white/[0.01] hover:border-slate-600"
+                      }`}
                   >
                     <div className="min-w-0">
                       <p className="text-white font-semibold text-sm truncate">{artist.UserName}</p>
                       <p className="text-slate-500 text-xs truncate mt-0.5">{artist.Email ?? "No email address"}</p>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                      artist.IsActive
-                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : "bg-slate-500/10 text-slate-400 border-slate-500/20"
-                    }`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${artist.IsActive
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                      }`}>
                       {artist.IsActive ? "Active" : "Inactive"}
                     </span>
                   </button>
@@ -215,7 +213,7 @@ function EditOrderModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[160] p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -443,13 +441,12 @@ function CreativeOrderDetail({
                   const current = i === stageIdx;
                   return (
                     <div key={s.key} className="flex items-center gap-3 relative z-10">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
-                        done 
-                          ? "bg-emerald-500" 
-                          : current 
-                          ? "bg-purple-600 ring-4 ring-purple-500/25 text-white" 
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${done
+                        ? "bg-emerald-500"
+                        : current
+                          ? "bg-purple-600 ring-4 ring-purple-500/25 text-white"
                           : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
-                      }`}>
+                        }`}>
                         {done ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : i + 1}
                       </div>
                       <span className={`text-xs font-semibold ${current ? "text-white font-bold" : done ? "text-slate-300" : "text-slate-600"}`}>
@@ -488,64 +485,6 @@ function CreativeOrderDetail({
   );
 }
 
-// Helper to compress file using gzip and encode to base64
-const compressFileToGzipBase64 = async (file: File): Promise<string> => {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const cs = new CompressionStream("gzip");
-  const writer = cs.writable.getWriter();
-  writer.write(bytes as any);
-  writer.close();
-  const reader = cs.readable.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-  const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-  const compressedBytes = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    compressedBytes.set(chunk, offset);
-    offset += chunk.length;
-  }
-  let binary = "";
-  const len = compressedBytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(compressedBytes[i]);
-  }
-  return "gzip:" + btoa(binary);
-};
-
-const process3DModelFiles = async (files: File[]): Promise<string> => {
-  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
-    const arrayBuf = await files[0].arrayBuffer();
-    const bytes = new Uint8Array(arrayBuf);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    return "zip:" + btoa(binary);
-  }
-
-  if (files.length === 1 && files[0].name.toLowerCase().endsWith(".obj")) {
-    return compressFileToGzipBase64(files[0]);
-  }
-
-  const hasObj = files.some(f => f.name.toLowerCase().endsWith(".obj"));
-  if (!hasObj) {
-    throw new Error("No .obj file found in the selected files.");
-  }
-
-  const zip = new JSZip();
-  for (const f of files) {
-    zip.file(f.name, f);
-  }
-  const zipBlob = await zip.generateAsync({ type: "blob" });
-  const arrayBuf = await zipBlob.arrayBuffer();
-  const bytes = new Uint8Array(arrayBuf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return "zip:" + btoa(binary);
-};
 
 // ===================== Edit Asset Modal =====================
 function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
@@ -586,7 +525,7 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
@@ -765,13 +704,12 @@ function MarketplaceOrderDetail({
                 const current = order.Status === s.key;
                 return (
                   <div key={s.key} className="flex items-center gap-3 relative z-10 mb-3">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${
-                      done 
-                        ? "bg-emerald-500" 
-                        : current 
-                        ? "bg-purple-600 ring-4 ring-purple-500/25 text-white" 
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] ${done
+                      ? "bg-emerald-500"
+                      : current
+                        ? "bg-purple-600 ring-4 ring-purple-500/25 text-white"
                         : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
-                    }`}>
+                      }`}>
                       {done ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : i + 1}
                     </div>
                     <span className={`text-xs font-semibold ${current ? "text-white font-bold" : done ? "text-slate-300" : "text-slate-600"}`}>
@@ -881,11 +819,10 @@ function CreativeOrdersSubTab({ artists }: { artists: Artist[] }) {
               <button
                 key={s}
                 onClick={() => setFilterStatus(s)}
-                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${
-                  active
-                    ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/10"
-                    : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
-                }`}
+                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${active
+                  ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/10"
+                  : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
+                  }`}
               >
                 {label}
                 {s !== "ALL" && (
@@ -1069,11 +1006,10 @@ function MarketplaceOrdersSubTab() {
               <button
                 key={s}
                 onClick={() => setFilterStatus(s)}
-                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${
-                  active
-                    ? "bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/10"
-                    : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
-                }`}
+                className={`text-xs px-3 py-1.5 rounded-xl border transition-all cursor-pointer font-bold ${active
+                  ? "bg-purple-600 border-purple-600 text-white shadow-md shadow-purple-500/10"
+                  : "border-white/[0.06] bg-white/[0.01] text-slate-400 hover:border-slate-500"
+                  }`}
               >
                 {label}
                 {s !== "ALL" && (
@@ -1168,9 +1104,8 @@ export function OrdersTab({ artists }: { artists: Artist[] }) {
       <div className="flex gap-1.5 p-1 bg-[#0d1324]/50 border border-white/[0.06] rounded-xl w-fit relative">
         <button
           onClick={() => setSubTab("creative")}
-          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${
-            subTab === "creative" ? "text-white" : "text-slate-400 hover:text-slate-200"
-          }`}
+          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${subTab === "creative" ? "text-white" : "text-slate-400 hover:text-slate-200"
+            }`}
         >
           {subTab === "creative" && (
             <motion.div
@@ -1184,9 +1119,8 @@ export function OrdersTab({ artists }: { artists: Artist[] }) {
         </button>
         <button
           onClick={() => setSubTab("marketplace")}
-          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${
-            subTab === "marketplace" ? "text-white" : "text-slate-400 hover:text-slate-200"
-          }`}
+          className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-xs md:text-sm font-bold transition-all duration-300 cursor-pointer ${subTab === "marketplace" ? "text-white" : "text-slate-400 hover:text-slate-200"
+            }`}
         >
           {subTab === "marketplace" && (
             <motion.div

@@ -19,6 +19,123 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+const ADDONS_CONFIG = [
+  { key: "arOptimize", label: "Tối ưu AR cho web & di động", price: 15000 },
+  { key: "animation", label: "Thêm hoạt ảnh 3D chuyển động", price: 85000 },
+  { key: "multiVariant", label: "Nhiều cấu hình màu/chất liệu", price: 35000 },
+  { key: "sourceFiles", label: "Cung cấp tệp nguồn gốc (.blend, .fbx)", price: 20000 },
+] as const;
+
+const PRODUCT_CATEGORIES = [
+  { value: "Fashion", label: "Thời trang", hasTemplates: true },
+  { value: "Furniture", label: "Nội thất", hasTemplates: true },
+  { value: "Electronics", label: "Điện tử", hasTemplates: true },
+  { value: "Cosmetics", label: "Mỹ phẩm", hasTemplates: true },
+  { value: "Food & Beverage", label: "Thực phẩm & Đồ uống", hasTemplates: true },
+  { value: "Automotive", label: "Ô tô / Xe cộ", hasTemplates: true },
+  { value: "Other", label: "Khác (Tự nhập)", hasTemplates: false },
+] as const;
+
+interface TemplateItem {
+  id: string;
+  label: string;
+  projectName: string;
+  description: string;
+}
+
+const CATEGORY_TEMPLATES: Record<string, TemplateItem[]> = {
+  Fashion: [
+    {
+      id: "sneaker",
+      label: "👟 Giày Sneaker Thể Thao",
+      projectName: "Giày Sneaker Sport-X",
+      description: "Mô hình 3D giày sneaker thể thao. Kích thước tỷ lệ thực, chất liệu vải dệt mesh kết hợp da lộn. Đế cao su có họa tiết chống trượt. Cần tối ưu hóa số lượng đa giác để hỗ trợ tính năng AR Try-on thử giày thực tế ảo."
+    },
+    {
+      id: "backpack",
+      label: "🎒 Balo Thời Trang Chống Nước",
+      projectName: "Balo Du Lịch ActiveBag",
+      description: "Balo vải dù Oxford chống nước, màu xanh quân đội phối đen. Có nhiều ngăn khóa kéo bằng kim loại sáng loáng. Tỷ lệ mô phỏng chuẩn xác kích thước để hiển thị trực quan không gian chứa đồ trên môi trường AR."
+    },
+    {
+      id: "glasses",
+      label: "🕶️ Kính Mát AR Thời Trang",
+      projectName: "Kính Mát Phi Hành Gia Classic",
+      description: "Kính mát gọng kim loại mạ vàng sáng bóng, tròng kính thủy tinh chuyển màu có độ phản chiếu cao. Tối ưu vật liệu kính trong suốt và độ bóng kim loại phản xạ môi trường phục vụ cho AR Face-tracking."
+    }
+  ],
+  Furniture: [
+    {
+      id: "sofa",
+      label: "🛋️ Ghế Sofa Đơn Riva",
+      projectName: "Ghế Sofa Đơn Riva",
+      description: "Ghế sofa đơn phong cách Bắc Âu. Kích thước: 85x80x90 cm. Vải nỉ xám nhạt, khung và chân gỗ sồi tự nhiên màu sáng. Đệm ngồi dày, tựa lưng êm ái. Yêu cầu tối ưu hóa đa giác thấp để xem AR trên web mượt mà."
+    },
+    {
+      id: "desk",
+      label: "🪑 Bàn Làm Việc Gỗ Tối Giản",
+      projectName: "Bàn Làm Việc WoodWork",
+      description: "Bàn làm việc chất liệu gỗ thông tự nhiên sơn phủ bóng PU nhẹ, khung chân sắt hộp sơn tĩnh điện đen mờ. Mặt bàn vân gỗ rõ nét. Thiết kế gọn nhẹ phù hợp hiển thị đặt thử trong phòng làm việc ảo."
+    },
+    {
+      id: "lamp",
+      label: "💡 Đèn Ngủ Decor Hiện Đại",
+      projectName: "Đèn Ngủ Lumina",
+      description: "Đèn ngủ thông minh hình trụ, thân nhôm anode bạc, chao đèn nhựa polycarbonate khuếch tán ánh sáng ấm. Thể hiện rõ hiệu ứng phát xạ ánh sáng (emission) và độ chuyển đổi độ sáng bóng khi bật/tắt."
+    }
+  ],
+  Electronics: [
+    {
+      id: "headphone",
+      label: "🎧 Tai nghe Alpha Gaming",
+      projectName: "Tai nghe Alpha Gaming",
+      description: "Tai nghe chụp tai gaming không dây. Nhựa đen nhám, đệm tai da PU. Có dải LED RGB ở viền ốp tai và logo phát sáng. Yêu cầu thể hiện đúng độ kim loại khớp xoay và chất liệu nhám mịn của vỏ ngoài."
+    },
+    {
+      id: "smartphone",
+      label: "📱 Điện thoại Edge 15 Pro",
+      projectName: "Điện thoại Edge 15 Pro",
+      description: "Điện thoại thông minh viền cực mỏng. Mặt lưng kính nhám chuyển màu xanh ngọc, cụm 3 camera lồi viền kim loại sáng bóng. Màn hình hiển thị bản đồ sáng rực. Cần chăm chút chất liệu kính phản xạ gương."
+    },
+    {
+      id: "smartwatch",
+      label: "⌚ Đồng Hồ Thể Thao FitPro",
+      projectName: "Đồng Hồ Thông Minh FitPro",
+      description: "Đồng hồ thông minh đo sức khỏe. Dây đeo cao su silicon màu đen cá tính, khung viền nhôm xám không gian. Thể hiện chi tiết cảm biến nhịp tim phát sáng màu xanh lá ở mặt lưng đồng hồ."
+    }
+  ],
+  Cosmetics: [
+    {
+      id: "serum",
+      label: "🧴 Chai Serum Glow 50ml",
+      projectName: "Chai Serum Glow 50ml",
+      description: "Chai serum thủy tinh mờ dung tích 50ml, nắp nhỏ giọt cao su màu đen và vòi thủy tinh. Dung dịch bên trong màu vàng nhạt trong suốt. Nhãn giấy trắng chữ đen tối giản. Cần diễn tả đúng độ trong suốt và khúc xạ ánh sáng."
+    },
+    {
+      id: "lipstick",
+      label: "💄 Thỏi Son Môi Velvet Lip",
+      projectName: "Son Môi Velvet Matte",
+      description: "Thỏi son vỏ nhựa đen bóng sang trọng có nam châm hút. Ruột son màu đỏ nhung có bề mặt lì nhẹ mịn màng. Cần thiết kế rõ độ tương phản giữa độ bóng loáng của vỏ và độ nhám lì của chất son."
+    }
+  ],
+  "Food & Beverage": [
+    {
+      id: "can",
+      label: "🥤 Lon Nước Ngọt Có Ga",
+      projectName: "Lon Soda Chanh Sparkle",
+      description: "Lon nước ngọt bằng nhôm dung tích 330ml. Bề mặt kim loại nhôm phản xạ cao, có các giọt nước đọng sương chân thực bên ngoài vỏ lon (normal map giọt nước). Màu sắc rực rỡ thu hút người dùng trong AR."
+    }
+  ],
+  Automotive: [
+    {
+      id: "wheel",
+      label: "🚗 Mâm Xe Thể Thao Alloy",
+      projectName: "Mâm Xe Hơi Alloy Sport",
+      description: "Mô hình mâm hợp kim nhôm đúc 5 chấu kép thể thao dành cho xe hơi du lịch. Màu sơn đen phay kim loại xám. Cần chú trọng độ bóng phản quang kim loại và độ tương phản giữa các bề mặt hoàn thiện sơn/phay."
+    }
+  ]
+};
+
 export default function OrderProductPage() {
   const router = useRouter();
   const { user } = useAuth();
@@ -40,6 +157,7 @@ export default function OrderProductPage() {
   const [form, setForm] = useState({
     projectName: "",
     productType: "",
+    customProductType: "",
     description: "",
     deadline: "",
     budget: "",
@@ -76,6 +194,10 @@ export default function OrderProductPage() {
       setSubmitError("Vui lòng nhập tên dự án.");
       return;
     }
+    if (form.productType === "Other" && !form.customProductType.trim()) {
+      setSubmitError("Vui lòng nhập loại sản phẩm khác.");
+      return;
+    }
     if (!form.description.trim()) {
       setSubmitError("Vui lòng mô tả sản phẩm.");
       return;
@@ -104,12 +226,14 @@ export default function OrderProductPage() {
         deadlineDate.setDate(deadlineDate.getDate() + 14); // Default 2 weeks
       }
 
+      const finalProductType = form.productType === "Other" ? form.customProductType : form.productType;
+
       // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
       const res = await apiFetch(`${getApiBaseUrl()}/api/orders`, {
         method: "POST",
         body: JSON.stringify({
           ProjectName: form.projectName,
-          ProductType: form.productType || null,
+          ProductType: finalProductType || null,
           Brief: form.description,
           Budget: form.budget || null,
           DeliverySpeed: form.deadline || null,
@@ -143,7 +267,7 @@ export default function OrderProductPage() {
       addItem({
         orderId: String(newOrder.OrderId ?? newOrder.orderId ?? Date.now()),
         projectName: form.projectName,
-        productType: form.productType || null,
+        productType: finalProductType || null,
         deliverySpeed: form.deadline || null,
         budget: form.budget || null,
         addedAt: new Date().toISOString(),
@@ -263,8 +387,8 @@ export default function OrderProductPage() {
             {/* Project Information */}
             <Card className="bg-[#1a1f3a]/50 border-purple-500/20 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-white">Project Information</CardTitle>
-                <CardDescription className="text-gray-400">Details about the 3D product you want</CardDescription>
+                <CardTitle className="text-white">Thông tin dự án</CardTitle>
+                <CardDescription className="text-gray-400">Chi tiết về sản phẩm 3D/AR bạn mong muốn thiết kế</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
@@ -283,22 +407,67 @@ export default function OrderProductPage() {
                   {/* Product Type */}
                   <div className="space-y-2">
                     <Label htmlFor="product-type" className="text-white">Loại sản phẩm *</Label>
-                    <Select onValueChange={(v) => updateForm("productType", v)}>
+                    <Select value={form.productType} onValueChange={(v) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        productType: v,
+                        customProductType: "",
+                        projectName: "",
+                        description: ""
+                      }));
+                    }}>
                       <SelectTrigger id="product-type" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Chọn loại" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
-                        <SelectItem value="Electronics">Điện tử</SelectItem>
-                        <SelectItem value="Furniture">Nội thất</SelectItem>
-                        <SelectItem value="Fashion">Thời trang</SelectItem>
-                        <SelectItem value="Automotive">Ô tô / Xe cộ</SelectItem>
-                        <SelectItem value="Cosmetics">Mỹ phẩm</SelectItem>
-                        <SelectItem value="Food & Beverage">Thực phẩm & Đồ uống</SelectItem>
-                        <SelectItem value="Other">Khác</SelectItem>
+                        {PRODUCT_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
+
+                {/* Custom Product Type Input (only shown when 'Other' is selected) */}
+                {form.productType === "Other" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="custom-product-type" className="text-white">Loại sản phẩm khác *</Label>
+                    <Input
+                      id="custom-product-type"
+                      placeholder="Nhập loại sản phẩm của bạn (VD: Linh kiện y tế, đồ chơi...)"
+                      value={form.customProductType}
+                      onChange={(e) => updateForm("customProductType", e.target.value)}
+                      className="bg-[#0f1729] border-purple-500/30 text-white placeholder:text-slate-400"
+                    />
+                  </div>
+                )}
+
+                {/* Dynamic Category Templates Section */}
+                {form.productType && CATEGORY_TEMPLATES[form.productType]?.length > 0 && (
+                  <div className="bg-[#0f1729]/50 border border-purple-500/20 rounded-xl p-4 space-y-3">
+                    <Label className="text-purple-300 text-xs font-bold uppercase tracking-wider block">💡 Gợi ý mẫu thiết kế (Chọn để điền nhanh)</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {CATEGORY_TEMPLATES[form.productType].map((tmpl) => (
+                        <button
+                          key={tmpl.id}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({
+                              ...prev,
+                              projectName: tmpl.projectName,
+                              description: tmpl.description,
+                            }));
+                          }}
+                          className="text-left bg-[#151a30] hover:bg-purple-950/20 border border-purple-500/10 hover:border-purple-500/40 rounded-lg p-3 transition-all cursor-pointer group"
+                        >
+                          <p className="text-[10px] font-bold text-purple-400 group-hover:text-purple-300 uppercase tracking-wider">{tmpl.label}</p>
+                          <p className="text-white font-semibold text-xs truncate mt-1">{tmpl.projectName}</p>
+                          <p className="text-gray-400 text-[11px] line-clamp-2 mt-1 leading-snug italic">"{tmpl.description}"</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Description */}
                 <div className="space-y-2">
@@ -317,7 +486,7 @@ export default function OrderProductPage() {
                   {/* Deadline */}
                   <div className="space-y-2">
                     <Label htmlFor="deadline" className="text-white">Thời hạn mong muốn</Label>
-                    <Select onValueChange={(v) => updateForm("deadline", v)}>
+                    <Select value={form.deadline} onValueChange={(v) => updateForm("deadline", v)}>
                       <SelectTrigger id="deadline" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Chọn thời hạn" />
                       </SelectTrigger>
@@ -332,15 +501,15 @@ export default function OrderProductPage() {
                   {/* Budget */}
                   <div className="space-y-2">
                     <Label htmlFor="budget" className="text-white">Ngân sách dự kiến</Label>
-                    <Select onValueChange={(v) => updateForm("budget", v)}>
+                    <Select value={form.budget} onValueChange={(v) => updateForm("budget", v)}>
                       <SelectTrigger id="budget" className="bg-[#0f1729] border-purple-500/30 text-white">
                         <SelectValue placeholder="Chọn ngân sách" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#1a1f3a] border-purple-500/30 text-white">
-                        <SelectItem value="100k-250k">100.000 – 250.000 ₫</SelectItem>
-                        <SelectItem value="250k-750k">250.000 – 750.000 ₫</SelectItem>
-                        <SelectItem value="750k-1250k">750.000 – 1.250.000 ₫</SelectItem>
-                        <SelectItem value="1250k+">Trên 1.250.000 ₫</SelectItem>
+                        <SelectItem value="15k-30k">15.000 – 30.000 ₫</SelectItem>
+                        <SelectItem value="30k-60k">30.000 – 60.000 ₫</SelectItem>
+                        <SelectItem value="60k-95k">60.000 – 95.000 ₫</SelectItem>
+                        <SelectItem value="95k+">Trên 95.000 ₫</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -386,20 +555,17 @@ export default function OrderProductPage() {
                 <CardTitle className="text-white">Tùy chọn thêm</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {[
-                  { key: "arOptimize", label: "Tối ưu AR cho web & di động (+50.000 ₫)" },
-                  { key: "animation", label: "Thêm hoạt ảnh 3D (+7.500.000 ₫)" },
-                  { key: "multiVariant", label: "Nhiều biến thể màu/chất liệu (+350.000 ₫)" },
-                  { key: "sourceFiles", label: "Bao gồm tệp nguồn có thể chỉnh sửa (+250.000 ₫)" },
-                ].map(({ key, label }) => (
+                {ADDONS_CONFIG.map(({ key, label, price }) => (
                   <div key={key} className="flex items-center gap-2">
                     <Checkbox
                       id={key}
-                      checked={form[key as keyof typeof form] as boolean}
-                      onCheckedChange={(v) => updateForm(key as keyof typeof form, !!v)}
+                      checked={form[key]}
+                      onCheckedChange={(v) => updateForm(key, !!v)}
                       className="border-purple-500/30"
                     />
-                    <Label htmlFor={key} className="text-sm text-gray-300 cursor-pointer">{label}</Label>
+                    <Label htmlFor={key} className="text-sm text-gray-300 cursor-pointer">
+                      {label} (+{price.toLocaleString("vi-VN")} ₫)
+                    </Label>
                   </div>
                 ))}
               </CardContent>
