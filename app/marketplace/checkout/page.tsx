@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   ArrowLeft, Box, CheckCircle2, CreditCard, Loader2,
   AlertCircle, Lock, ShieldCheck, Zap, Download
@@ -410,7 +411,7 @@ function CheckoutContent() {
                 </div>
 
                 <Button
-                  onClick={handleSubmit}
+                  onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
                   className="w-full py-6 text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-semibold rounded-xl shadow-lg shadow-cyan-500/20"
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
