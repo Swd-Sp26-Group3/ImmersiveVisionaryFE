@@ -7,6 +7,7 @@ import { MainWrapper } from "./components/MainWrapper";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { CartDrawer } from "./components/CartDrawer";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,11 @@ export default function RootLayout({
               {children}
             </MainWrapper>
             <Footer />
+            <Toaster
+              position="top-center"
+              richColors
+              toastOptions={{ duration: 4000 }}
+            />
           </CartProvider>
         </AuthProvider>
       </body>
