@@ -12,7 +12,7 @@ import { ErrorState } from "@/app/components/ui/error-state";
 import { StatusBadge } from "@/app/components/ui/status-badge";
 import { Modal } from "@/app/components/ui/modal";
 import { useConfirm } from "@/app/components/ui/confirm-dialog";
-import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles, uploadAssetInChunks } from "@/lib/api";
 import { Asset, PUBLISH_CONFIG, CATEGORY_IMAGES } from "./types";
 import { toast } from "sonner";
 
@@ -26,6 +26,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [previewImgFile, setPreviewImgFile] = useState<File | null>(null);
   const [previewImgDataUrl, setPreviewImgDataUrl] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const field = (key: keyof typeof form) => ({
@@ -86,9 +87,22 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
     if (selectedFiles.length === 0) { setError("Please upload 3D model files."); return; }
     setSaving(true);
+    setUploadProgress(0);
     setError("");
     try {
-      const base64Data = await process3DModelFiles(selectedFiles);
+      const processedModel = await process3DModelFiles(selectedFiles);
+
+      let fileName = selectedFiles[0].name;
+      if (processedModel.prefix === "zip") {
+        fileName = fileName.toLowerCase().endsWith(".zip") ? fileName : `${fileName}.zip`;
+      }
+
+      // Upload the model file in chunks
+      const { uploadId } = await uploadAssetInChunks(
+        fileName,
+        processedModel,
+        (progress) => setUploadProgress(progress)
+      );
 
       // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
       const res = await apiFetch(`${getApiBaseUrl()}/api/assets`, {
@@ -101,7 +115,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
           Industry:     form.Industry     || null,
           Price:        form.Price ? Number(form.Price) : null,
           PreviewImage: form.PreviewImage || null,
-          Base64Data:   base64Data,
+          UploadId:     uploadId,
           AssetType:    "MARKETPLACE",
           IsMarketplace: true,
         }),
@@ -123,6 +137,7 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
       setError(e instanceof Error ? e.message : "Save failed.");
     } finally {
       setSaving(false);
+      setUploadProgress(null);
     }
   };
 
@@ -144,7 +159,17 @@ function UploadAssetModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         <div className="flex gap-3">
           <Button onClick={onClose} variant="outline" className="flex-1 border-white/10 text-slate-400 hover:text-white rounded-xl">Cancel</Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1 text-white rounded-xl font-semibold" style={{ background: "var(--gradient-accent)" }}>
-            {saving ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Creating...</> : <><Plus className="w-4 h-4 mr-2" />Create Asset</>}
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                {uploadProgress !== null ? `Uploading ${uploadProgress}%...` : "Creating..."}
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Asset
+              </>
+            )}
           </Button>
         </div>
       }

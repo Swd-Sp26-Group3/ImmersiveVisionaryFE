@@ -88,14 +88,14 @@ export async function apiFetch(
         headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(buildApiUrl(endpoint), { ...options, headers });
+    const res = await fetch(buildApiUrl(endpoint), { cache: "no-store", ...options, headers });
 
     // If 401, try to refresh and retry once
     if (res.status === 401 && retry) {
         const newToken = await refreshAccessToken();
         if (newToken) {
             headers["Authorization"] = `Bearer ${newToken}`;
-            return apiFetch(endpoint, { ...options, headers }, false);
+            return apiFetch(endpoint, { cache: "no-store", ...options, headers }, false);
         }
         // Refresh failed – clear tokens and let caller handle it
         clearTokens();
@@ -282,6 +282,51 @@ export async function uploadAttachmentInChunks(
     }
 
     return lastResult;
+}
+
+/**
+ * Uploads a large asset model Blob to the backend in small chunks of raw binary data.
+ * Displays progress feedback if a callback is provided.
+ */
+export async function uploadAssetInChunks(
+    fileName: string,
+    model: ProcessedModel,
+    onProgress?: (progress: number) => void
+): Promise<{ uploadId: string }> {
+    const { blob, prefix } = model;
+    const chunkSize = 2 * 1024 * 1024; // 2MB chunk size
+    const totalChunks = Math.ceil(blob.size / chunkSize);
+    const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, blob.size);
+        const chunkBlob = blob.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", String(chunkIndex));
+        formData.append("totalChunks", String(totalChunks));
+        formData.append("prefix", prefix);
+        formData.append("fileName", fileName);
+        formData.append("chunk", chunkBlob);
+
+        const res = await apiFetch(`${getApiBaseUrl()}/api/assets/upload-chunk`, {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Upload failed at chunk ${chunkIndex + 1}/${totalChunks}: ${errText}`);
+        }
+
+        if (onProgress) {
+            onProgress(Math.round(((chunkIndex + 1) / totalChunks) * 100));
+        }
+    }
+
+    return { uploadId };
 }
 
 export default api;
