@@ -7,6 +7,7 @@ import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { TGALoader } from "three/addons/loaders/TGALoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import * as THREE from "three";
 import JSZip from "jszip";
 
@@ -329,9 +330,22 @@ function postProcessObject(
 
     object.traverse((child: any) => {
         if (child.isMesh) {
+            // Enable casting and receiving shadows to give realistic depth and contact shadows!
+            child.castShadow = true;
+            child.receiveShadow = true;
+
             if (child.geometry) {
-                // Compute normals to prevent shader NaN crashes with lighting
-                child.geometry.computeVertexNormals();
+                // Ensure tangents are calculated if normal maps exist and all required attributes are present
+                if (child.material && (child.material.normalMap || textureMap)) {
+                    const geom = child.geometry;
+                    if (geom.index && geom.attributes.position && geom.attributes.normal && geom.attributes.uv) {
+                        try { geom.computeTangents(); } catch (e) {}
+                    }
+                }
+                // Only compute normals if they are missing, to preserve custom smooth normals exported from Blender
+                if (!child.geometry.attributes.normal) {
+                    child.geometry.computeVertexNormals();
+                }
                 // Recompute bounds to ensure Stage and raycasters don't fail
                 child.geometry.computeBoundingSphere();
                 child.geometry.computeBoundingBox();
@@ -478,26 +492,40 @@ function postProcessObject(
 
                     // Common material settings
                     mat.side = THREE.DoubleSide;
-                    mat.precision = 'mediump';
+                    mat.flatShading = false; // Force smooth shading to fix lighting seams
+                    mat.precision = 'highp'; // Force high-precision fragment shaders
+
+                    // Force all maps to use UV channel 0 (uv) and set high-quality mipmapping filters
+                    const texProps = ["map", "normalMap", "roughnessMap", "aoMap", "bumpMap", "metalnessMap", "emissiveMap", "alphaMap", "specularMap"];
+                    texProps.forEach((prop) => {
+                        const tex = mat[prop];
+                        if (tex && tex.isTexture) {
+                            tex.minFilter = THREE.LinearMipmapLinearFilter;
+                            tex.magFilter = THREE.LinearFilter;
+                            tex.generateMipmaps = true;
+
+                            if (prop === "map" || prop === "emissiveMap" || prop === "specularMap") {
+                                tex.colorSpace = THREE.SRGBColorSpace;
+                            } else {
+                                tex.colorSpace = THREE.NoColorSpace; // Keeps vectors/data linear
+                            }
+
+                            if (tex.channel !== 0) {
+                                console.log(`[3D Loader] Forcing texture "${tex.name || prop}" channel from ${tex.channel} to 0`);
+                                tex.channel = 0;
+                            }
+                            tex.needsUpdate = true;
+                        }
+                    });
+
                     if (mat.opacity < 1.0) {
                         mat.transparent = true;
-                    }
-                    if (mat.map) {
-                        mat.map.colorSpace = THREE.SRGBColorSpace;
-                    }
-                    if (mat.normalMap) {
-                        mat.normalScale = new THREE.Vector2(1.5, 1.5);
-                    }
-                    if (mat.emissiveMap) {
-                        mat.emissiveMap.colorSpace = THREE.SRGBColorSpace;
-                    }
-                    if (mat.specularMap) {
-                        mat.specularMap.colorSpace = THREE.SRGBColorSpace;
                     }
                     if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
                         mat.emissiveIntensity = 3.0;
                         mat.toneMapped = false;
                     }
+
                     mat.needsUpdate = true;
                     return mat;
                 });
@@ -556,28 +584,33 @@ function Model({ blobUrl, textureScale, applyToAll }: { blobUrl: string; texture
 
     return (
         <Center>
-            <primitive object={processedObj} />
+            <primitive object={processedObj} dispose={null} />
         </Center>
     );
 }
 
 function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; textureScale: number; applyToAll: boolean }) {
-    const gltf = useLoader(GLTFLoader as any, blobUrl);
+    // useLoader automatically caches the GLTF layout efficiently
+    const gltf = useLoader(GLTFLoader as any, blobUrl, (loader: any) => {
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.6/");
+        loader.setDRACOLoader(dracoLoader);
+    });
 
-    const processedObj = useMemo(() => {
-        if (!gltf || !gltf.scene) return null;
-
-        const clone = gltf.scene.clone(true);
-        postProcessObject(clone);
-        return clone;
+    // Run post-processing safely directly on the scene object inside an effect
+    useEffect(() => {
+        if (gltf && gltf.scene) {
+            postProcessObject(gltf.scene);
+        }
     }, [gltf]);
 
-    useTextureScaleEffect(processedObj, textureScale, applyToAll);
+    useTextureScaleEffect(gltf?.scene || null, textureScale, applyToAll);
 
+    // Garbage Collection Cleanup 
     useEffect(() => {
         return () => {
-            if (processedObj) {
-                processedObj.traverse((child: any) => {
+            if (gltf && gltf.scene) {
+                gltf.scene.traverse((child: any) => {
                     if (child.isMesh) {
                         if (child.geometry) child.geometry.dispose();
                         if (child.material) {
@@ -600,13 +633,14 @@ function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; tex
                 console.error("Error clearing GLTFLoader cache:", err);
             }
         };
-    }, [processedObj, blobUrl]);
+    }, [gltf, blobUrl]);
 
-    if (!processedObj) return null;
+    if (!gltf || !gltf.scene) return null;
 
     return (
         <Center>
-            <primitive object={processedObj} />
+            {/* Notice object={gltf.scene} directly passed without mutations */}
+            <primitive object={gltf.scene} dispose={null} />
         </Center>
     );
 }
@@ -885,7 +919,7 @@ function ZippedModelWithMaterials({
 
     return (
         <Center>
-            <primitive object={processedObj} />
+            <primitive object={processedObj} dispose={null} />
         </Center>
     );
 }
@@ -933,7 +967,7 @@ function SimpleModel({ objBlobUrl, textureScale, applyToAll }: { objBlobUrl: str
 
     return (
         <Center>
-            <primitive object={processedObj} />
+            <primitive object={processedObj} dispose={null} />
         </Center>
     );
 }
@@ -1089,6 +1123,8 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
         setIsBlend(false);
         setExtractedBlendBytes(null);
         setIsGltf(false);
+        setZipModelData(null); // Clear stale zip model state immediately to prevent race conditions during async extraction
+        setBlobUrl(null); // Clear stale blob URL immediately to prevent race conditions during async extraction
 
         const processModel = async () => {
             try {
@@ -1707,21 +1743,31 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     onCreated={({ gl }) => {
                         glRef.current = gl;
                     }}
-                    shadows={{ type: THREE.PCFShadowMap }}
+                    shadows="soft"
                     camera={{ position: [0, 0, 5], fov: 45 }}
                     gl={{
                         powerPreference: "high-performance",
-                        antialias: false, // Slightly better performance
+                        antialias: true, // Enable antialiasing for smooth premium borders
                         alpha: true,
                         stencil: false,
                         depth: true,
+                        logarithmicDepthBuffer: true, // Prevent Z-fighting and flicker between close chunks/planes
+                        outputColorSpace: THREE.SRGBColorSpace, // Maintain true sRGB colorspace output
+                        toneMapping: THREE.ACESFilmicToneMapping, // ACES Filmic Tone Mapping prevents color clipping and overexposure
+                        toneMappingExposure: 1.0,
                     }}
-                    dpr={[1, 2]} // Limit pixel ratio for performance
+                    dpr={typeof window !== "undefined" ? window.devicePixelRatio : [1, 2]} // Force native high-fidelity scaling
                     // Use custom timer to suppress Clock deprecation warning
                     {...{ clock: timer } as any}
                 >
-                    <Stage intensity={0.8} environment="city" adjustCamera={1.2}>
-                        {zipModelData ? (
+                    <Stage intensity={1.5} environment="city" adjustCamera={1.2}>
+                        {isGltf && blobUrl ? (
+                            <GLTFModel
+                                blobUrl={blobUrl}
+                                textureScale={textureScale}
+                                applyToAll={applyToAll}
+                            />
+                        ) : zipModelData ? (
                             zipModelData.mtlBlobUrl ? (
                                 <ZippedModelWithMaterials
                                     objBlobUrl={zipModelData.objBlobUrl}
@@ -1740,19 +1786,11 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                 />
                             )
                         ) : blobUrl ? (
-                            isGltf ? (
-                                <GLTFModel
-                                    blobUrl={blobUrl}
-                                    textureScale={textureScale}
-                                    applyToAll={applyToAll}
-                                />
-                            ) : (
-                                <Model
-                                    blobUrl={blobUrl}
-                                    textureScale={textureScale}
-                                    applyToAll={applyToAll}
-                                />
-                            )
+                            <Model
+                                blobUrl={blobUrl}
+                                textureScale={textureScale}
+                                applyToAll={applyToAll}
+                            />
                         ) : null}
                     </Stage>
                     <OrbitControls makeDefault autoRotate autoRotateSpeed={0.5} />

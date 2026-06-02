@@ -11,7 +11,7 @@ import {
   RefreshCw, X, ArrowLeft, Package, ShoppingBag,
   Building2, DollarSign, Clock, RotateCcw, Upload, Plus, Edit, Tag, Send
 } from "lucide-react";
-import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles, blobToBase64 } from "@/lib/api";
 import { Artist, CreativeOrder, CreativeOrderStatus, STATUS_CONFIG } from "./type";
 import { motion, AnimatePresence } from "motion/react";
 import { Modal } from "@/app/components/ui/modal";
@@ -324,7 +324,27 @@ function CreativeOrderDetail({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [showPreview, setShowPreview] = useState<Attachment | null>(null);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [hasPreviewed, setHasPreviewed] = useState(false);
+
+  const handlePreview = async (att: Attachment) => {
+    setShowPreview(att);
+    setHasPreviewed(true);
+    setLoadingPreview(true);
+    setPreviewData(null);
+    try {
+      const res = await apiFetch(`/attachments/${att.AttachmentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewData(data.data?.Base64Data ?? data.Base64Data ?? null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const fetchAttachments = async () => {
     setLoadingAttachments(true);
@@ -559,8 +579,7 @@ function CreativeOrderDetail({
                             variant="ghost"
                             className="h-8 px-3 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10 rounded-lg flex items-center gap-1 text-xs font-semibold"
                             onClick={() => {
-                              setShowPreview(att);
-                              setHasPreviewed(true);
+                              handlePreview(att);
                             }}
                           >
                             <Eye className="w-3.5 h-3.5" /> Preview Model
@@ -629,7 +648,7 @@ function CreativeOrderDetail({
       {/* 3D Preview Modal */}
       <Modal
         open={!!showPreview}
-        onClose={() => setShowPreview(null)}
+        onClose={() => { setShowPreview(null); setPreviewData(null); }}
         title={
           showPreview ? (
             <span className="flex items-center gap-2 text-white">
@@ -646,8 +665,17 @@ function CreativeOrderDetail({
         }
       >
         {showPreview && (
-          <div className="p-6">
-            <OBJModelViewer objData={showPreview.Base64Data} />
+          <div className="p-6 min-h-[300px] flex items-center justify-center">
+            {loadingPreview ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-mono">Loading model...</span>
+              </div>
+            ) : previewData ? (
+              <OBJModelViewer objData={previewData} />
+            ) : (
+              <p className="text-slate-500 text-sm">Failed to load preview data.</p>
+            )}
           </div>
         )}
       </Modal>
@@ -672,7 +700,9 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
 
     setUploading(true); setError("");
     try {
-      const base64Data = await process3DModelFiles(files);
+      const processedModel = await process3DModelFiles(files);
+      const b64 = await blobToBase64(processedModel.blob);
+      const base64Data = processedModel.prefix !== "raw" ? `${processedModel.prefix}:${b64}` : b64;
       const mainFile = files.find(f => 
         f.name.toLowerCase().endsWith(".obj") || 
         f.name.toLowerCase().endsWith(".blend") ||

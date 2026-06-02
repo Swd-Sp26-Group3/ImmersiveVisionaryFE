@@ -8,7 +8,7 @@ import { StatusBadge } from "@/app/components/ui/status-badge";
 import {
   CheckCircle2, AlertCircle, Send, Upload, ArrowLeft, FileBox, Trash2, Eye, Plus, Loader2,
 } from "lucide-react";
-import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles, uploadAttachmentInChunks } from "@/lib/api";
 import { CreativeOrder, ORDER_STATUS_CONFIG, PRODUCTION_STAGES } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../components/3d/OBJModelViewer";
@@ -28,7 +28,29 @@ export function JobDetailView({ order, onBack }: Props) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [showPreview, setShowPreview] = useState<Attachment | null>(null);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const { confirm, ConfirmDialogComponent } = useConfirm();
+
+  const handleShowPreview = async (att: Attachment) => {
+    setShowPreview(att);
+    setLoadingPreview(true);
+    setPreviewData(null);
+    try {
+      const res = await apiFetch(`/attachments/${att.AttachmentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewData(data.data?.Base64Data ?? data.Base64Data ?? null);
+      } else {
+        toast.error("Failed to load 3D preview data.");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load 3D preview data.");
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const fetchAttachments = async () => {
     setLoadingAttachments(true);
@@ -53,8 +75,9 @@ export function JobDetailView({ order, onBack }: Props) {
     
     setUpdating(true);
     setMessage(null);
+    const toastId = toast.loading("Processing 3D files...");
     try {
-      const base64 = await process3DModelFiles(files);
+      const processedModel = await process3DModelFiles(files);
       const mainFile = files.find(f => 
         f.name.toLowerCase().endsWith(".obj") || 
         f.name.toLowerCase().endsWith(".blend") ||
@@ -67,19 +90,25 @@ export function JobDetailView({ order, onBack }: Props) {
         displayName = `${mainFile.name.replace(new RegExp(`\\.${ext}$`, 'i'), '')}_package.zip`;
       }
 
-      // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
-      const res = await apiFetch(`${getApiBaseUrl()}/api/orders/${order.OrderId}/attachments`, {
-        method: "POST",
-        body: JSON.stringify({ FileName: displayName, MimeType: "application/octet-stream", Base64Data: base64 }),
-      });
-      if (!res.ok) throw new Error("Upload failed");
+      toast.loading("Uploading 3D model (0%)...", { id: toastId });
+      
+      await uploadAttachmentInChunks(
+        order.OrderId,
+        displayName,
+        "application/octet-stream",
+        processedModel,
+        (progress) => {
+          toast.loading(`Uploading 3D model (${progress}%)...`, { id: toastId });
+        }
+      );
+
       setMessage({ type: "success", text: "3D model uploaded successfully!" });
-      toast.success("3D model uploaded!");
+      toast.success("3D model uploaded successfully!", { id: toastId });
       fetchAttachments();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Upload failed.";
       setMessage({ type: "error", text: msg });
-      toast.error(msg);
+      toast.error(msg, { id: toastId });
     } finally {
       setUpdating(false);
     }
@@ -285,7 +314,7 @@ export function JobDetailView({ order, onBack }: Props) {
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-400/10"
-                          onClick={() => setShowPreview(att)}
+                          onClick={() => handleShowPreview(att)}
                         >
                           <Eye className="w-4 h-4" />
                         </Button>
@@ -310,7 +339,7 @@ export function JobDetailView({ order, onBack }: Props) {
       {/* 3D Preview Modal */}
       <Modal
         open={!!showPreview}
-        onClose={() => setShowPreview(null)}
+        onClose={() => { setShowPreview(null); setPreviewData(null); }}
         title={
           showPreview ? (
             <span className="flex items-center gap-2">
@@ -327,8 +356,17 @@ export function JobDetailView({ order, onBack }: Props) {
         }
       >
         {showPreview && (
-          <div className="p-6">
-            <OBJModelViewer objData={showPreview.Base64Data} />
+          <div className="p-6 min-h-[300px] flex items-center justify-center">
+            {loadingPreview ? (
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 text-cyan-500 animate-spin" />
+                <span className="text-xs text-slate-400 uppercase tracking-widest font-mono">Loading model...</span>
+              </div>
+            ) : previewData ? (
+              <OBJModelViewer objData={previewData} />
+            ) : (
+              <p className="text-slate-500 text-sm">Failed to load preview data.</p>
+            )}
           </div>
         )}
       </Modal>

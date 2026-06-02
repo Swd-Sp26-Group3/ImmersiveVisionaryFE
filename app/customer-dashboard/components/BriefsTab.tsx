@@ -45,7 +45,11 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
         return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
       });
       if (objFile) {
-        setShowPreview(objFile);
+        const detailRes = await apiFetch(`/attachments/${objFile.AttachmentId}`);
+        if (!detailRes.ok) throw new Error("Could not load 3D model data");
+        const detailData = await detailRes.json();
+        const fullObjFile = detailData.data ?? detailData;
+        setShowPreview(fullObjFile);
       } else {
         toast.warning("No 3D model found for this order yet.");
       }
@@ -65,10 +69,15 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
       const attachments: Attachment[] = (await res.json()).data ?? [];
       if (attachments.length === 0) { toast.warning("No deliverables found for this order."); return; }
       
-      attachments.forEach((att) => {
-        if (att.Base64Data) {
+      for (const att of attachments) {
+        const fileRes = await apiFetch(`/attachments/${att.AttachmentId}`);
+        if (!fileRes.ok) throw new Error(`Failed to fetch file content for ${att.FileName}`);
+        const fileData = await fileRes.json();
+        const fullAtt = fileData.data ?? fileData;
+        
+        if (fullAtt.Base64Data) {
           try {
-            const base64Data = att.Base64Data.includes(',') ? att.Base64Data.split(',')[1] : att.Base64Data;
+            const base64Data = fullAtt.Base64Data.includes(',') ? fullAtt.Base64Data.split(',')[1] : fullAtt.Base64Data;
             const byteCharacters = atob(base64Data);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
@@ -80,7 +89,7 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
             
             const a = document.createElement("a");
             a.href = blobUrl;
-            a.download = att.FileName || `delivery_${orderId}.obj`;
+            a.download = fullAtt.FileName || `delivery_${orderId}.obj`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -88,10 +97,10 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           } catch (err) {
             console.error("Failed to decode base64 data:", err);
-            toast.error("Failed to process file for download.");
+            toast.error(`Failed to process file ${fullAtt.FileName} for download.`);
           }
         }
-      });
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to download deliverables.");
     } finally {

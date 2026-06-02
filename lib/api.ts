@@ -79,9 +79,11 @@ export async function apiFetch(
 ): Promise<Response> {
     const token = getAccessToken();
     const headers: Record<string, string> = {
-        "Content-Type": "application/json",
         ...(options.headers as Record<string, string>),
     };
+    if (options.body && !(options.body instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+    }
     if (token) {
         headers["Authorization"] = `Bearer ${token}`;
     }
@@ -179,15 +181,19 @@ export async function compressFileToGzipBase64(file: File): Promise<string> {
     return `gzip:${b64}`;
 }
 
+export interface ProcessedModel {
+    blob: Blob;
+    prefix: "zip" | "gzip" | "raw";
+}
+
 /**
- * Processes list of 3D model files (OBJ, MTL, textures, ZIP) and returns base64.
+ * Processes list of 3D model files (OBJ, MTL, textures, ZIP) and returns a raw Blob and its type prefix.
  * If multiple files are uploaded, compresses them into a single DEFLATED zip archive
  * with level 9 compression to minimize payload size.
  */
-export async function process3DModelFiles(files: File[]): Promise<string> {
+export async function process3DModelFiles(files: File[]): Promise<ProcessedModel> {
     if (files.length === 1 && files[0].name.toLowerCase().endsWith(".zip")) {
-        const b64 = await blobToBase64(files[0]);
-        return `zip:${b64}`;
+        return { blob: files[0], prefix: "zip" };
     }
 
     if (files.length === 1 && (
@@ -196,7 +202,7 @@ export async function process3DModelFiles(files: File[]): Promise<string> {
         files[0].name.toLowerCase().endsWith(".glb") ||
         files[0].name.toLowerCase().endsWith(".gltf")
     )) {
-        return compressFileToGzipBase64(files[0]);
+        return { blob: files[0], prefix: "raw" };
     }
 
     const hasModel = files.some(f => {
@@ -222,8 +228,60 @@ export async function process3DModelFiles(files: File[]): Promise<string> {
         compressionOptions: { level: 9 },
     });
 
-    const b64 = await blobToBase64(zipBlob);
-    return `zip:${b64}`;
+    return { blob: zipBlob, prefix: "zip" };
+}
+
+/**
+ * Uploads a large model Blob to the backend in small chunks of raw binary data.
+ * Displays progress feedback if a callback is provided.
+ */
+export async function uploadAttachmentInChunks(
+    orderId: number,
+    fileName: string,
+    mimeType: string,
+    model: ProcessedModel,
+    onProgress?: (progress: number) => void
+): Promise<any> {
+    const { blob, prefix } = model;
+    const chunkSize = 2 * 1024 * 1024; // 2MB chunk size
+    const totalChunks = Math.ceil(blob.size / chunkSize);
+    const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+    let lastResult = null;
+    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, blob.size);
+        const chunkBlob = blob.slice(start, end);
+
+        const formData = new FormData();
+        formData.append("uploadId", uploadId);
+        formData.append("chunkIndex", String(chunkIndex));
+        formData.append("totalChunks", String(totalChunks));
+        formData.append("prefix", prefix);
+        formData.append("fileName", fileName);
+        formData.append("mimeType", mimeType);
+        formData.append("orderId", String(orderId));
+        formData.append("chunk", chunkBlob);
+
+        const res = await apiFetch(`${getApiBaseUrl()}/api/orders/${orderId}/attachments/upload-chunk`, {
+            method: "POST",
+            body: formData,
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Upload failed at chunk ${chunkIndex + 1}/${totalChunks}: ${errText}`);
+        }
+
+        const data = await res.json();
+        lastResult = data.data ?? data;
+
+        if (onProgress) {
+            onProgress(Math.round(((chunkIndex + 1) / totalChunks) * 100));
+        }
+    }
+
+    return lastResult;
 }
 
 export default api;

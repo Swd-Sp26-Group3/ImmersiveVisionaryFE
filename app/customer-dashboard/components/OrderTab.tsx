@@ -40,16 +40,37 @@ function ReviewModal({
   onClose: () => void;
   onUpdated: (o: ApiOrder) => void;
 }) {
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [modelData, setModelData] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState<"approve" | "revise" | null>(null);
 
   useEffect(() => {
-    apiFetch(`/orders/${order.OrderId}/attachments`)
-      .then((r) => r.json())
-      .then((d) => setAttachments(d.data ?? []))
-      .finally(() => setLoading(false));
+    const loadModel = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch(`/orders/${order.OrderId}/attachments`);
+        if (res.ok) {
+          const list = (await res.json()).data ?? [];
+          setAttachments(list);
+          const objFile = list.find((a: Attachment) => {
+            const name = a.FileName.toLowerCase();
+            return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
+          });
+          if (objFile) {
+            const fileRes = await apiFetch(`/attachments/${objFile.AttachmentId}`);
+            if (fileRes.ok) {
+              const fileData = await fileRes.json();
+              setModelData(fileData.data?.Base64Data ?? fileData.Base64Data ?? null);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load attachments or model data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadModel();
   }, [order.OrderId]);
 
   const handleAction = async (action: "approve" | "revise") => {
@@ -108,8 +129,8 @@ function ReviewModal({
             <div className="absolute inset-0 flex items-center justify-center">
               <LoadingSpinner size="lg" color="blue" />
             </div>
-          ) : objFile ? (
-            <OBJModelViewer objData={objFile.Base64Data} />
+          ) : modelData ? (
+            <OBJModelViewer objData={modelData} />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
               <Package className="w-12 h-12 mb-2 opacity-20" />
@@ -206,11 +227,16 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
       const attachments: Attachment[] = (await res.json()).data ?? [];
       if (attachments.length === 0) { toast.warning("No deliverables found for this order."); return; }
       
-      attachments.forEach((att) => {
-        if (att.Base64Data) {
+      for (const att of attachments) {
+        const fileRes = await apiFetch(`/attachments/${att.AttachmentId}`);
+        if (!fileRes.ok) throw new Error(`Failed to fetch file content for ${att.FileName}`);
+        const fileData = await fileRes.json();
+        const fullAtt = fileData.data ?? fileData;
+        
+        if (fullAtt.Base64Data) {
           try {
             // Remove data:mime/type;base64, if present
-            const base64Data = att.Base64Data.includes(',') ? att.Base64Data.split(',')[1] : att.Base64Data;
+            const base64Data = fullAtt.Base64Data.includes(',') ? fullAtt.Base64Data.split(',')[1] : fullAtt.Base64Data;
             const byteCharacters = atob(base64Data);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
@@ -222,7 +248,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
             
             const a = document.createElement("a");
             a.href = blobUrl;
-            a.download = att.FileName || `delivery_${orderId}.obj`;
+            a.download = fullAtt.FileName || `delivery_${orderId}.obj`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -230,10 +256,10 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
             setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
           } catch (err) {
             console.error("Failed to decode base64 data:", err);
-            toast.error("Failed to process file for download.");
+            toast.error(`Failed to process file ${fullAtt.FileName} for download.`);
           }
         }
-      });
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to download deliverables.");
     } finally {
