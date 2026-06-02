@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { TGALoader } from "three/addons/loaders/TGALoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as THREE from "three";
 import JSZip from "jszip";
 
@@ -88,9 +89,9 @@ const isTextureCompatibleWithMaterial = (filename: string, materialName: string)
     const prefixClean = cleanForFuzzyComparison(prefix);
     const matNameClean = cleanForFuzzyComparison(materialName.toLowerCase());
 
-    return prefixClean === matNameClean || 
-           (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) || 
-           (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
+    return prefixClean === matNameClean ||
+        (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) ||
+        (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
 };
 
 function applyGenericPBRFallback(mat: any): boolean {
@@ -241,7 +242,7 @@ function useTextureScaleEffect(
         if (!processedObj) return;
 
         const TILING_KEYWORDS = [
-            "fabric", "knit", "weave", "rattan", "pattern", "carpet", "cloth", "wool", 
+            "fabric", "knit", "weave", "rattan", "pattern", "carpet", "cloth", "wool",
             "leather", "wood", "stone", "brick", "tile", "tiling", "mesh_fabric", "material_fabric"
         ];
 
@@ -252,9 +253,9 @@ function useTextureScaleEffect(
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
                 materials.forEach((mat: any) => {
                     const matName = (mat.name || "").toLowerCase();
-                    
+
                     // Determine if this material or its textures contain tiling keywords
-                    const isTiling = applyToAll || 
+                    const isTiling = applyToAll ||
                         TILING_KEYWORDS.some(kw => matName.includes(kw)) ||
                         texProps.some(prop => {
                             const tex = mat[prop];
@@ -340,7 +341,7 @@ function postProcessObject(
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
                 const processedMaterials = materials.map((originalMat: any) => {
                     let mat = originalMat;
-                    
+
                     // Convert MeshPhongMaterial to MeshStandardMaterial to support full PBR maps
                     if (mat.isMeshPhongMaterial || mat.type === "MeshPhongMaterial") {
                         mat = convertToStandardMaterial(mat);
@@ -405,12 +406,12 @@ function postProcessObject(
                                 const prefix = getMaterialPrefix(filename);
                                 const fnLower = filename.toLowerCase().replace(/[\s-_]+/g, "");
                                 const isRole = keywords.some((kw) => fnLower.includes(kw));
-                                
+
                                 const prefixClean = cleanForFuzzyComparison(prefix);
                                 const matNameClean = cleanForFuzzyComparison(matNameLower);
-                                const isMatch = prefixClean === matNameClean || 
-                                                (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) || 
-                                                (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
+                                const isMatch = prefixClean === matNameClean ||
+                                    (prefixClean.length >= 3 && matNameClean.includes(prefixClean)) ||
+                                    (matNameClean.length >= 3 && prefixClean.includes(matNameClean));
                                 return isRole && isMatch;
                             });
 
@@ -560,6 +561,56 @@ function Model({ blobUrl, textureScale, applyToAll }: { blobUrl: string; texture
     );
 }
 
+function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; textureScale: number; applyToAll: boolean }) {
+    const gltf = useLoader(GLTFLoader as any, blobUrl);
+
+    const processedObj = useMemo(() => {
+        if (!gltf || !gltf.scene) return null;
+
+        const clone = gltf.scene.clone(true);
+        postProcessObject(clone);
+        return clone;
+    }, [gltf]);
+
+    useTextureScaleEffect(processedObj, textureScale, applyToAll);
+
+    useEffect(() => {
+        return () => {
+            if (processedObj) {
+                processedObj.traverse((child: any) => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            const materialsList = Array.isArray(child.material) ? child.material : [child.material];
+                            materialsList.forEach((mat: any) => {
+                                for (const key in mat) {
+                                    if (mat[key] && typeof mat[key].dispose === "function" && mat[key] instanceof THREE.Texture) {
+                                        mat[key].dispose();
+                                    }
+                                }
+                                mat.dispose();
+                            });
+                        }
+                    }
+                });
+            }
+            try {
+                useLoader.clear(GLTFLoader as any, blobUrl);
+            } catch (err) {
+                console.error("Error clearing GLTFLoader cache:", err);
+            }
+        };
+    }, [processedObj, blobUrl]);
+
+    if (!processedObj) return null;
+
+    return (
+        <Center>
+            <primitive object={processedObj} />
+        </Center>
+    );
+}
+
 function ZippedModelWithMaterials({
     objBlobUrl,
     mtlBlobUrl,
@@ -685,15 +736,15 @@ function ZippedModelWithMaterials({
         // Second pass: inject textures from ZIP for any MTL references not yet loaded
         // Map keys from MTL spec → Three.js material property
         const mapFields: Array<[string, string]> = [
-            ["map_kd",   "map"],
-            ["map_ka",   "aoMap"],
-            ["map_ks",   "specularMap"],
-            ["map_ns",   "roughnessMap"],
-            ["map_pr",   "roughnessMap"],
-            ["map_pm",   "metalnessMap"],
+            ["map_kd", "map"],
+            ["map_ka", "aoMap"],
+            ["map_ks", "specularMap"],
+            ["map_ns", "roughnessMap"],
+            ["map_pr", "roughnessMap"],
+            ["map_pm", "metalnessMap"],
             ["map_bump", "bumpMap"],
-            ["bump",     "bumpMap"],
-            ["map_d",    "alphaMap"],
+            ["bump", "bumpMap"],
+            ["map_d", "alphaMap"],
         ];
 
         Object.entries(matInfoMap).forEach(([matName, info]) => {
@@ -730,7 +781,7 @@ function ZippedModelWithMaterials({
                     // Try extensionless match
                     const baseLastDot = basename.lastIndexOf(".");
                     const baseNoExt = baseLastDot !== -1 ? basename.slice(0, baseLastDot) : basename;
-                    
+
                     const matchedKey = Object.keys(basenameToUrl).find((k) => {
                         const kLastDot = k.lastIndexOf(".");
                         const kNoExt = kLastDot !== -1 ? k.slice(0, kLastDot) : k;
@@ -744,15 +795,15 @@ function ZippedModelWithMaterials({
                 // e.g. if mat.map is missing and infoKey=map_kd, look for *basecolor* file
                 if (!blobUrl) {
                     const ROLE_KEYWORDS: Record<string, string[]> = {
-                        "map_kd":   ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
-                        "map_ka":   ["ambientocclusion", "occlusion", "_ao", "ambient"],
-                        "map_ks":   ["specular", "metallic", "_spec", "_metal", "_met"],
-                        "map_ns":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                        "map_kd": ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
+                        "map_ka": ["ambientocclusion", "occlusion", "_ao", "ambient"],
+                        "map_ks": ["specular", "metallic", "_spec", "_metal", "_met"],
+                        "map_ns": ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
                         "map_bump": ["normal", "_nrm", "_nor", "_normal"],
-                        "bump":     ["normal", "_nrm", "_nor", "_normal", "bump", "height"],
-                        "map_d":    ["opacity", "alpha", "_opa", "_alpha"],
-                        "disp":     ["height", "displacement", "_height"],
-                        "map_ke":   ["emission", "emissive", "_emit"],
+                        "bump": ["normal", "_nrm", "_nor", "_normal", "bump", "height"],
+                        "map_d": ["opacity", "alpha", "_opa", "_alpha"],
+                        "disp": ["height", "displacement", "_height"],
+                        "map_ke": ["emission", "emissive", "_emit"],
                     };
                     const roleWords = ROLE_KEYWORDS[infoKey] ?? [];
                     if (roleWords.length > 0) {
@@ -951,7 +1002,7 @@ const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
             const writer = ds.writable.getWriter();
             writer.write(bytes as any);
             writer.close();
-            
+
             const chunks: Uint8Array[] = [];
             const reader = ds.readable.getReader();
             while (true) {
@@ -959,7 +1010,7 @@ const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
                 if (done) break;
                 chunks.push(value);
             }
-            
+
             const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
             const decompressed = new Uint8Array(totalLength);
             let offset = 0;
@@ -981,6 +1032,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const [zipModelData, setZipModelData] = useState<ZipModelData | null>(null);
     const [isBlend, setIsBlend] = useState<boolean>(false);
     const [extractedBlendBytes, setExtractedBlendBytes] = useState<Uint8Array | null>(null);
+    const [isGltf, setIsGltf] = useState<boolean>(false);
     const [textureScale, setTextureScale] = useState<number>(8);
     const [applyToAll, setApplyToAll] = useState<boolean>(false);
     const activeBlobUrlsRef = useRef<string[]>([]);
@@ -1036,13 +1088,14 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
         let isCancelled = false;
         setIsBlend(false);
         setExtractedBlendBytes(null);
+        setIsGltf(false);
 
         const processModel = async () => {
             try {
                 let dataToProcess = objData;
                 let isZip = false;
                 let isGzip = false;
-                
+
                 if (dataToProcess.startsWith("zip:")) {
                     dataToProcess = dataToProcess.slice(4);
                     isZip = true;
@@ -1078,7 +1131,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                             if (key.includes("__MACOSX")) continue;
                             const filename = key.split(/[/\\]/).pop() || "";
                             if (filename.startsWith(".")) continue;
-                            
+
                             const lowerFilename = filename.toLowerCase();
                             if (lowerFilename.endsWith(".ini") || lowerFilename.endsWith(".db")) continue;
                             if (lowerFilename === "ds_store" || lowerFilename === ".ds_store") continue;
@@ -1086,13 +1139,13 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                             if (lowerFilename === "desktop" || lowerFilename === "thumbs" || lowerFilename === "thumbs.db") continue;
                             // Skip files with no extension that are not 3D-related —
                             // e.g. Windows desktop.ini saved without ".ini" by some zip tools
-                            const hasKnown3DExt = /\.(obj|mtl|png|jpg|jpeg|tga|webp|bmp|zip|gzip|gz)$/i.test(filename);
+                            const hasKnown3DExt = /\.(obj|mtl|glb|gltf|bin|png|jpg|jpeg|tga|webp|bmp|zip|gzip|gz)$/i.test(filename);
                             const hasAnyExt = filename.includes(".");
                             if (!hasAnyExt && !hasKnown3DExt) continue;
 
                             const content = await z.files[key].async("uint8array");
                             const virtualKey = currentPrefix ? `${currentPrefix}/${key}` : key;
-                            
+
                             if (lowerFilename.endsWith(".zip")) {
                                 try {
                                     console.log(`[3D Loader] Unpacking nested ZIP: ${virtualKey}`);
@@ -1113,7 +1166,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
 
                     const fileKeys = Object.keys(filesMap);
                     console.log("[3D Loader] ZIP Contents (filtered):", fileKeys);
-                    
+
                     const blendKey = fileKeys.find((key) => key.toLowerCase().endsWith(".blend"));
                     if (blendKey) {
                         const blendContent = filesMap[blendKey];
@@ -1122,15 +1175,119 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                         return;
                     }
 
+                    const localUrls: string[] = [];
+
+                    const glbKey = fileKeys.find((key) => key.toLowerCase().endsWith(".glb"));
+                    const gltfKey = fileKeys.find((key) => key.toLowerCase().endsWith(".gltf"));
+
+                    if (glbKey) {
+                        const glbContent = filesMap[glbKey];
+                        const glbBlob = new Blob([glbContent as any], { type: "model/gltf-binary" });
+                        const glbUrl = URL.createObjectURL(glbBlob);
+                        localUrls.push(glbUrl);
+                        setIsGltf(true);
+                        setZipModelData(null);
+                        setBlobUrl(glbUrl);
+                        activeBlobUrlsRef.current = localUrls;
+                        return;
+                    }
+
+                    if (gltfKey) {
+                        try {
+                            const decoder = new TextDecoder("utf-8");
+                            const gltfText = decoder.decode(filesMap[gltfKey]);
+                            const gltfJson = JSON.parse(gltfText);
+
+                            const fileBlobUrls: Record<string, string> = {};
+                            for (const key of fileKeys) {
+                                if (key === gltfKey) continue;
+                                const content = filesMap[key];
+                                let mimeType = "application/octet-stream";
+                                const lowerKey = key.toLowerCase();
+                                if (lowerKey.endsWith(".png")) mimeType = "image/png";
+                                else if (lowerKey.endsWith(".jpg") || lowerKey.endsWith(".jpeg")) mimeType = "image/jpeg";
+                                else if (lowerKey.endsWith(".webp")) mimeType = "image/webp";
+                                else if (lowerKey.endsWith(".bin")) mimeType = "application/octet-stream";
+
+                                const blob = new Blob([content as any], { type: mimeType });
+                                const url = URL.createObjectURL(blob);
+                                fileBlobUrls[key] = url;
+                                localUrls.push(url);
+                            }
+
+                            const resolveRelativePath = (basePath: string, relativePath: string): string => {
+                                if (relativePath.startsWith("data:") || relativePath.startsWith("http:") || relativePath.startsWith("https:")) {
+                                    return relativePath;
+                                }
+                                const baseParts = basePath.split(/[/\\]/);
+                                baseParts.pop();
+                                const relParts = relativePath.split(/[/\\]/);
+                                for (const part of relParts) {
+                                    if (part === "." || part === "") continue;
+                                    if (part === "..") {
+                                        baseParts.pop();
+                                    } else {
+                                        baseParts.push(part);
+                                    }
+                                }
+                                return baseParts.join("/");
+                            };
+
+                            if (Array.isArray(gltfJson.buffers)) {
+                                gltfJson.buffers.forEach((buffer: any) => {
+                                    if (buffer.uri) {
+                                        const resolvedKey = resolveRelativePath(gltfKey, buffer.uri);
+                                        const matchedKey = Object.keys(fileBlobUrls).find(k => k.toLowerCase() === resolvedKey.toLowerCase());
+                                        if (matchedKey) {
+                                            buffer.uri = fileBlobUrls[matchedKey];
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (Array.isArray(gltfJson.images)) {
+                                gltfJson.images.forEach((image: any) => {
+                                    if (image.uri) {
+                                        const resolvedKey = resolveRelativePath(gltfKey, image.uri);
+                                        const matchedKey = Object.keys(fileBlobUrls).find(k => k.toLowerCase() === resolvedKey.toLowerCase());
+                                        if (matchedKey) {
+                                            image.uri = fileBlobUrls[matchedKey];
+                                        }
+                                    }
+                                });
+                            }
+
+                            const modifiedGltfText = JSON.stringify(gltfJson);
+                            const gltfBlob = new Blob([modifiedGltfText], { type: "application/json" });
+                            const gltfUrl = URL.createObjectURL(gltfBlob);
+                            localUrls.push(gltfUrl);
+
+                            setIsGltf(true);
+                            setZipModelData(null);
+                            setBlobUrl(gltfUrl);
+                            activeBlobUrlsRef.current = localUrls;
+                            return;
+                        } catch (err) {
+                            console.error("Failed to parse and resolve gltf JSON references:", err);
+                            const gltfBlob = new Blob([filesMap[gltfKey] as any], { type: "application/json" });
+                            const gltfUrl = URL.createObjectURL(gltfBlob);
+                            localUrls.push(gltfUrl);
+                            setIsGltf(true);
+                            setZipModelData(null);
+                            setBlobUrl(gltfUrl);
+                            activeBlobUrlsRef.current = localUrls;
+                            return;
+                        }
+                    }
+
                     const objKey = fileKeys.find((key) => key.toLowerCase().endsWith(".obj"));
                     if (!objKey) {
-                        throw new Error("No valid .obj file found inside the ZIP archive.");
+                        throw new Error("No valid .obj, .gltf, or .glb file found inside the ZIP archive.");
                     }
                     const mtlKey = fileKeys.find((key) => key.toLowerCase().endsWith(".mtl"));
 
                     // Extract all textures and create blob URLs
                     const textureMap: Record<string, string> = {};
-                    const localUrls: string[] = [];
 
                     for (const key of fileKeys) {
                         const lowerKey = key.toLowerCase();
@@ -1237,10 +1394,10 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                                 .split("/")
                                                 .pop() || "";
                                             if (!basename) continue;
-                                            
+
                                             const baseLastDot = basename.lastIndexOf(".");
                                             const baseNoExt = baseLastDot !== -1 ? basename.slice(0, baseLastDot).toLowerCase() : basename.toLowerCase();
-                                            
+
                                             if (remainderNoExt === baseNoExt) {
                                                 suffixMatchUrl = textureMap[key];
                                                 suffixMatchBasename = basename;
@@ -1256,18 +1413,18 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                     // e.g. MTL: "map_Kd Fabric036_2K_Color.png" → finds "Knit_Fabric_basecolor.jpg"
                                     if (!suffixMatchUrl) {
                                         const ROLE_KEYWORDS: Record<string, string[]> = {
-                                            "map_kd":   ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
-                                            "map_ka":   ["ambientocclusion", "occlusion", "_ao", "ambient"],
-                                            "map_ks":   ["specular", "metallic", "_spec", "_metal", "_met"],
-                                            "map_ns":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
-                                            "map_pr":   ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
-                                            "map_pm":   ["metallic", "metalness", "metal", "_metal", "_met"],
+                                            "map_kd": ["basecolor", "base_color", "diffuse", "albedo", "_col", "_color", "_diff"],
+                                            "map_ka": ["ambientocclusion", "occlusion", "_ao", "ambient"],
+                                            "map_ks": ["specular", "metallic", "_spec", "_metal", "_met"],
+                                            "map_ns": ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                                            "map_pr": ["roughness", "glossiness", "_rough", "_gloss", "_rgh"],
+                                            "map_pm": ["metallic", "metalness", "metal", "_metal", "_met"],
                                             "map_bump": ["normal", "normalmap", "_nrm", "_nor", "_normal"],
-                                            "bump":     ["normal", "normalmap", "_nrm", "_nor", "_normal", "bump", "height"],
-                                            "map_d":    ["opacity", "alpha", "transparency", "_opa", "_alpha"],
-                                            "disp":     ["height", "displacement", "disp", "_height", "_h"],
-                                            "map_ke":   ["emission", "emissive", "_emit", "_emissive"],
-                                            "decal":    ["decal"],
+                                            "bump": ["normal", "normalmap", "_nrm", "_nor", "_normal", "bump", "height"],
+                                            "map_d": ["opacity", "alpha", "transparency", "_opa", "_alpha"],
+                                            "disp": ["height", "displacement", "disp", "_height", "_h"],
+                                            "map_ke": ["emission", "emissive", "_emit", "_emissive"],
+                                            "decal": ["decal"],
                                         };
                                         const roleWords = ROLE_KEYWORDS[keyword] ?? [];
                                         if (roleWords.length > 0) {
@@ -1389,16 +1546,49 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     setIsBlend(true);
                 }
 
+                // Check magic bytes for GLB: glTF (0x67, 0x6c, 0x54, 0x46)
+                let isRawGltf = false;
+                if (finalBytes && finalBytes.length >= 4 &&
+                    finalBytes[0] === 0x67 && // g
+                    finalBytes[1] === 0x6c && // l
+                    finalBytes[2] === 0x54 && // T
+                    finalBytes[3] === 0x46    // F
+                ) {
+                    isRawGltf = true;
+                }
+
+                const lowerData = dataToProcess.toLowerCase();
+                const isGltfExtension = lowerData.includes(".gltf") || lowerData.includes(".glb");
+                let looksLikeGltfJson = false;
+                if (finalBytes) {
+                    try {
+                        const text = new TextDecoder("utf-8").decode(finalBytes);
+                        if (text.trim().startsWith("{") && text.includes('"asset"')) {
+                            looksLikeGltfJson = true;
+                        }
+                    } catch (e) { }
+                } else {
+                    if (dataToProcess.trim().startsWith("{") && dataToProcess.includes('"asset"')) {
+                        looksLikeGltfJson = true;
+                    }
+                }
+
+                if (isRawGltf || isGltfExtension || looksLikeGltfJson) {
+                    setIsGltf(true);
+                }
+
                 let singleUrl: string;
                 if (finalBytes) {
-                    const blob = new Blob([finalBytes as any], { type: "text/plain" });
+                    const mimeType = (isRawGltf || isGltfExtension) ? "model/gltf-binary" : (looksLikeGltfJson ? "application/json" : "text/plain");
+                    const blob = new Blob([finalBytes as any], { type: mimeType });
                     singleUrl = URL.createObjectURL(blob);
                 } else {
                     // Plain text file or a URL
                     if (dataToProcess.startsWith("http") || dataToProcess.startsWith("blob:")) {
                         singleUrl = dataToProcess;
                     } else {
-                        const blob = new Blob([dataToProcess], { type: "text/plain" });
+                        const mimeType = looksLikeGltfJson ? "application/json" : "text/plain";
+                        const blob = new Blob([dataToProcess], { type: mimeType });
                         singleUrl = URL.createObjectURL(blob);
                     }
                 }
@@ -1543,18 +1733,26 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                                     applyToAll={applyToAll}
                                 />
                             ) : (
-                                <SimpleModel 
-                                    objBlobUrl={zipModelData.objBlobUrl} 
+                                <SimpleModel
+                                    objBlobUrl={zipModelData.objBlobUrl}
                                     textureScale={textureScale}
                                     applyToAll={applyToAll}
                                 />
                             )
                         ) : blobUrl ? (
-                            <Model 
-                                blobUrl={blobUrl} 
-                                textureScale={textureScale}
-                                applyToAll={applyToAll}
-                            />
+                            isGltf ? (
+                                <GLTFModel
+                                    blobUrl={blobUrl}
+                                    textureScale={textureScale}
+                                    applyToAll={applyToAll}
+                                />
+                            ) : (
+                                <Model
+                                    blobUrl={blobUrl}
+                                    textureScale={textureScale}
+                                    applyToAll={applyToAll}
+                                />
+                            )
                         ) : null}
                     </Stage>
                     <OrbitControls makeDefault autoRotate autoRotateSpeed={0.5} />
@@ -1570,7 +1768,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                         </svg>
                         Texture Tiling
                     </span>
-                    <button 
+                    <button
                         onClick={() => {
                             setTextureScale(8);
                             setApplyToAll(false);
@@ -1584,7 +1782,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     <div className="flex justify-between items-center text-[9px] text-slate-400 font-medium select-none">
                         <span>Scale: {textureScale}x</span>
                     </div>
-                    <input 
+                    <input
                         type="range"
                         min="1"
                         max="20"
@@ -1595,7 +1793,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     />
                 </div>
                 <label className="flex items-center gap-1.5 cursor-pointer text-[9px] text-slate-400 hover:text-slate-300 font-medium mt-0.5 select-none">
-                    <input 
+                    <input
                         type="checkbox"
                         checked={applyToAll}
                         onChange={(e) => setApplyToAll(e.target.checked)}
@@ -1626,7 +1824,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     {zipModelData.allTexturesMissing && zipModelData.missingTextureNames.length > 0 && (
                         <div className="font-mono text-[9px] text-amber-400 opacity-90 normal-case">
                             Missing: {zipModelData.missingTextureNames.slice(0, 3).join(", ")}
-                            {zipModelData.missingTextureNames.length > 3 && 
+                            {zipModelData.missingTextureNames.length > 3 &&
                                 ` +${zipModelData.missingTextureNames.length - 3} more`}
                         </div>
                     )}
