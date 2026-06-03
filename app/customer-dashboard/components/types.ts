@@ -5,6 +5,8 @@ export interface ApiOrder {
   ProductId: number | null;
   PackageId: number | null;
   ProjectName: string | null;
+  ProductName: string | null;
+  PackageName: string | null;
   ProductType: string | null;
   Budget: string | null;
   DeliverySpeed: string | null;
@@ -15,8 +17,6 @@ export interface ApiOrder {
   CreatedAt: string;
   UpdatedAt: string | null;
   CompanyName: string | null;
-  ProductName: string | null;
-  PackageName: string | null;
 }
 
 export interface UserProfile {

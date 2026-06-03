@@ -20,6 +20,31 @@ import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "../../components/3d/OBJModelViewer";
 import { toast } from "sonner";
 
+/** Customer can cancel only within 24 h of creation */
+const canCancelOrder = (createdAt: string): boolean => {
+  const created = new Date(createdAt).getTime();
+  const now = Date.now();
+  return now - created < 24 * 60 * 60 * 1000; // 24 hours in ms
+};
+
+/** Pretty-print remaining cancel window */
+const cancelRemainingTime = (createdAt: string): string => {
+  const deadline = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000;
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) return "";
+  const h = Math.floor(remaining / 3_600_000);
+  const m = Math.floor((remaining % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+/** Compute how many days remain until a deadline date */
+const daysUntilDeadline = (deadline: string | null): number | null => {
+  if (!deadline) return null;
+  const remaining = new Date(deadline).getTime() - Date.now();
+  if (remaining <= 0) return 0;
+  return Math.ceil(remaining / (1000 * 60 * 60 * 24));
+};
+
 export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void }) {
   const router = useRouter();
   const [orders, setOrders] = useState<ApiOrder[]>([]);
@@ -27,16 +52,20 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
   const [error, setError] = useState("");
   const [cancelling, setCancelling] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
-  const [showPreview, setShowPreview] = useState<Attachment | null>(null);
+  // Preview now also carries the parent order for feedback submission
+  const [showPreview, setShowPreview] = useState<{ attachment: Attachment; order: ApiOrder } | null>(null);
   const [previewingOrderId, setPreviewingOrderId] = useState<number | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const { confirm, ConfirmDialogComponent } = useConfirm();
 
-  const handlePreview3D = async (orderId: number) => {
+  const handlePreview3D = async (order: ApiOrder) => {
     setLoadingPreview(true);
-    setPreviewingOrderId(orderId);
+    setPreviewingOrderId(order.OrderId);
+    setFeedback("");
     try {
-      const res = await apiFetch(`/orders/${orderId}/attachments`);
+      const res = await apiFetch(`/orders/${order.OrderId}/attachments`);
       if (!res.ok) throw new Error("Could not load attachments");
       const data = await res.json();
       const attachments: Attachment[] = data.data ?? data;
@@ -49,15 +78,51 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
         if (!detailRes.ok) throw new Error("Could not load 3D model data");
         const detailData = await detailRes.json();
         const fullObjFile = detailData.data ?? detailData;
-        setShowPreview(fullObjFile);
+        setShowPreview({ attachment: fullObjFile, order });
       } else {
-        toast.warning("No 3D model found for this order yet.");
+        toast.warning("Artist chưa tải bản nháp lên. Hãy chờ artist gửi bản xem trước.");
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to load 3D preview.");
     } finally {
       setLoadingPreview(false);
       setPreviewingOrderId(null);
+    }
+  };
+
+  const handleFeedbackSubmit = async (action: "approve" | "revise") => {
+    if (!showPreview) return;
+    if (action === "revise" && !feedback.trim()) {
+      toast.error("Vui lòng nhập nội dung phản hồi trước khi gửi.");
+      return;
+    }
+    setSubmittingFeedback(true);
+    try {
+      const newStatus = action === "approve" ? "DELIVERED" : "IN_PRODUCTION";
+      const body: Record<string, unknown> = { Status: newStatus };
+      if (action === "revise") {
+        body.Brief = `[REVISION - ${new Date().toLocaleDateString("vi-VN")}]: ${feedback}\n\n${showPreview.order.Brief || ""}`;
+      }
+      const res = await apiFetch(`/orders/${showPreview.order.OrderId}/status`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.json()).message ?? "Update failed");
+      if (action === "approve") {
+        toast.success("Đã duyệt! Đơn sẽ chuyển sang Thanh toán.");
+      } else {
+        toast.success("Đã gửi yêu cầu chỉnh sửa cho Artist.");
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.OrderId === showPreview.order.OrderId ? { ...o, Status: newStatus as ApiOrder["Status"] } : o
+        )
+      );
+      setShowPreview(null);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Không thể cập nhật trạng thái.");
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -236,18 +301,26 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       </div>
                     </div>
                   </div>
-                  {order.Status === "NEW" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-red-500/50 text-red-400 hover:bg-red-500/10 flex-shrink-0"
-                      onClick={() => handleCancel(order.OrderId)}
-                      disabled={cancelling === order.OrderId}
-                    >
-                      {cancelling === order.OrderId
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><XCircle className="w-4 h-4 mr-1" />Hủy</>}
-                    </Button>
+                  {/* Cancel button - only within 24h of creation */}
+                  {(order.Status === "NEW" || order.Status === "IN_PRODUCTION") && (
+                    canCancelOrder(order.CreatedAt) ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                        onClick={() => handleCancel(order.OrderId)}
+                        disabled={cancelling === order.OrderId}
+                        title={`Còn ${cancelRemainingTime(order.CreatedAt)} để hủy`}
+                      >
+                        {cancelling === order.OrderId
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <><XCircle className="w-4 h-4 mr-1" />Hủy ({cancelRemainingTime(order.CreatedAt)})</>}
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-slate-600 border border-slate-700/50 rounded-lg px-2 py-1 flex-shrink-0" title="Đã quá 24h kể từ khi tạo đơn">
+                        Không thể hủy
+                      </span>
+                    )
                   )}
                 </div>
 
@@ -263,17 +336,48 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                 )}
 
                 <div className="mt-3 flex gap-2 flex-wrap items-center">
-                  {(order.Status === "REVIEW" || order.Status === "COMPLETED" || order.Status === "DELIVERED") && (
+                  {/* ── REVIEW: customer can view draft and give feedback ── */}
+                  {order.Status === "REVIEW" && (
                     <Button
                       size="sm"
-                      className="bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-600/30 text-xs"
-                      onClick={() => handlePreview3D(order.OrderId)}
+                      className="text-white text-xs"
+                      style={{ background: "var(--gradient-brand)" }}
+                      onClick={() => handlePreview3D(order)}
                       disabled={loadingPreview && previewingOrderId === order.OrderId}
                     >
                       {loadingPreview && previewingOrderId === order.OrderId
                         ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
                         : <Eye className="w-3 h-3 mr-1" />}
-                      View 3D Preview
+                      Xem bản nháp của Artist
+                    </Button>
+                  )}
+
+                  {/* ── IN_PRODUCTION / NEW: show ETA note from deadline ── */}
+                  {(order.Status === "IN_PRODUCTION" || order.Status === "NEW") && (() => {
+                    const days = daysUntilDeadline(order.Deadline);
+                    if (days === null) return null;
+                    return (
+                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {days > 0
+                          ? `Bản nháp dự kiến trong ~${days} ngày`
+                          : "Bản nháp đang được hoàn thiện..."}
+                      </span>
+                    );
+                  })()}
+
+                  {/* ── COMPLETED / DELIVERED: download ── */}
+                  {(order.Status === "COMPLETED" || order.Status === "DELIVERED") && (
+                    <Button
+                      size="sm"
+                      className="bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-600/30 text-xs"
+                      onClick={() => handlePreview3D(order)}
+                      disabled={loadingPreview && previewingOrderId === order.OrderId}
+                    >
+                      {loadingPreview && previewingOrderId === order.OrderId
+                        ? <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                        : <Eye className="w-3 h-3 mr-1" />}
+                      Xem Preview 3D
                     </Button>
                   )}
                   {order.Status === "DELIVERED" && (
@@ -307,22 +411,69 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
         </div>
       )}
 
-      {/* 3D Preview Modal */}
+      {/* 3D Preview + Feedback Modal */}
       <Modal
         open={!!showPreview}
         onClose={() => setShowPreview(null)}
         title={
           showPreview ? (
             <span className="flex items-center gap-2">
-              <Eye className="w-4 h-4 text-cyan-400" /> 3D Preview: {showPreview.FileName}
+              <Eye className="w-4 h-4 text-cyan-400" />
+              {showPreview.order.Status === "REVIEW"
+                ? `Xem bản nháp: ${showPreview.attachment.FileName}`
+                : `3D Preview: ${showPreview.attachment.FileName}`}
             </span>
           ) : undefined
         }
-        maxWidth="2xl"
+        maxWidth="4xl"
       >
         {showPreview && (
-          <div className="p-6">
-            <OBJModelViewer objData={showPreview.Base64Data} />
+          <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6">
+            {/* 3D Viewer */}
+            <div className="flex-1 min-h-[350px]">
+              <OBJModelViewer objData={showPreview.attachment.Base64Data} />
+              <p className="text-[10px] text-slate-500 mt-2 text-center">Di chuyển chuột để xoay • Cuộn để zoom</p>
+            </div>
+
+            {/* Feedback panel — only shown for REVIEW status */}
+            {showPreview.order.Status === "REVIEW" && (
+              <div className="w-full md:w-72 flex flex-col gap-4">
+                <div className="space-y-2">
+                  <label className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                    Phản hồi chỉnh sửa
+                  </label>
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Cần thay đổi gì? (Màu sắc, hình dạng, chất liệu...)"
+                    rows={7}
+                    className="w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:border-purple-500/50 outline-none transition resize-none"
+                  />
+                </div>
+                <div className="mt-auto space-y-2">
+                  <Button
+                    onClick={() => handleFeedbackSubmit("revise")}
+                    disabled={submittingFeedback}
+                    variant="outline"
+                    className="w-full border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10 rounded-xl"
+                  >
+                    {submittingFeedback
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><RefreshCw className="w-4 h-4 mr-2" />Yêu cầu chỉnh sửa</>}
+                  </Button>
+                  <Button
+                    onClick={() => handleFeedbackSubmit("approve")}
+                    disabled={submittingFeedback}
+                    className="w-full rounded-xl font-bold text-white"
+                    style={{ background: "var(--gradient-success)", boxShadow: "0 4px 20px rgba(16,163,74,0.2)" }}
+                  >
+                    {submittingFeedback
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <><CheckCircle2 className="w-4 h-4 mr-2" />Duyệt bản này</>}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

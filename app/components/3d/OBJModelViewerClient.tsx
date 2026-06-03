@@ -96,6 +96,12 @@ const isTextureCompatibleWithMaterial = (filename: string, materialName: string)
 };
 
 function applyGenericPBRFallback(mat: any): boolean {
+    // FIX: GLB materials already have real PBR textures baked in.
+    // If a diffuse texture (map) is present, skip all keyword-color heuristics.
+    // Without this guard, names like "Cyan_body" or "Yellow_frame" inside a GLB
+    // override the real albedo texture with a flat hardcoded color.
+    if (mat.map && mat.map.isTexture) return false;
+
     const name = (mat.name || "").toLowerCase();
     let matched = false;
 
@@ -163,7 +169,10 @@ function applyGenericPBRFallback(mat: any): boolean {
     return matched;
 }
 
-function convertToStandardMaterial(phongMat: any): THREE.MeshStandardMaterial {
+function convertToStandardMaterial(phongMat: any): THREE.MeshStandardMaterial | any {
+    // FIX: GLTFLoader always produces MeshStandardMaterial.
+    // Re-wrapping it discards PBR maps and resets metalness/roughness to guessed values.
+    if (phongMat.isMeshStandardMaterial) return phongMat;
     const standardMat = new THREE.MeshStandardMaterial({
         name: phongMat.name,
         color: phongMat.color,
@@ -521,9 +530,20 @@ function postProcessObject(
                     if (mat.opacity < 1.0) {
                         mat.transparent = true;
                     }
+                    // FIX: GLB/GLTF materials frequently bake a tiny non-zero emissive
+                    // (e.g. 0.001, 0.001, 0.001) as an ambient-lighting approximation.
+                    // Amplifying ANY non-zero emissive to 3.0 and disabling tone-mapping
+                    // turns every surface into a blown-out neon colour.
+                    // Only treat emissives with luminance > 0.05 as intentionally glowing.
                     if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
-                        mat.emissiveIntensity = 3.0;
-                        mat.toneMapped = false;
+                        const emissiveLum =
+                            mat.emissive.r * 0.299 +
+                            mat.emissive.g * 0.587 +
+                            mat.emissive.b * 0.114;
+                        if (emissiveLum > 0.05) {
+                            mat.emissiveIntensity = 3.0;
+                            mat.toneMapped = false;
+                        }
                     }
 
                     mat.needsUpdate = true;
@@ -597,10 +617,24 @@ function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; tex
         loader.setDRACOLoader(dracoLoader);
     });
 
-    // Run post-processing safely directly on the scene object inside an effect
+    // FIX: GLB files are fully self-contained — geometry, PBR materials, UV textures
+    // and normals are all baked in by the exporter (Blender, Maya, etc.).
+    // postProcessObject was built for raw OBJ/MTL (no PBR) and actively corrupts GLB:
+    //   • It amplifies tiny ambient emissives → neon colours
+    //   • applyGenericPBRFallback keyword-matches material names → wrong diffuse colour
+    //   • convertToStandardMaterial re-wraps existing MeshStandardMaterial → loses maps
+    // Solution: only set shadows + compute normals when actually missing. Leave materials alone.
     useEffect(() => {
         if (gltf && gltf.scene) {
-            postProcessObject(gltf.scene);
+            gltf.scene.traverse((child: any) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    if (child.geometry && !child.geometry.attributes.normal) {
+                        child.geometry.computeVertexNormals();
+                    }
+                }
+            });
         }
     }, [gltf]);
 

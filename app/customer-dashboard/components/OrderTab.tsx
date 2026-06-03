@@ -20,6 +20,18 @@ import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import { toast } from "sonner";
 
+/** Customer may cancel only within 24 h of order creation */
+const canCancelOrder = (createdAt: string): boolean =>
+  Date.now() - new Date(createdAt).getTime() < 24 * 60 * 60 * 1000;
+
+const cancelRemainingTime = (createdAt: string): string => {
+  const remaining = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000 - Date.now();
+  if (remaining <= 0) return "";
+  const h = Math.floor(remaining / 3_600_000);
+  const m = Math.floor((remaining % 3_600_000) / 60_000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
 // ── Status icon helper ────────────────────────────────────────────────────────
 const StatusIcon = ({ status }: { status: string }) => {
   if (status === "COMPLETED" || status === "DELIVERED")
@@ -43,6 +55,8 @@ function ReviewModal({
   const [modelData, setModelData] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [submitting, setSubmitting] = useState<"approve" | "revise" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   useEffect(() => {
     const loadModel = async () => {
@@ -400,33 +414,37 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                     </div>
                   )}
                   {order.Status === "REVIEW" && (
-                    order.Brief?.includes("[SENT_TO_CUSTOMER]") ? (
-                      <Button
-                        size="sm"
-                        className="text-white"
-                        style={{ background: "var(--gradient-brand)" }}
-                        onClick={() => setReviewOrder(order)}
-                      >
-                        <Eye className="w-4 h-4 mr-2" /> Xem xét sản phẩm
-                      </Button>
-                    ) : (
-                      <span className="text-xs bg-slate-700/50 text-slate-400 border border-slate-600/30 rounded-xl px-3 py-1.5 font-medium">
-                        Đang chờ quản lý kiểm duyệt
-                      </span>
-                    )
-                  )}
-                  {order.Status === "NEW" && (
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="border-red-500/50 text-red-400 hover:bg-red-500/10"
-                      onClick={() => handleCancel(order.OrderId)}
-                      disabled={cancelling === order.OrderId}
+                      className="text-white"
+                      style={{ background: "var(--gradient-brand)" }}
+                      onClick={() => setReviewOrder(order)}
                     >
-                      {cancelling === order.OrderId
-                        ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><XCircle className="w-4 h-4 mr-1" />Hủy</>}
+                      <Eye className="w-4 h-4 mr-2" /> Xem xét sản phẩm
                     </Button>
+                  )}
+                  {order.Status === "NEW" && (
+                    canCancelOrder(order.CreatedAt) ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                        onClick={() => handleCancel(order.OrderId)}
+                        disabled={cancelling === order.OrderId}
+                        title={`Còn ${cancelRemainingTime(order.CreatedAt)} để hủy`}
+                      >
+                        {cancelling === order.OrderId
+                          ? <Loader2 className="w-4 h-4 animate-spin" />
+                          : <><XCircle className="w-4 h-4 mr-1" />Hủy ({cancelRemainingTime(order.CreatedAt)})</>}
+                      </Button>
+                    ) : (
+                      <span
+                        className="text-xs text-slate-600 border border-slate-700/50 rounded-xl px-3 py-1.5"
+                        title="Đã quá 24h — không thể hủy"
+                      >
+                        Không thể hủy
+                      </span>
+                    )
                   )}
                 </div>
               </div>
