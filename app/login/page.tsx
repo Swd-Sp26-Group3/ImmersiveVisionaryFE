@@ -116,7 +116,7 @@ function SignInContent() {
                 <Link href="/" className={styles.logoLink}>
                     <div className={styles.logoIcon} style={{ padding: 0, overflow: 'hidden' }}>
                         <Image
-                            src="/imvrs-logo.png?v=8"
+                            src="/imvrs-logo.png?v=10"
                             alt="IMVRS Logo"
                             width={38}
                             height={38}
