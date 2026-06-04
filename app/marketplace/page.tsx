@@ -33,13 +33,15 @@ export default function MarketPlacePage() {
       .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
       .then((data) => {
         const rawAssets: Asset[] = data.data ?? data;
-        const validAssets = rawAssets.filter(
-          (a) =>
-            a.Category &&
-            typeof a.Category === "string" &&
-            a.Category.trim() !== "" &&
-            !a.Category.includes("CATEGORY_IMAGES")
-        );
+        const validAssets = rawAssets
+          .filter(
+            (a) =>
+              a.Category &&
+              typeof a.Category === "string" &&
+              a.Category.trim() !== "" &&
+              !a.Category.includes("CATEGORY_IMAGES")
+          )
+          .map((a) => ({ ...a, Category: a.Category!.trim() })); // normalize whitespace
         setAssets(validAssets);
       })
       .catch((e) => setError(`Không thể tải danh sách sản phẩm. (${e.message})`))
