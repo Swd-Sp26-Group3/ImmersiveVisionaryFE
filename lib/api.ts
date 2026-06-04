@@ -329,5 +329,69 @@ export async function uploadAssetInChunks(
     return { uploadId };
 }
 
+/**
+ * Recursively traverses dropped items (files and folders) using webkitGetAsEntry.
+ * Preserves the webkitRelativePath for all traversed files so that jszip can
+ * accurately reconstruct the directory structure when compressing multi-file folders.
+ */
+export async function getFilesFromDroppedItems(dataTransfer: DataTransfer): Promise<File[]> {
+    const files: File[] = [];
+    const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
+
+    async function traverseEntry(entry: any, path = ""): Promise<void> {
+        if (entry.isFile) {
+            const file = await new Promise<File>((resolve, reject) => entry.file(resolve, reject));
+            // Set webkitRelativePath so process3DModelFiles / JSZip preserves the relative directory structure
+            const relativePath = path ? `${path}/${file.name}` : file.name;
+            Object.defineProperty(file, "webkitRelativePath", {
+                value: relativePath,
+                writable: true,
+                configurable: true,
+            });
+            files.push(file);
+        } else if (entry.isDirectory) {
+            const dirReader = entry.createReader();
+            const entries = await new Promise<any[]>((resolve) => {
+                const allEntries: any[] = [];
+                function readAll() {
+                    dirReader.readEntries((results: any[]) => {
+                        if (results.length === 0) {
+                            resolve(allEntries);
+                        } else {
+                            allEntries.push(...results);
+                            readAll();
+                        }
+                    });
+                }
+                readAll();
+            });
+            for (const subEntry of entries) {
+                await traverseEntry(subEntry, path ? `${path}/${entry.name}` : entry.name);
+            }
+        }
+    }
+
+    if (items.length > 0 && typeof items[0].webkitGetAsEntry === "function") {
+        const traversePromises = items.map((item) => {
+            const entry = item.webkitGetAsEntry();
+            if (entry) {
+                return traverseEntry(entry);
+            }
+            return Promise.resolve();
+        });
+        await Promise.all(traversePromises);
+    } else {
+        // Fallback for browsers that don't support webkitGetAsEntry
+        return dataTransfer.files ? Array.from(dataTransfer.files) : [];
+    }
+
+    // Fallback if no files were resolved recursively but standard files are present
+    if (files.length === 0 && dataTransfer.files && dataTransfer.files.length > 0) {
+        return Array.from(dataTransfer.files);
+    }
+
+    return files;
+}
+
 export default api;
 

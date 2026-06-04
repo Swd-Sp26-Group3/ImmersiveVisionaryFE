@@ -9,10 +9,12 @@ import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, ShoppingCart, AlertCircle,
-  Box, CheckCircle2, Tag, Building2, View, X,
+  Box, CheckCircle2, Tag, Building2, View, X, Loader2,
 } from "lucide-react";
 import DynamicOBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import type { Asset } from "@/lib/types";
+import { toast } from "sonner";
+
 
 // Only the lightweight fields needed by checkout page — no Base64Data
 type CheckoutAsset = Pick<Asset,
@@ -36,15 +38,64 @@ export default function AssetDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [show3D, setShow3D] = useState(false);
+  const [loading3D, setLoading3D] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    apiFetch(`/assets/${id}`)
+
+    // Check sessionStorage cache first for fast load
+    try {
+      const cached = sessionStorage.getItem("checkoutProduct");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.AssetId === Number(id)) {
+          setAsset(parsed);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    apiFetch("/assets/marketplace")
       .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-      .then((data) => setAsset(data.data ?? data))
+      .then((data) => {
+        const list = data.data ?? data;
+        const found = list.find((x: any) => x.AssetId === Number(id));
+        if (found) {
+          setAsset(found);
+        } else {
+          return apiFetch(`/assets/${id}`)
+            .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
+            .then((singleData) => setAsset(singleData.data ?? singleData));
+        }
+      })
       .catch((e) => setError(`Asset not found. (${e.message})`))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleView3D = async () => {
+    if (!asset) return;
+    if (asset.Base64Data) {
+      setShow3D(true);
+      return;
+    }
+    setLoading3D(true);
+    try {
+      const res = await apiFetch(`/assets/${asset.AssetId}`);
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json();
+      const fullAsset = data.data ?? data;
+      setAsset(fullAsset);
+      setShow3D(true);
+    } catch (e) {
+      toast.error("Không thể tải dữ liệu 3D.");
+      console.error("Failed to load 3D asset:", e);
+    } finally {
+      setLoading3D(false);
+    }
+  };
 
   const handlePurchase = () => {
     if (!asset) return;
@@ -129,22 +180,29 @@ export default function AssetDetailPage() {
                 </button>
               </div>
             ) : (
-              <div className="relative group">
+              <div className="relative group flex items-center justify-center">
                 <img
                   src={assetImage}
                   alt={asset.AssetName}
                   className="w-full h-[400px] object-cover"
                 />
-                {asset.Base64Data && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      onClick={() => setShow3D(true)}
-                      className="bg-cyan-500 hover:bg-cyan-400 text-white gap-2"
-                    >
-                      <View className="w-4 h-4" /> View 3D Mode
-                    </Button>
-                  </div>
-                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    onClick={handleView3D}
+                    disabled={loading3D}
+                    className="bg-cyan-500 hover:bg-cyan-400 text-white gap-2"
+                  >
+                    {loading3D ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Tải mô hình 3D...
+                      </>
+                    ) : (
+                      <>
+                        <View className="w-4 h-4" /> View 3D Mode
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
           </motion.div>

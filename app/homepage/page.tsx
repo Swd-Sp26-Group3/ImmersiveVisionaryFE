@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "../components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import TVModelViewer from "../components/3d/TVModelViewer";
 
 const W = "max-w-8xl w-full px-4 sm:px-6 md:px-12 lg:px-20";
 
@@ -145,27 +146,27 @@ export default function HomePage() {
               </div>
             </motion.div>
 
-            {/* Right – Image */}
+            {/* Right – Interactive 3D Model */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.15 }}
-              className="relative flex items-center justify-center"
+              className="relative w-full h-[450px] flex items-stretch"
             >
               <div
-                className="relative w-full rounded-2xl overflow-hidden"
+                className="relative w-full h-full rounded-2xl overflow-hidden"
                 style={{
                   border: "1px solid rgba(139,92,246,0.25)",
                 }}
               >
-                <img
-                  src="a940202526210112ed774ee070cb6e1f584158f8.png"
-                  alt="Trình diễn sản phẩm 3D AR"
-                  className="w-full h-auto block"
+                <TVModelViewer
+                  className="w-full h-full bg-transparent border-0 rounded-none shadow-none"
+                  bloomStrength={0.2}
                 />
+                
                 {/* AR Ready badge */}
                 <div
-                  className="absolute bottom-5 left-5 flex items-center gap-2 px-3 py-2 rounded-lg"
+                  className="absolute bottom-5 left-5 flex items-center gap-2 px-3 py-2 rounded-lg z-10"
                   style={{
                     background: "rgba(55,48,163,0.88)",
                     backdropFilter: "blur(12px)",

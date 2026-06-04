@@ -18,6 +18,9 @@ const OBJModelViewerClient = dynamic(() => import("./OBJModelViewerClient"), {
 interface OBJModelViewerProps {
     /** Base64 string or URL of the .obj file */
     objData: string;
+    className?: string;
+    hideControls?: boolean;
+    defaultBloomStrength?: number;
 }
 
 export default function OBJModelViewer(props: OBJModelViewerProps) {

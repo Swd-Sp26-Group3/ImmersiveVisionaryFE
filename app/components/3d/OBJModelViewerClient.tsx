@@ -8,6 +8,7 @@ import { MTLLoader } from "three/addons/loaders/MTLLoader.js";
 import { TGALoader } from "three/addons/loaders/TGALoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+
 import * as THREE from "three";
 import JSZip from "jszip";
 
@@ -24,9 +25,130 @@ if (typeof window !== "undefined") {
     };
 }
 
+// Custom shader material for the TV hologram scanline effect reproducing Blender nodes
+const TVHologramMaterial = new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(0.0, 0.3, 0.5), // Subtle cyan glass tint
+    roughness: 0.15,
+    metalness: 0.0,
+    ior: 1.5,
+    transmission: 1.0, // Full physical glass transmission
+    thickness: 1.8,    // Refraction thickness
+    transparent: true,
+    depthWrite: false, // Prevents self-occlusion issues with transparent glass layering
+    side: THREE.DoubleSide
+});
+
+(TVHologramMaterial as any).userData = {
+    uScanlineScale: { value: 64.0 },
+    uGlowStrength: { value: 1.2 }
+};
+
+TVHologramMaterial.onBeforeCompile = (shader) => {
+    shader.uniforms.uScanlineScale = (TVHologramMaterial as any).userData.uScanlineScale;
+    shader.uniforms.uGlowStrength = (TVHologramMaterial as any).userData.uGlowStrength;
+
+    // 1. Pass local position from vertex to fragment shader
+    shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        `#include <common>
+         varying vec3 vLocalPosition;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+         vLocalPosition = position;`
+    );
+
+    // 2. Fragment shader setup: inject uniforms, varyings, noise and fBm functions
+    shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        `#include <common>
+         uniform float uScanlineScale;
+         uniform float uGlowStrength;
+         varying vec3 vLocalPosition;
+         
+         // 3D Noise and fBm for Wave Texture Distortion and Noise Emission
+         float hash(float n) { return fract(sin(n) * 43758.5453123); }
+         float noise(vec3 x) {
+             vec3 p = floor(x);
+             vec3 f = fract(x);
+             f = f*f*(3.0-2.0*f);
+             float n = p.x + p.y*157.0 + 113.0*p.z;
+             return mix(mix(mix(hash(n+  0.0), hash(n+  1.0),f.x),
+                            mix(hash(n+157.0), hash(n+158.0),f.x),f.y),
+                        mix(mix(hash(n+113.0), hash(n+114.0),f.x),
+                            mix(hash(n+270.0), hash(n+271.0),f.x),f.y),f.z);
+         }
+         float fbm(vec3 p) {
+             float v = 0.0;
+             float a = 0.5;
+             vec3 shift = vec3(100.0);
+             for (int i = 0; i < 2; ++i) {
+                 v += a * noise(p);
+                 p = p * 2.0 + shift;
+                 a *= 0.5;
+             }
+             return v;
+         }
+        `
+    );
+
+    // 3. Apply scanlines, Fresnel glow, bevel edge detection, and mask at the very end of shading
+    shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        `#include <dithering_fragment>
+         // 1. Wave Texture scanlines with fbm coordinate distortion (reproducing Wave Texture Distortion 1.0, Scale 20.0 in Blender)
+         float scale = uScanlineScale;
+         float distortion = 1.0;
+         float noiseVal = fbm(vLocalPosition * 1.5);
+         float waveArg = vLocalPosition.y * scale + distortion * noiseVal * scale;
+         float wave = 0.5 + 0.5 * sin(waveArg);
+         
+         // 2. Layer Weight Fresnel Edge Glow
+         vec3 viewDir = normalize(vViewPosition);
+         vec3 smoothNorm = normalize(normal);
+         float facing = 1.0 - max(dot(smoothNorm, viewDir), 0.0);
+         float fresnel = pow(facing, 3.5);
+         float fresnelFac = smoothstep(0.1, 0.468, fresnel);
+         
+         // 3. Bevel Edge Glow (Calculates dot product between smoothed normal and flat normal derived from screen position derivatives)
+         vec3 flatNorm = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+         float bevelDot = abs(dot(smoothNorm, flatNorm));
+         float bevelFac = smoothstep(0.915, 0.88, bevelDot);
+         
+         // 4. Depth-based glow transition (Camera Z / Local Z volumetric glow)
+         float depthMix = smoothstep(-0.8, 0.8, vLocalPosition.z);
+         vec3 cyanColor = vec3(0.0, 0.76, 1.0);
+         vec3 whiteColor = vec3(1.0, 1.0, 1.0);
+         
+         // Mix Translucent and Noise Emission
+         vec3 baseGlow = mix(cyanColor * (fbm(vLocalPosition * 10.0) * 10.0), vec3(0.0), depthMix);
+         
+         // Mix in Fresnel Edge Glow
+         vec3 emissionColor = mix(baseGlow, cyanColor * 10.0, fresnelFac);
+         
+         // Mix in Bevel Edge Glow (White)
+         emissionColor = mix(emissionColor, whiteColor * 10.0, bevelFac);
+         
+         // 5. Apply the glowing emission and scanline mask
+         gl_FragColor.rgb += emissionColor * uGlowStrength;
+         
+         // Combine alpha with scanline mask
+         gl_FragColor.a *= wave;
+         
+         // Discard empty scanline pixels to show clean background
+         if (gl_FragColor.a < 0.15) discard;
+        `
+    );
+};
+
+
 interface OBJModelViewerProps {
     /** Base64 string or URL of the .obj file / .zip file */
     objData: string;
+    className?: string;
+    hideControls?: boolean;
+    defaultBloomStrength?: number;
 }
 
 interface ZipModelData {
@@ -362,8 +484,19 @@ function postProcessObject(
 
             if (child.material) {
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
-                const processedMaterials = materials.map((originalMat: any) => {
-                    let mat = originalMat;
+                const isTvMaterial = materials.some((mat: any) => mat.name === "tv");
+                if (isTvMaterial) {
+                    if (Array.isArray(child.material)) {
+                        child.material = child.material.map((mat: any) => {
+                            if (mat.name === "tv") return TVHologramMaterial;
+                            return mat;
+                        });
+                    } else {
+                        child.material = TVHologramMaterial;
+                    }
+                } else {
+                    const processedMaterials = materials.map((originalMat: any) => {
+                        let mat = originalMat;
 
                     // Convert MeshPhongMaterial to MeshStandardMaterial to support full PBR maps
                     if (mat.isMeshPhongMaterial || mat.type === "MeshPhongMaterial") {
@@ -542,7 +675,6 @@ function postProcessObject(
                             mat.emissive.b * 0.114;
                         if (emissiveLum > 0.05) {
                             mat.emissiveIntensity = 3.0;
-                            mat.toneMapped = false;
                         }
                     }
 
@@ -551,6 +683,7 @@ function postProcessObject(
                 });
 
                 child.material = Array.isArray(child.material) ? processedMaterials : processedMaterials[0];
+                }
             }
         }
     });
@@ -574,31 +707,13 @@ function Model({ blobUrl, textureScale, applyToAll }: { blobUrl: string; texture
     // Clean up when unmounted or blobUrl changes
     useEffect(() => {
         return () => {
-            if (processedObj) {
-                processedObj.traverse((child: any) => {
-                    if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            const materialsList = Array.isArray(child.material) ? child.material : [child.material];
-                            materialsList.forEach((mat: any) => {
-                                for (const key in mat) {
-                                    if (mat[key] && typeof mat[key].dispose === "function" && mat[key] instanceof THREE.Texture) {
-                                        mat[key].dispose();
-                                    }
-                                }
-                                mat.dispose();
-                            });
-                        }
-                    }
-                });
-            }
             try {
                 useLoader.clear(OBJLoader as any, blobUrl);
             } catch (err) {
                 console.error("Error clearing OBJLoader cache:", err);
             }
         };
-    }, [processedObj, blobUrl]);
+    }, [blobUrl]);
 
     if (!processedObj) return null;
 
@@ -633,6 +748,39 @@ function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; tex
                     if (child.geometry && !child.geometry.attributes.normal) {
                         child.geometry.computeVertexNormals();
                     }
+                    // Boost intentional emissive materials for neon glow/bloom
+                    const mesh = child as THREE.Mesh;
+                    if (mesh.material) {
+                        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                        
+                        const isTvMaterial = materials.some((mat: any) => mat.name === "tv");
+                        if (isTvMaterial) {
+                            if (Array.isArray(mesh.material)) {
+                                mesh.material = mesh.material.map((mat: any) => {
+                                    if (mat.name === "tv") return TVHologramMaterial;
+                                    return mat;
+                                });
+                            } else {
+                                mesh.material = TVHologramMaterial;
+                            }
+                        } else {
+                            materials.forEach((mat: any) => {
+                                if (mat.emissive && (mat.emissive.r > 0 || mat.emissive.g > 0 || mat.emissive.b > 0)) {
+                                    const emissiveLum =
+                                        mat.emissive.r * 0.299 +
+                                        mat.emissive.g * 0.587 +
+                                        mat.emissive.b * 0.114;
+                                    if (emissiveLum > 0.05) {
+                                        if (!mat.__emissiveBoosted) {
+                                            mat.emissiveIntensity = 3.0;
+                                            mat.__emissiveBoosted = true;
+                                        }
+                                    }
+                                }
+                                mat.needsUpdate = true;
+                            });
+                        }
+                    }
                 }
             });
         }
@@ -643,31 +791,13 @@ function GLTFModel({ blobUrl, textureScale, applyToAll }: { blobUrl: string; tex
     // Garbage Collection Cleanup 
     useEffect(() => {
         return () => {
-            if (gltf && gltf.scene) {
-                gltf.scene.traverse((child: any) => {
-                    if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            const materialsList = Array.isArray(child.material) ? child.material : [child.material];
-                            materialsList.forEach((mat: any) => {
-                                for (const key in mat) {
-                                    if (mat[key] && typeof mat[key].dispose === "function" && mat[key] instanceof THREE.Texture) {
-                                        mat[key].dispose();
-                                    }
-                                }
-                                mat.dispose();
-                            });
-                        }
-                    }
-                });
-            }
             try {
                 useLoader.clear(GLTFLoader as any, blobUrl);
             } catch (err) {
                 console.error("Error clearing GLTFLoader cache:", err);
             }
         };
-    }, [gltf, blobUrl]);
+    }, [blobUrl]);
 
     if (!gltf || !gltf.scene) return null;
 
@@ -922,24 +1052,6 @@ function ZippedModelWithMaterials({
     // Clean up when unmounted or blob URLs change
     useEffect(() => {
         return () => {
-            if (processedObj) {
-                processedObj.traverse((child: any) => {
-                    if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            const materialsList = Array.isArray(child.material) ? child.material : [child.material];
-                            materialsList.forEach((mat: any) => {
-                                for (const key in mat) {
-                                    if (mat[key] && typeof mat[key].dispose === "function" && mat[key] instanceof THREE.Texture) {
-                                        mat[key].dispose();
-                                    }
-                                }
-                                mat.dispose();
-                            });
-                        }
-                    }
-                });
-            }
             try {
                 useLoader.clear(OBJLoader as any, objBlobUrl);
                 useLoader.clear(MTLLoader as any, mtlBlobUrl);
@@ -947,7 +1059,7 @@ function ZippedModelWithMaterials({
                 console.error("Error clearing ZippedModel loader cache:", err);
             }
         };
-    }, [processedObj, objBlobUrl, mtlBlobUrl]);
+    }, [objBlobUrl, mtlBlobUrl]);
 
     if (!processedObj) return null;
 
@@ -973,31 +1085,13 @@ function SimpleModel({ objBlobUrl, textureScale, applyToAll }: { objBlobUrl: str
     // Clean up when unmounted or blobUrl changes
     useEffect(() => {
         return () => {
-            if (processedObj) {
-                processedObj.traverse((child: any) => {
-                    if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            const materialsList = Array.isArray(child.material) ? child.material : [child.material];
-                            materialsList.forEach((mat: any) => {
-                                for (const key in mat) {
-                                    if (mat[key] && typeof mat[key].dispose === "function" && mat[key] instanceof THREE.Texture) {
-                                        mat[key].dispose();
-                                    }
-                                }
-                                mat.dispose();
-                            });
-                        }
-                    }
-                });
-            }
             try {
                 useLoader.clear(OBJLoader as any, objBlobUrl);
             } catch (err) {
                 console.error("Error clearing SimpleModel loader cache:", err);
             }
         };
-    }, [processedObj, objBlobUrl]);
+    }, [objBlobUrl]);
 
     return (
         <Center>
@@ -1095,7 +1189,14 @@ const decompressIfGzip = async (bytes: Uint8Array): Promise<Uint8Array> => {
     return bytes;
 };
 
-export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
+
+
+export default function OBJModelViewer({
+    objData,
+    className = "bg-slate-900/50 rounded-2xl border border-white/10 shadow-inner h-[400px]",
+    hideControls = false,
+    defaultBloomStrength = 1.2
+}: OBJModelViewerProps) {
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
     const [zipModelData, setZipModelData] = useState<ZipModelData | null>(null);
     const [isBlend, setIsBlend] = useState<boolean>(false);
@@ -1106,19 +1207,19 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     const activeBlobUrlsRef = useRef<string[]>([]);
     const glRef = useRef<THREE.WebGLRenderer | null>(null);
 
-    // Force WebGL Context Loss and dispose of the renderer on unmount to free GPU contexts
+    // Sync TVHologramMaterial uniforms with component states
+    useEffect(() => {
+        if ((TVHologramMaterial as any).userData?.uScanlineScale) {
+            (TVHologramMaterial as any).userData.uScanlineScale.value = textureScale * 8.0;
+        }
+    }, [textureScale]);
+
+    // Dispose of the renderer on unmount to free GPU contexts
     useEffect(() => {
         return () => {
             if (glRef.current) {
                 try {
-                    const gl = glRef.current;
-                    const context = gl.getContext();
-                    if (context && typeof context.isContextLost === "function" && !context.isContextLost()) {
-                        if (typeof gl.forceContextLoss === "function") {
-                            gl.forceContextLoss();
-                        }
-                    }
-                    gl.dispose();
+                    glRef.current.dispose();
                 } catch (e) {
                     console.error("Failed to dispose WebGL renderer on unmount:", e);
                 }
@@ -1654,7 +1755,18 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                     singleUrl = URL.createObjectURL(blob);
                 } else {
                     // Plain text file or a URL
-                    if (dataToProcess.startsWith("http") || dataToProcess.startsWith("blob:")) {
+                    const lower = dataToProcess.toLowerCase();
+                    if (
+                        dataToProcess.startsWith("http") ||
+                        dataToProcess.startsWith("blob:") ||
+                        dataToProcess.startsWith("/") ||
+                        dataToProcess.startsWith("./") ||
+                        dataToProcess.startsWith("../") ||
+                        lower.endsWith(".gltf") ||
+                        lower.endsWith(".glb") ||
+                        lower.endsWith(".obj") ||
+                        lower.endsWith(".zip")
+                    ) {
                         singleUrl = dataToProcess;
                     } else {
                         const mimeType = looksLikeGltfJson ? "application/json" : "text/plain";
@@ -1664,7 +1776,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 }
 
                 if (isCancelled) {
-                    if (singleUrl && !singleUrl.startsWith("http")) URL.revokeObjectURL(singleUrl);
+                    if (singleUrl && singleUrl.startsWith("blob:")) URL.revokeObjectURL(singleUrl);
                     return;
                 }
 
@@ -1765,7 +1877,7 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
     }
 
     return (
-        <div className="w-full h-[400px] bg-slate-900/50 rounded-2xl border border-white/10 overflow-hidden relative shadow-inner">
+        <div className={`w-full overflow-hidden relative ${className}`}>
             <Suspense fallback={
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-3">
                     <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
@@ -1831,58 +1943,18 @@ export default function OBJModelViewer({ objData }: OBJModelViewerProps) {
                 </Canvas>
             </Suspense>
 
-            {/* Texture Tiling Controls */}
-            <div className="absolute top-4 right-4 bg-slate-950/90 backdrop-blur-md border border-white/10 rounded-xl p-3 flex flex-col gap-2 pointer-events-auto max-w-[200px] transition-all duration-300 shadow-xl z-10">
-                <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-1.5">
-                    <span className="text-[10px] text-white font-bold uppercase tracking-widest flex items-center gap-1 select-none">
-                        <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                        </svg>
-                        Texture Tiling
-                    </span>
-                    <button
-                        onClick={() => {
-                            setTextureScale(8);
-                            setApplyToAll(false);
-                        }}
-                        className="text-[9px] text-cyan-400 hover:text-cyan-300 font-semibold cursor-pointer uppercase transition-colors"
-                    >
-                        Reset
-                    </button>
-                </div>
-                <div className="flex flex-col gap-1">
-                    <div className="flex justify-between items-center text-[9px] text-slate-400 font-medium select-none">
-                        <span>Scale: {textureScale}x</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="1"
-                        max="20"
-                        step="1"
-                        value={textureScale}
-                        onChange={(e) => setTextureScale(parseInt(e.target.value))}
-                        className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                    />
-                </div>
-                <label className="flex items-center gap-1.5 cursor-pointer text-[9px] text-slate-400 hover:text-slate-300 font-medium mt-0.5 select-none">
-                    <input
-                        type="checkbox"
-                        checked={applyToAll}
-                        onChange={(e) => setApplyToAll(e.target.checked)}
-                        className="rounded border-slate-700 text-cyan-500 focus:ring-cyan-500 bg-slate-900 w-3.5 h-3.5"
-                    />
-                    <span>Tile all materials</span>
-                </label>
-            </div>
+            {/* Texture Tiling & Neon Glow Controls removed */}
 
-            <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
-                <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-cyan-400 uppercase tracking-widest font-bold">
-                    3D Interactive Preview
+            {!hideControls && (
+                <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none">
+                    <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-[10px] text-cyan-400 uppercase tracking-widest font-bold">
+                        3D Interactive Preview
+                    </div>
+                    <div className="bg-black/40 backdrop-blur-md px-2 py-1 rounded text-[9px] text-slate-500">
+                        Scroll to Zoom • Drag to Rotate
+                    </div>
                 </div>
-                <div className="bg-black/40 backdrop-blur-md px-2 py-1 rounded text-[9px] text-slate-500">
-                    Scroll to Zoom • Drag to Rotate
-                </div>
-            </div>
+            )}
 
             {/* BUG 1 & 2 FIX: warn the user when textures are absent or not matching */}
             {(zipModelData?.texturesMissing || zipModelData?.allTexturesMissing) && zipModelData.mtlTexRefCount > 0 && (

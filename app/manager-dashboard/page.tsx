@@ -7,17 +7,19 @@ import { Badge } from "@/app/components/ui/badge";
 import {
   TrendingUp, Users, Package, DollarSign, BarChart3,
   Download, Loader2, AlertCircle, Building2, RefreshCw,
-  ShoppingBag, Box, Tag, Edit, Plus, Upload, Link2, Calendar
+  ShoppingBag, Box, Tag, Edit, Plus, Upload, X, Link2, Calendar,
+  Maximize2, Minimize2
 } from "lucide-react";
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { apiFetch, getApiBaseUrl, process3DModelFiles } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles, blobToBase64, getFilesFromDroppedItems } from "@/lib/api";
 import { Artist, Company, CreativeOrder } from "./components/type";
 import { CompanyModal } from "./components/CompanyModal";
 import { OrdersTab } from "./components/OrdersTab";
 import { motion, AnimatePresence } from "motion/react";
+import dynamic from "next/dynamic";
 
 // ===================== Types & Constants =====================
 const COMPANY_STATUS_CONFIG: Record<string, { label: string; color: string; border: string }> = {
@@ -77,10 +79,376 @@ const itemVariants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 300, damping: 25 } }
 };
+// ===================== Asset Version Manager =====================
+const FILE_FORMAT_MAP: Record<string, string> = {
+  glb: "GLB", gltf: "GLB", fbx: "FBX", usdz: "USDZ", obj: "OBJ", blend: "OBJ",
+};
+const FORMAT_BADGE: Record<string, string> = {
+  GLB: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  OBJ: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  FBX: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  USDZ: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+};
 
+const DynamicModelViewer = dynamic(() => import("@/app/components/3d/OBJModelViewer"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-56 bg-slate-900/50 rounded-xl flex items-center justify-center border border-white/[0.06]">
+      <div className="flex flex-col items-center gap-2">
+        <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+        <span className="text-[10px] text-slate-500 uppercase tracking-widest font-mono">Initializing Viewer...</span>
+      </div>
+    </div>
+  ),
+});
 
+// ── Detect dominant format from a list of files (including inside ZIPs) ──────
+async function detectFormatFromFiles(files: File[]): Promise<string> {
+  // Priority: GLB > FBX > USDZ > OBJ
+  const PRIORITY = ["glb", "gltf", "fbx", "usdz", "obj", "blend"];
+  
+  // Check direct file list first
+  for (const pExt of PRIORITY) {
+    if (files.some(f => f.name.toLowerCase().endsWith(`.${pExt}`))) {
+      return FILE_FORMAT_MAP[pExt] ?? "OBJ";
+    }
+  }
 
-// ===================== Asset Edit Modal =====================
+  // If only ZIP files, peek inside using JSZip
+  const zipFiles = files.filter(f => f.name.toLowerCase().endsWith(".zip"));
+  if (zipFiles.length > 0) {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(await zipFiles[0].arrayBuffer());
+      const entries = Object.keys(zip.files).map(n => n.toLowerCase());
+      for (const pExt of PRIORITY) {
+        if (entries.some(n => n.endsWith(`.${pExt}`))) {
+          return FILE_FORMAT_MAP[pExt] ?? "OBJ";
+        }
+      }
+    } catch { /* fallback below */ }
+  }
+  return "OBJ";
+}
+
+interface AssetVersionFull { VersionId: number; FileFormat: string; FileUrl: string | null; CreatedAt: string; PolyCount: number | null; Base64Data?: string | null; }
+interface UploadItem { id: string; fileName: string; status: "uploading" | "done" | "error"; error?: string; versionId?: number; }
+
+function PreviewModalOverlay({
+  fileName, format, loading, data, onClose
+}: {
+  fileName: string; format: string; loading: boolean; data: string | null; onClose: () => void;
+}) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/85 flex flex-col z-[250] p-4 md:p-6 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] shrink-0">
+        <div className="flex items-center gap-3">
+          <Box className="w-5 h-5 text-purple-400 shrink-0" />
+          <div className="min-w-0">
+            <h3 className="text-white text-sm md:text-base font-bold tracking-tight truncate">{fileName}</h3>
+            <p className="text-slate-500 text-[10px] md:text-xs mt-0.5">3D Model Interactive View</p>
+          </div>
+          <span className={`text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 ${FORMAT_BADGE[format] ?? "bg-slate-500/10 text-slate-400 border-slate-500/20"}`}>
+            {format}
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          type="button"
+          className="p-2 rounded-full bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all cursor-pointer shrink-0"
+          title="Close Preview"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Body / 3D Canvas area */}
+      <div className="flex-1 mt-4 relative min-h-0 w-full max-w-6xl mx-auto">
+        {loading ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+            <p className="text-xs text-slate-500 uppercase tracking-widest font-mono">Loading high-res 3D model...</p>
+          </div>
+        ) : data ? (
+          <div className="w-full h-full rounded-2xl overflow-hidden bg-slate-950/80 border border-white/[0.06] shadow-2xl relative">
+            <div className="w-full h-full absolute inset-0">
+              <DynamicModelViewer 
+                objData={data} 
+                className="w-full h-full bg-transparent overflow-hidden relative border-0"
+              />
+            </div>
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-[10px] md:text-[11px] text-slate-400 font-medium select-none pointer-events-none whitespace-nowrap z-[100]">
+              Drag to rotate · Scroll to zoom · Right-click to pan
+            </div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm">
+            Preview data not available for this version.
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function AssetVersionManager({ assetId }: { assetId: number }) {
+  const [versions, setVersions] = useState<AssetVersionFull[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(true);
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [previewVersionId, setPreviewVersionId] = useState<number | null>(null);
+  const [previewData, setPreviewData] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [actionId, setActionId] = useState<number | null>(null); // version being deleted/activated
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const folderInputRef = React.useRef<HTMLInputElement>(null);
+
+  // ── Fetch all versions (includes Base64Data via SELECT *) ─────────────────
+  const fetchVersions = React.useCallback(async () => {
+    setLoadingVersions(true);
+    try {
+      const res = await apiFetch(`/asset-versions/${assetId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const list: AssetVersionFull[] = (data.data ?? data);
+        setVersions(list.sort((a, b) => b.VersionId - a.VersionId));
+      }
+    } finally { setLoadingVersions(false); }
+  }, [assetId]);
+
+  useEffect(() => { fetchVersions(); }, [fetchVersions]);
+
+  // ── Upload ────────────────────────────────────────────────────────────────
+  const doUpload = async (files: File[]) => {
+    if (!files.length) return;
+    const itemId = `${Date.now()}`;
+    const displayName = files.length > 1 ? `${files[0].name} (+${files.length - 1} more)` : files[0].name;
+    setUploads(p => [...p, { id: itemId, fileName: displayName, status: "uploading" }]);
+    try {
+      const processedModel = await process3DModelFiles(files);
+      const b64 = await blobToBase64(processedModel.blob);
+      const base64Data = processedModel.prefix !== "raw" ? `${processedModel.prefix}:${b64}` : b64;
+      // Smart format detection (peeks inside ZIP)
+      const fileFormat = await detectFormatFromFiles(files);
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/asset-versions/${assetId}`, {
+        method: "POST",
+        body: JSON.stringify({ FileFormat: fileFormat, FileUrl: displayName, Base64Data: base64Data, PolyCount: 0, TextureSize: "Unknown" }),
+      });
+      if (!res.ok) { const t = await res.text(); throw new Error(`[${res.status}] ${t}`); }
+      const data = await res.json();
+      const newVersion: AssetVersionFull = data.data ?? data;
+      // Attach base64Data for instant preview without re-fetch
+      newVersion.Base64Data = base64Data;
+      setVersions(p => [newVersion, ...p]);
+      setUploads(p => p.map(it => it.id === itemId ? { ...it, status: "done", versionId: newVersion.VersionId } : it));
+    } catch (err: any) {
+      setUploads(p => p.map(it => it.id === itemId ? { ...it, status: "error", error: err.message } : it));
+    }
+  };
+
+  // ── Preview ───────────────────────────────────────────────────────────────
+  const handlePreview = async (v: AssetVersionFull) => {
+    if (previewVersionId === v.VersionId) {
+      setPreviewVersionId(null); setPreviewData(null);
+      return;
+    }
+    setPreviewVersionId(v.VersionId);
+    if (v.Base64Data) { setPreviewData(v.Base64Data); return; }
+    setLoadingPreview(true);
+    try {
+      // Re-fetch versions to get Base64Data (already included in SELECT *)
+      const res = await apiFetch(`/asset-versions/${assetId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const list: AssetVersionFull[] = data.data ?? data;
+        const full = list.find(x => x.VersionId === v.VersionId);
+        setPreviewData(full?.Base64Data ?? null);
+        // Cache it back
+        if (full?.Base64Data) setVersions(p => p.map(x => x.VersionId === v.VersionId ? { ...x, Base64Data: full.Base64Data } : x));
+      }
+    } finally { setLoadingPreview(false); }
+  };
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const handleDelete = async (versionId: number) => {
+    if (!confirm(`Delete Version #${versionId}? This cannot be undone.`)) return;
+    setActionId(versionId);
+    try {
+      const res = await apiFetch(`/asset-versions/${versionId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setVersions(p => p.filter(v => v.VersionId !== versionId));
+      if (previewVersionId === versionId) { setPreviewVersionId(null); setPreviewData(null); }
+    } catch (err: any) {
+      alert(err.message);
+    } finally { setActionId(null); }
+  };
+
+  // ── Set Active ────────────────────────────────────────────────────────────
+  const handleActivate = async (versionId: number) => {
+    if (!confirm(`Set Version #${versionId} as the active model for this asset?`)) return;
+    setActionId(versionId);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const res = await apiFetch(`${baseUrl}/api/asset-versions/${versionId}/activate/${assetId}`, { method: "PUT" });
+      if (!res.ok) throw new Error("Activate failed");
+      alert(`Version #${versionId} is now the active model!`);
+    } catch (err: any) {
+      alert(err.message);
+    } finally { setActionId(null); }
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-3">
+      <p className="text-slate-300 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
+        <Box className="w-3.5 h-3.5 text-purple-400" /> 3D Model Versions
+        {versions.length > 0 && <span className="ml-1 bg-purple-500/20 text-purple-300 border border-purple-500/20 text-[9px] font-bold px-1.5 py-0.5 rounded-full">{versions.length}</span>}
+      </p>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={async e => { e.preventDefault(); setIsDragging(false); const files = await getFilesFromDroppedItems(e.dataTransfer); doUpload(files); }}
+        onClick={() => inputRef.current?.click()}
+        className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-all cursor-pointer select-none
+          ${isDragging ? "border-purple-500 bg-purple-500/10" : "border-white/[0.08] hover:border-purple-500/40 hover:bg-purple-500/5 bg-white/[0.01]"}`}
+      >
+        <input ref={inputRef} type="file" accept=".obj,.mtl,.zip,.glb,.gltf,.fbx,.usdz,.png,.jpg" multiple className="hidden"
+          onChange={e => { doUpload(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        <input ref={folderInputRef} type="file" multiple className="hidden"
+          onChange={e => { doUpload(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+          {...{ webkitdirectory: "", directory: "" } as any} />
+        <div className="flex flex-col items-center gap-1 pointer-events-none">
+          <Upload className="w-5 h-5 text-slate-500" />
+          <p className="text-white text-xs font-medium">
+            {isDragging ? "Drop files here..." : (
+              <>
+                Click/drag to upload, or{" "}
+                <span 
+                  className="text-cyan-400 hover:text-cyan-300 underline cursor-pointer pointer-events-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    folderInputRef.current?.click();
+                  }}
+                >
+                  upload folder
+                </span>
+              </>
+            )}
+          </p>
+          <p className="text-[10px] text-slate-600">OBJ · GLB · FBX · USDZ · ZIP (auto-detect format from contents)</p>
+        </div>
+      </div>
+
+      {/* Upload feed */}
+      {uploads.map(item => (
+        <div key={item.id} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-xs
+          ${item.status === "done" ? "bg-emerald-500/5 border-emerald-500/20"
+            : item.status === "error" ? "bg-rose-500/5 border-rose-500/20"
+            : "bg-white/[0.02] border-white/[0.06]"}`}>
+          {item.status === "uploading" && <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin shrink-0" />}
+          {item.status === "done" && <span className="text-emerald-400 shrink-0 text-base leading-none">✓</span>}
+          {item.status === "error" && <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />}
+          <div className="flex-1 min-w-0">
+            <p className={`truncate font-semibold ${item.status === "done" ? "text-emerald-300" : item.status === "error" ? "text-rose-300" : "text-slate-300"}`}>{item.fileName}</p>
+            {item.status === "uploading" && <p className="text-slate-500 text-[10px]">Detecting format &amp; uploading...</p>}
+            {item.status === "done" && <p className="text-slate-500 text-[10px]">Saved as Version #{item.versionId}</p>}
+            {item.status === "error" && <p className="text-rose-400/80 text-[10px] break-words">{item.error}</p>}
+          </div>
+          {item.status !== "uploading" && (
+            <button onClick={() => setUploads(p => p.filter(i => i.id !== item.id))} className="text-slate-600 hover:text-slate-300 cursor-pointer shrink-0">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      ))}
+
+      {/* Version history */}
+      {loadingVersions ? (
+        <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 text-purple-400 animate-spin" /></div>
+      ) : versions.length === 0 ? (
+        <p className="text-slate-600 text-xs text-center py-3 border border-dashed border-white/[0.06] rounded-xl">No versions uploaded yet</p>
+      ) : (
+        <div className="space-y-2 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
+          {versions.map((v, idx) => {
+            const isPreviewOpen = previewVersionId === v.VersionId;
+            const isActing = actionId === v.VersionId;
+            const canPreview = ["GLB", "OBJ"].includes(v.FileFormat);
+            return (
+              <div key={v.VersionId} className="rounded-xl border border-white/[0.06] overflow-hidden">
+                {/* Row */}
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-[#080d1a]/60">
+                  <Box className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-white text-xs font-semibold truncate">{v.FileUrl ?? `Version #${v.VersionId}`}</p>
+                      {idx === 0 && <span className="text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-bold px-1.5 py-0.5 rounded-full">LATEST</span>}
+                    </div>
+                    <p className="text-slate-600 text-[10px]">{new Date(v.CreatedAt).toLocaleString("vi-VN")}</p>
+                  </div>
+                  {/* Format badge */}
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${FORMAT_BADGE[v.FileFormat] ?? "bg-slate-500/10 text-slate-400 border-slate-500/20"}`}>
+                    {v.FileFormat}
+                  </span>
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {canPreview && (
+                      <button
+                        onClick={() => handlePreview(v)}
+                        title="Preview 3D"
+                        className={`text-[10px] px-2 py-1 rounded-lg border font-semibold transition-all cursor-pointer
+                          ${isPreviewOpen ? "bg-purple-600 border-purple-600 text-white" : "border-white/[0.08] text-slate-400 hover:text-purple-300 hover:border-purple-500/40"}`}
+                      >
+                        {isPreviewOpen ? "Hide" : "Preview"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleActivate(v.VersionId)}
+                      disabled={isActing}
+                      title="Set as active model"
+                      className="text-[10px] px-2 py-1 rounded-lg border border-white/[0.08] text-slate-400 hover:text-emerald-300 hover:border-emerald-500/40 transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : "✓ Set"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(v.VersionId)}
+                      disabled={isActing}
+                      title="Delete version"
+                      className="text-[10px] px-2 py-1 rounded-lg border border-white/[0.08] text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition-all cursor-pointer disabled:opacity-40"
+                    >
+                      {isActing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Fullscreen 3D Preview Modal Overlay */}
+      {previewVersionId && (
+        <PreviewModalOverlay
+          fileName={versions.find(x => x.VersionId === previewVersionId)?.FileUrl ?? `Version #${previewVersionId}`}
+          format={versions.find(x => x.VersionId === previewVersionId)?.FileFormat ?? "OBJ"}
+          loading={loadingPreview}
+          data={previewData}
+          onClose={() => { setPreviewVersionId(null); setPreviewData(null); }}
+        />
+      )}
+    </div>
+  );
+}
+
 function AssetEditModal({
   asset, onClose, onSave,
 }: {
@@ -97,40 +465,9 @@ function AssetEditModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length === 0) return;
-
-    setUploading(true); setError("");
-    try {
-      const base64Data = await process3DModelFiles(files);
-
-      // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
-      const res = await apiFetch(`${getApiBaseUrl()}/api/assets/${asset.AssetId}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          Base64Data: base64Data
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Upload failed [${res.status}]: ${text}`);
-      }
-
-      alert("3D Model uploaded successfully!");
-    } catch (err: any) {
-      setError(err.message ?? "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
+  useEffect(() => { setMounted(true); }, []);
 
   const handleSave = async () => {
     if (!form.AssetName.trim()) { setError("Asset name is required."); return; }
@@ -175,14 +512,15 @@ function AssetEditModal({
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden"
+        className="bg-[#0d1324] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] bg-white/[0.01]">
           <h2 className="text-white font-bold tracking-tight">Edit Asset Specifications</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors cursor-pointer">✕</button>
         </div>
         
-        <div className="p-5 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          {/* Metadata fields */}
           {[
             { label: "Asset Name *", key: "AssetName", placeholder: "e.g. Luxury Bag 3D" },
             { label: "Category", key: "Category", placeholder: "e.g. Fashion" },
@@ -210,25 +548,8 @@ function AssetEditModal({
             />
           </div>
 
-          {/* Upload Section */}
-          <div className="space-y-2 pt-4 border-t border-white/[0.06] mt-4">
-            <label className="text-slate-300 text-xs font-semibold uppercase tracking-wider">Update 3D Model Files (.obj, .mtl, textures, or .zip)</label>
-            <div className="border-2 border-dashed border-white/[0.06] hover:border-purple-500/40 rounded-xl p-4 text-center transition-colors relative bg-white/[0.01]">
-              <input
-                type="file"
-                accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
-                multiple
-                onChange={handleUpload}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                disabled={uploading}
-              />
-              <div className="flex flex-col items-center">
-                {uploading ? <Loader2 className="w-6 h-6 text-purple-400 animate-spin mb-2" /> : <Upload className="w-6 h-6 text-slate-500 mb-2" />}
-                <p className="text-white text-xs font-medium">{uploading ? "Uploading version..." : "Click to upload replacement files"}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">OBJ, MTL, Textures, or ZIP</p>
-              </div>
-            </div>
-          </div>
+          {/* ── 3D Version Manager ── */}
+          <AssetVersionManager assetId={asset.AssetId} />
 
           {error && (
             <div className="flex items-center gap-2 text-rose-400 text-xs bg-rose-500/10 rounded-xl px-3.5 py-2.5 border border-rose-500/20">
@@ -446,7 +767,10 @@ export default function ManagerDashboard() {
 
       {/* Navigation Tabs */}
       <div className="space-y-6">
-        <div className="flex gap-1.5 p-1 rounded-xl bg-[#0d1324]/50 border border-white/[0.06] w-full sm:w-fit flex-wrap sm:flex-nowrap overflow-x-auto relative">
+        <div 
+          className="flex gap-1.5 p-1 rounded-xl bg-[#0d1324]/50 border border-white/[0.06] w-full sm:w-fit flex-nowrap overflow-x-auto relative [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
           {TABS.map(({ id, label, icon: Icon }) => {
             const isActive = activeTab === id;
             return (
