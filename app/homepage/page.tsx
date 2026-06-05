@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { ArrowRight, Box, CheckCircle2, Layers, Palette } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
@@ -6,12 +7,16 @@ import { Button } from "../components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import TVModelViewer from "../components/3d/TVModelViewer";
+import { ARQRButton } from "../components/3d/ARQRButton";
 
 const W = "max-w-8xl w-full px-4 sm:px-6 md:px-12 lg:px-20";
 
 export default function HomePage() {
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+  // Capture origin client-side only (window is not available during SSR/Vercel build)
+  const [appOrigin, setAppOrigin] = useState("");
+  useEffect(() => { setAppOrigin(window.location.origin); }, []);
 
   const handleNav = (destination: string) => {
     router.push(isAuthenticated ? destination : "/login");
@@ -164,18 +169,27 @@ export default function HomePage() {
                   bloomStrength={0.2}
                 />
                 
-                {/* AR Ready badge */}
-                <div
-                  className="absolute bottom-5 left-5 flex items-center gap-2 px-3 py-2 rounded-lg z-10"
-                  style={{
-                    background: "rgba(55,48,163,0.88)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid rgba(139,92,246,0.4)",
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span className="text-xs font-semibold text-white">Sẵn sàng AR</span>
-                  <span className="text-xs" style={{ color: "#c4b5fd" }}>Xem trước ngay</span>
+                {/* AR badge + QR button row */}
+                <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-3 z-10">
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                    style={{
+                      background: "rgba(55,48,163,0.88)",
+                      backdropFilter: "blur(12px)",
+                      border: "1px solid rgba(139,92,246,0.4)",
+                    }}
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span className="text-xs font-semibold text-white">Sẵn sàng AR</span>
+                    <span className="text-xs" style={{ color: "#c4b5fd" }}>Xem trước ngay</span>
+                  </div>
+                  {/* Only render when we have a valid origin (client-side, avoids SSR/Vercel mismatch) */}
+                  {appOrigin && (
+                    <ARQRButton
+                      modelUrl={`${appOrigin}/tv.gltf`}
+                      label="TV Hologram — Immersive Visionary"
+                    />
+                  )}
                 </div>
               </div>
             </motion.div>

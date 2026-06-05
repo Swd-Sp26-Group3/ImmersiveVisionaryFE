@@ -18,6 +18,7 @@ import { apiFetch } from "@/lib/api";
 import { ApiOrder, ORDER_STATUS_CONFIG, getOrderProgress } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "@/app/components/3d/OBJModelViewer";
+import { ARQRButton } from "@/app/components/3d/ARQRButton";
 import { toast } from "sonner";
 
 /** Customer may cancel only within 24 h of order creation */
@@ -57,6 +58,11 @@ function ReviewModal({
   const [submitting, setSubmitting] = useState<"approve" | "revise" | null>(null);
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // AR support: track the GLB/GLTF attachment ID and app origin for proxy URL
+  const [arAttachmentId, setArAttachmentId] = useState<number | null>(null);
+  const [arFileName, setArFileName] = useState<string | null>(null);
+  const [appOrigin, setAppOrigin] = useState("");
+  useEffect(() => { setAppOrigin(window.location.origin); }, []);
 
   useEffect(() => {
     const loadModel = async () => {
@@ -71,6 +77,9 @@ function ReviewModal({
             return name.endsWith(".obj") || name.endsWith(".zip") || name.endsWith(".blend") || name.endsWith(".glb") || name.endsWith(".gltf");
           });
           if (objFile) {
+            // Track attachment for AR proxy URL
+            setArAttachmentId(objFile.AttachmentId);
+            setArFileName(objFile.FileName);
             const fileRes = await apiFetch(`/attachments/${objFile.AttachmentId}`);
             if (fileRes.ok) {
               const fileData = await fileRes.json();
@@ -151,8 +160,10 @@ function ReviewModal({
               <p>Không tìm thấy mô hình 3D (.obj) để xem trước.</p>
             </div>
           )}
-          <div className="absolute bottom-4 left-4 text-[10px] text-slate-500 bg-black/60 px-2 py-1 rounded">
-            Di chuyển chuột để xoay • Cuộn để zoom
+          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+            <div className="text-[10px] text-slate-500 bg-black/60 px-2 py-1 rounded">
+              Di chuyển chuột để xoay • Cuộn để zoom
+            </div>
           </div>
         </div>
 
