@@ -23,7 +23,7 @@ export function Footer() {
                 }}
               >
                 <Image
-                  src="/imvrs-logo.png?v=10"
+                  src="/imvrs-logo.png?v=11"
                   alt="IMVRS Logo"
                   width={44}
                   height={44}

@@ -68,7 +68,7 @@ export default function HomePage() {
         }} />
 
         <div className={W + " relative"} style={{ minHeight: "92vh", display: "flex", alignItems: "center" }}>
-          <div className="grid lg:grid-cols-2 gap-12 items-center w-full py-20">
+          <div className="grid lg:grid-cols-[1fr_1.3fr] gap-8 lg:gap-16 items-center w-full py-12 lg:py-16">
 
             {/* Left – Text content */}
             <motion.div
@@ -151,7 +151,7 @@ export default function HomePage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.15 }}
-              className="relative w-full h-[450px] flex items-stretch"
+              className="relative w-full h-[450px] lg:h-[600px] flex items-stretch"
             >
               <div
                 className="relative w-full h-full rounded-2xl overflow-hidden"
