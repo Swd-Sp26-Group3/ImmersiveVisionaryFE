@@ -1,18 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const SYSTEM_PROMPT =
-  "You are a helpful customer support AI for Immersive Visionary, a premium 3D and AR production studio. " +
-  "Keep your answers concise, professional, and helpful. " +
-  "Guide users on ordering 3D models, requesting quotes, or learning about our services.";
+function buildSystemPrompt(userContext?: any, ordersContext?: any[]) {
+  let prompt = `You are a helpful customer support AI for "Immersive Visionary", a premium 3D and AR production studio.
+Keep your answers concise, professional, and helpful. Always respond in Vietnamese (tiếng Việt).
 
-// Free-tier model fallback chain — tried in order on 429 / 404 errors
+GENERAL COMPANY INFORMATION:
+- Product/Service: Custom 3D design, AR mobile preview, WebXR experiences, and a marketplace for ready-made models.
+- Cancel & Refund Policy: Đổi ý miễn phí trong 24h. Khách hàng có thể tự hủy đơn hàng tùy chỉnh của họ và nhận lại toàn bộ tiền (100% refund) trực tiếp từ Customer Dashboard trong vòng 24 giờ kể từ lúc đặt hàng.
+- Workflow Stages (Quy trình sản xuất 4 bước):
+  1. Khảo sát & Lên ý tưởng (Stage 1): Thu thập yêu cầu và phác thảo thiết kế.
+  2. Dựng hình 3D (Stage 2): Xây dựng hình khối và cấu trúc 3D chi tiết.
+  3. Tối ưu hóa AR (Stage 3): Tối ưu vật liệu, ánh sáng và kiểm thử trên thiết bị di động.
+  4. Bàn giao sản phẩm (Stage 4): Đóng gói các định dạng chất lượng cao GLB/GLTF/USDZ/OBJ.
+
+`;
+
+  if (userContext) {
+    prompt += `CURRENT USER CONTEXT:
+- Name: ${userContext.FullName ?? "N/A"}
+- Email: ${userContext.Email ?? "N/A"}
+- Role: ${userContext.Role ?? "CUSTOMER"}
+
+`;
+  } else {
+    prompt += `CURRENT USER CONTEXT:
+- Anonymous user (not logged in). If they ask about their orders or account, suggest they log in first.
+
+`;
+  }
+
+  if (ordersContext && ordersContext.length > 0) {
+    prompt += `USER'S ORDERS:
+Here are the current orders placed by this user in our system:
+${ordersContext.map((o: any, idx: number) => {
+  const dateStr = o.CreatedAt ? new Date(o.CreatedAt).toLocaleDateString("vi-VN") : "N/A";
+  return `${idx + 1}. Dự án: "${o.ProjectName || "Chưa đặt tên"}"
+   - Order ID: ${o.OrderId}
+   - Trạng thái: ${o.Status}
+   - Giá tiền: ${o.Pricing ? `${o.Pricing.toLocaleString()} VND` : "N/A"}
+   - Ngày đặt: ${dateStr}`;
+}).join("\n")}
+
+INSTRUCTIONS FOR ORDERS:
+- If the user asks about the status or progress of their project, refer to the list above and explain which Stage it is in.
+- If the user asks to cancel an order, check the CreatedAt date. If it's within the 24h limit, tell them they can cancel directly by clicking the "Hủy đơn" button in their Customer Dashboard under this project.
+- Be precise and use the exact project names from the list above.
+`;
+  } else if (userContext) {
+    prompt += `USER'S ORDERS:
+- The user has no active orders in the system currently.
+`;
+  }
+
+  return prompt;
+}
+
+// Free-tier model fallback chain — tried in order on 429 / 404 errors, prioritizing fast/accurate models
 const MODEL_FALLBACKS = [
-  "openrouter/auto",                             // OpenRouter auto-selects best available free model
-  "google/gemma-4-31b-it:free",                  // Gemma 4 31B
-  "nvidia/llama-3.3-nemotron-super-49b-v1:free", // NVIDIA Nemotron 49B
-  "deepseek/deepseek-v3-base:free",              // DeepSeek V3
-  "mistralai/mistral-7b-instruct:free",          // Mistral 7B fallback
+  "google/gemini-2.5-flash:free",                 // Super fast, extremely good at Vietnamese
+  "google/gemma-2-9b-it:free",                    // High-quality Gemma 2 9B model
+  "meta-llama/llama-3-8b-instruct:free",          // Fast Llama 3 8B
+  "openrouter/auto",                              // OpenRouter auto-selects fallback
 ];
 
 // Extended message type that preserves OpenRouter reasoning_details across turns
@@ -40,8 +89,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "API key not configured" }, { status: 500 });
   }
 
-  // Instantiate client here (inside handler) so it only runs when the key is confirmed present.
-  // Initializing at module load with apiKey="" would throw "Missing credentials" on Vercel.
   const client = new OpenAI({
     baseURL: "https://openrouter.ai/api/v1",
     apiKey,
@@ -51,11 +98,13 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const { messages }: { messages: ORMessage[] } = await req.json();
+  const { messages, userContext, ordersContext }: { messages: ORMessage[], userContext?: any, ordersContext?: any[] } = await req.json();
+
+  const systemPrompt = buildSystemPrompt(userContext, ordersContext);
 
   // Build conversation: system prompt → history (with reasoning_details preserved) → latest user msg
   const conversation: ORMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     ...messages,
   ];
 

@@ -19,8 +19,10 @@ interface ModelViewerProps {
   "camera-controls"?: boolean;
   "auto-rotate"?: boolean;
   "shadow-intensity"?: string;
+  "shadow-softness"?: string;
   "environment-image"?: string;
   exposure?: string;
+  "ar-scale"?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
 }
@@ -64,8 +66,31 @@ function ARViewContent() {
   const searchParams = useSearchParams();
   const modelViewerRef = useRef<any>(null);
   const modelUrl = searchParams.get("model");
-  const usdzUrl = searchParams.get("usdz");
+  const rawUsdzUrl = searchParams.get("usdz");
+
+  // Dynamic parameters for AR lighting, shadows, and scaling to avoid hardcoding
+  const environmentImage = searchParams.get("environmentImage") ?? "neutral";
+  const shadowIntensity = searchParams.get("shadowIntensity") ?? "1.5";
+  const shadowSoftness = searchParams.get("shadowSoftness") ?? "0.8";
+  const exposure = searchParams.get("exposure") ?? "1.2";
+  const arScale = searchParams.get("arScale") ?? "auto"; // Default to "auto" to allow pinch-to-zoom
   const label = searchParams.get("label") ?? "3D Model";
+
+  // Process USDZ URL to configure scaling in native iOS Quick Look
+  const usdzUrl = React.useMemo(() => {
+    if (!rawUsdzUrl) return null;
+    if (arScale === "fixed") {
+      const suffix = "allowsContentScaling=0";
+      if (rawUsdzUrl.includes("#")) {
+        if (!rawUsdzUrl.includes("allowsContentScaling=")) {
+          return `${rawUsdzUrl}&${suffix}`;
+        }
+        return rawUsdzUrl;
+      }
+      return `${rawUsdzUrl}#${suffix}`;
+    }
+    return rawUsdzUrl;
+  }, [rawUsdzUrl, arScale]);
 
   const [objBase64, setObjBase64] = useState<string | null>(null);
   const [loadingModelData, setLoadingModelData] = useState(false);
@@ -314,7 +339,7 @@ function ARViewContent() {
   };
 
   return (
-    <div className="h-[100dvh] min-h-[100dvh] bg-[#070518] overflow-hidden relative flex flex-col justify-between">
+    <div className="h-[100dvh] min-h-[100dvh] overflow-hidden relative flex flex-col justify-between" style={{ background: "radial-gradient(circle at 50% 50%, #0d1530 0%, #050508 100%)" }}>
       {/* Load Google model-viewer web component via CDN */}
       <Script
         type="module"
@@ -322,62 +347,59 @@ function ARViewContent() {
         strategy="afterInteractive"
       />
 
-      {/* Top Header UI */}
+      {/* Floating Glassmorphic Top Header */}
       <div
-        className="absolute top-0 left-0 right-0 z-20 px-4 pt-safe-top"
+        className="absolute top-4 left-4 right-4 z-20 p-4 rounded-2xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-md shadow-2xl flex items-center justify-between gap-4"
         style={{
-          background: "linear-gradient(to bottom, rgba(7,5,24,0.95) 0%, transparent 100%)",
-          paddingTop: "env(safe-area-inset-top, 16px)",
-          paddingBottom: "32px",
+          marginTop: "env(safe-area-inset-top, 0px)",
         }}
       >
-        <div className="flex items-center justify-between gap-3 mb-1">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #6d28d9, #4f46e5)" }}
-            >
-              AR
-            </div>
-            <div>
-              <h1 className="text-white font-semibold text-sm leading-tight">
-                {isTvModel ? `${label} (TV Hologram)` : label}
-              </h1>
-              <p className="text-slate-500 text-[10px]">Immersive Visionary High-Fi Preview</p>
-            </div>
-          </div>
-          <Link
-            href="/customer-dashboard"
-            className="text-xs text-slate-400 hover:text-white transition-colors bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-lg"
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold text-white shrink-0"
+            style={{ background: "linear-gradient(135deg, #6d28d9, #4f46e5)" }}
           >
-            Quay lại
-          </Link>
+            AR
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-white font-bold text-sm leading-tight truncate max-w-[170px] sm:max-w-xs">
+              {isTvModel ? `${label} (TV Hologram)` : label}
+            </h1>
+            <p className="text-slate-400 text-[9px] uppercase tracking-wider font-semibold opacity-75 mt-0.5">3D / AR Preview</p>
+          </div>
         </div>
 
-        {/* Protocol warning if HTTP is used */}
-        {!isHttps && (
-          <div className="mt-3 bg-red-500/15 border border-red-500/35 rounded-xl p-3 flex flex-col gap-1 max-w-md">
-            <div className="flex items-center gap-2 text-red-400 text-xs font-bold uppercase tracking-wider">
-              <span>🔒 Yêu cầu bảo mật HTTPS</span>
-            </div>
-            <p className="text-[11px] text-red-200/85 leading-relaxed">
-              Trình duyệt Safari yêu cầu kết nối bảo mật (HTTPS) để mở Camera AR. Vui lòng quét lại mã QR (hệ thống đã tự động ép sang HTTPS cho bạn).
-            </p>
-          </div>
-        )}
-        {isFallback && isHttps && (
-          <div className="mt-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex flex-col gap-1 max-w-md">
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
-              <span>⚠️</span>
-              <span>Định dạng không tương thích AR</span>
-            </div>
-            <p className="text-[11px] text-amber-200/80 leading-relaxed">
-              Mô hình này ở định dạng gốc ({resolvedFileName.split(".").pop() || "OBJ/ZIP"}). WebXR chỉ hỗ trợ GLB/GLTF.
-              Đang hiển thị <span className="text-white font-semibold">TV Hologram làm mẫu</span> để bạn test camera.
-            </p>
-          </div>
-        )}
+        <Link
+          href="/customer-dashboard"
+          className="text-xs font-bold text-slate-300 hover:text-white transition-all bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-2 rounded-xl flex items-center gap-1.5 shrink-0"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Quay lại</span>
+        </Link>
       </div>
+
+      {/* Protocol warning if HTTP is used */}
+      {!isHttps && (
+        <div className="absolute top-[88px] left-4 right-4 z-20 bg-rose-500/15 border border-rose-500/30 rounded-2xl p-4 flex flex-col gap-1 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2 text-rose-400 text-xs font-bold uppercase tracking-wider">
+            <span>🔒 Yêu cầu bảo mật HTTPS</span>
+          </div>
+          <p className="text-[11px] text-rose-200/85 leading-relaxed">
+            Trình duyệt Safari yêu cầu kết nối bảo mật (HTTPS) để mở Camera AR. Vui lòng quét lại mã QR (hệ thống đã tự động ép sang HTTPS cho bạn).
+          </p>
+        </div>
+      )}
+      {isFallback && isHttps && (
+        <div className="absolute top-[88px] left-4 right-4 z-20 bg-amber-500/15 border border-amber-500/30 rounded-2xl p-4 flex flex-col gap-1 shadow-2xl backdrop-blur-md">
+          <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
+            <span>⚠️ Định dạng không tương thích AR</span>
+          </div>
+          <p className="text-[11px] text-amber-200/80 leading-relaxed">
+            Mô hình này ở định dạng gốc ({resolvedFileName.split(".").pop() || "OBJ/ZIP"}). WebXR chỉ hỗ trợ GLB/GLTF.
+            Đang hiển thị <span className="text-white font-semibold">TV Hologram làm mẫu</span> để bạn test camera.
+          </p>
+        </div>
+      )}
 
       {/* Premium 3D Render Canvas (FullScreen Background) */}
       <div className="absolute inset-0 z-0">
@@ -391,10 +413,17 @@ function ARViewContent() {
             alt={label}
             ar
             ar-modes="webxr scene-viewer quick-look"
+            ar-scale={arScale}
+            environment-image={environmentImage}
+            shadow-intensity={shadowIntensity}
+            shadow-softness={shadowSoftness}
+            exposure={exposure}
             camera-controls
             auto-rotate
             style={{ width: "100%", height: "100%", background: "transparent" }}
-          />
+          >
+            <button slot="ar-button" style={{ display: "none" }} />
+          </ModelViewer>
         ) : loadingModelData ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 gap-3">
             <RefreshCw className="w-6 h-6 animate-spin text-purple-500" />
@@ -427,29 +456,35 @@ function ARViewContent() {
             alt={label}
             ar
             ar-modes="webxr scene-viewer quick-look"
+            ar-scale={arScale}
+            environment-image={environmentImage}
+            shadow-intensity={shadowIntensity}
+            shadow-softness={shadowSoftness}
+            exposure={exposure}
             camera-controls
             style={{ width: "100%", height: "100%" }}
-          />
+          >
+            <button slot="ar-button" style={{ display: "none" }} />
+          </ModelViewer>
         </div>
       )}
 
-      {/* Bottom UI Bar with Trigger Button */}
+      {/* Floating Glassmorphic Footer Controls */}
       <div
-        className="w-full z-20 px-6 pb-safe-bottom"
+        className="absolute bottom-4 left-4 right-4 z-20 p-4 rounded-2xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-md shadow-2xl"
         style={{
-          background: "linear-gradient(to top, rgba(7,5,24,0.98) 0%, rgba(7,5,24,0.8) 50%, transparent 100%)",
-          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)",
+          marginBottom: "env(safe-area-inset-bottom, 0px)",
         }}
       >
-        <div className="max-w-md mx-auto flex flex-col items-center gap-4">
+        <div className="max-w-md mx-auto flex flex-col items-center gap-3">
           {/* Custom Trigger Button */}
           <button
             onClick={handleLaunchAR}
             disabled={!isTvModel && !isCompatibleFormat && !objBase64}
-            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none hover:scale-[1.02] shadow-[0_8px_30px_rgba(124,58,237,0.4)]"
+            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none hover:scale-[1.01] hover:shadow-[0_4px_20px_rgba(124,58,237,0.3)]"
             style={{
               background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
-              border: "1px solid rgba(255,255,255,0.15)",
+              border: "1px solid rgba(255,255,255,0.1)",
             }}
           >
             <Smartphone className="w-4 h-4" />
@@ -457,15 +492,12 @@ function ARViewContent() {
           </button>
 
           {/* User interaction cues */}
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] text-slate-500"
-            style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", backdropFilter: "blur(8px)" }}
-          >
-            <span>Kéo để xoay</span>
+          <div className="flex items-center justify-center gap-3 w-full text-[9px] text-slate-400 uppercase tracking-widest font-mono">
+            <span>Kéo xoay</span>
             <span>•</span>
-            <span>Pinch để zoom</span>
+            <span>Zoom</span>
             <span>•</span>
-            <span>Chạm 2 lần để reset</span>
+            <span>Double tap reset</span>
           </div>
         </div>
       </div>

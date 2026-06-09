@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Send, MessageSquare, Mail, User, Bot, Loader2, Sparkles, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { apiFetch } from "@/lib/api";
 
 
 
@@ -23,6 +24,8 @@ export default function SupportPage() {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userContext, setUserContext] = useState<any>(null);
+  const [ordersContext, setOrdersContext] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -32,6 +35,28 @@ export default function SupportPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const fetchContext = async () => {
+      try {
+        const profileRes = await apiFetch("/users/profile");
+        if (profileRes.ok) {
+          const profileJson = await profileRes.json();
+          setUserContext(profileJson.data ?? profileJson);
+        }
+        
+        const ordersRes = await apiFetch("/orders/my");
+        if (ordersRes.ok) {
+          const ordersJson = await ordersRes.json();
+          const arr = ordersJson.data ?? ordersJson;
+          setOrdersContext(Array.isArray(arr) ? arr : []);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch user context for AI support assistant:", err);
+      }
+    };
+    fetchContext();
+  }, []);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -59,7 +84,11 @@ export default function SupportPage() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ 
+          messages: history,
+          userContext,
+          ordersContext
+        }),
       });
 
       const data = await response.json();
