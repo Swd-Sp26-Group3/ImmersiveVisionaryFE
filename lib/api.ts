@@ -393,5 +393,72 @@ export async function getFilesFromDroppedItems(dataTransfer: DataTransfer): Prom
     return files;
 }
 
+export const parseBudgetToPrice = (budgetStr: string): number => {
+  if (!budgetStr) return 0;
+
+  const str = budgetStr.toLowerCase().trim();
+
+  const parseSingleValue = (valStr: string): number => {
+    let s = valStr.replace(/\s+/g, '');
+    
+    if (s.includes('m') || s.includes('tr') || s.includes('trieu') || s.includes('triệu')) {
+      const normalized = s.replace(/,/g, '.');
+      const numPart = parseFloat(normalized.replace(/[^0-9.]/g, '')) || 0;
+      return numPart * 1000000;
+    }
+
+    if (s.includes('k')) {
+      const normalized = s.replace(/,/g, '.');
+      const numPart = parseFloat(normalized.replace(/[^0-9.]/g, '')) || 0;
+      return numPart * 1000;
+    }
+
+    const hasMultipleDotsOrCommas = (s.match(/[.,]/g) || []).length > 1;
+    if (hasMultipleDotsOrCommas) {
+      s = s.replace(/[.,]/g, '');
+    } else {
+      const dotIdx = s.indexOf('.');
+      const commaIdx = s.indexOf(',');
+      const idx = dotIdx !== -1 ? dotIdx : commaIdx;
+      if (idx !== -1) {
+        const after = s.slice(idx + 1);
+        if (after.length === 3 && !isNaN(Number(after))) {
+          s = s.replace(/[.,]/g, '');
+        } else {
+          s = s.replace(/,/g, '.');
+        }
+      }
+    }
+
+    const numPart = parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+
+    if (numPart > 0 && numPart < 50000) {
+      return numPart * 1000;
+    }
+
+    return numPart;
+  };
+
+  const rangeSeparators = ['-', 'to', 'đến', '/'];
+  for (const sep of rangeSeparators) {
+    if (str.includes(sep)) {
+      const parts = str.split(sep);
+      if (parts.length === 2) {
+        const val1 = parseSingleValue(parts[0]);
+        const val2 = parseSingleValue(parts[1]);
+        return Math.max(val1, val2);
+      }
+    }
+  }
+
+  return parseSingleValue(str);
+};
+
+export const formatBudgetToPrice = (budgetStr: string): string => {
+  if (!budgetStr) return "";
+  const parsed = parseBudgetToPrice(budgetStr);
+  return `${parsed.toLocaleString("vi-VN")} ₫`;
+};
+
 export default api;
 

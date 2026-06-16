@@ -455,6 +455,23 @@ export function PurchasesTab() {
 
   useEffect(() => { fetchOrders(); }, []);
 
+  // Auto-select order based on orderId URL query parameter (for custom order payments)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const orderIdParam = params.get("orderId");
+      if (orderIdParam && orders.length > 0) {
+        const matching = orders.find(o => (o as any).OrderId === Number(orderIdParam));
+        if (matching) {
+          setSelected(matching);
+          // Clean up the URL parameter without page reload
+          const newUrl = window.location.pathname + "?tab=purchases";
+          window.history.pushState({}, "", newUrl);
+        }
+      }
+    }
+  }, [orders]);
+
   const handleRefunded = (updated: MarketplaceOrder) => {
     setOrders((prev) => prev.map((o) => (o.MpOrderId === updated.MpOrderId ? updated : o)));
     setSelected(updated);

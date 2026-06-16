@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, formatBudgetToPrice } from "@/lib/api";
 import { Button } from "@/app/components/ui/button";
 import { LoadingSpinner } from "@/app/components/ui/loading-spinner";
 import { EmptyState } from "@/app/components/ui/empty-state";
@@ -296,7 +296,16 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <StatusBadge status={order.Status} config={ORDER_STATUS_CONFIG} />
                         <span className="text-slate-500 text-xs">#{order.OrderId}</span>
-                        {order.Budget && <span className="text-green-400 text-xs">{order.Budget}</span>}
+                        {order.Budget && (
+                          <span className="text-green-400 text-xs font-semibold">
+                            Ngân sách: {order.Budget} 
+                            {(order.Status === "DELIVERED" || order.Status === "COMPLETED") && (
+                              <span className="text-white font-bold ml-1">
+                                (Thành tiền: {formatBudgetToPrice(order.Budget)})
+                              </span>
+                            )}
+                          </span>
+                        )}
                         {order.DeliverySpeed && <span className="text-yellow-400 text-xs">{order.DeliverySpeed}</span>}
                       </div>
                     </div>
@@ -386,10 +395,12 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold animate-pulse"
                       onClick={() => {
                         toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
+                        const targetUrl = `/customer-dashboard?tab=purchases&orderId=${order.OrderId}`;
+                        window.history.pushState({}, "", targetUrl);
                         if (onTabChange) {
                           onTabChange("purchases");
                         } else {
-                          window.location.href = "/customer-dashboard?tab=purchases";
+                          window.location.href = targetUrl;
                         }
                       }}
                     >

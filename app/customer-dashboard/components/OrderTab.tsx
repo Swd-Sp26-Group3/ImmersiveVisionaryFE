@@ -14,7 +14,7 @@ import {
   RefreshCw, XCircle, Clock, CheckCircle2, Package,
   Eye, Send, Check, Archive, ShoppingBag, Download, Loader2,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, formatBudgetToPrice } from "@/lib/api";
 import { ApiOrder, ORDER_STATUS_CONFIG, getOrderProgress } from "./types";
 import type { Attachment } from "@/lib/types";
 import OBJModelViewer from "@/app/components/3d/OBJModelViewer";
@@ -375,7 +375,16 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       <div className="flex items-center gap-3 flex-wrap text-sm text-gray-400">
                         <span>Ngày tạo: {new Date(order.CreatedAt).toLocaleDateString("vi-VN")}</span>
                         {order.DeliverySpeed && <span className="text-yellow-400">Tốc độ: {order.DeliverySpeed}</span>}
-                        {order.Budget && <span className="text-green-400">Ngân sách: {order.Budget}</span>}
+                        {order.Budget && (
+                          <span className="text-green-400 font-semibold">
+                            Ngân sách: {order.Budget} 
+                            {(order.Status === "DELIVERED" || order.Status === "COMPLETED") && (
+                              <span className="text-white font-bold ml-1">
+                                (Thành tiền: {formatBudgetToPrice(order.Budget)})
+                              </span>
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -420,10 +429,12 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                         className="bg-yellow-600 hover:bg-yellow-500 text-white animate-pulse"
                         onClick={() => {
                           toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
+                          const targetUrl = `/customer-dashboard?tab=purchases&orderId=${order.OrderId}`;
+                          window.history.pushState({}, "", targetUrl);
                           if (onTabChange) {
                             onTabChange("purchases");
                           } else {
-                            window.location.href = "/customer-dashboard?tab=purchases";
+                            window.location.href = targetUrl;
                           }
                         }}
                       >
