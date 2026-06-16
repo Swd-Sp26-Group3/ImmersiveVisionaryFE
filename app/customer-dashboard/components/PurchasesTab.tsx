@@ -11,7 +11,7 @@ import { useConfirm } from "@/app/components/ui/confirm-dialog";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Box, DollarSign, Clock, ChevronRight, CheckCircle2,
-  RotateCcw, Download, CreditCard, Loader2, AlertCircle,
+  RotateCcw, Download, CreditCard, Loader2, AlertCircle, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { MarketplaceOrder, AssetVersion } from "@/lib/types";
@@ -76,6 +76,34 @@ function OrderDetail({
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
   const { confirm, ConfirmDialogComponent } = useConfirm();
+  const [showQR, setShowQR] = useState(false);
+  const [paymentId, setPaymentId] = useState<number | null>(null);
+
+  // Poll payment status when QR code is shown
+  useEffect(() => {
+    if (!showQR || !paymentId) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await apiFetch(`/payments/${paymentId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const p = data.data ?? data;
+          if (p.PaymentStatus === "PAID") {
+            clearInterval(intervalId);
+            setShowQR(false);
+            toast.success("Thanh toán thành công!");
+            // Refresh order status in UI
+            onRefunded({ ...order, Status: "PAID" });
+          }
+        }
+      } catch (err) {
+        console.error("Error polling payment status:", err);
+      }
+    }, 4000);
+
+    return () => clearInterval(intervalId);
+  }, [showQR, paymentId, order, onRefunded]);
 
   const cfg = STATUS_CONFIG[order.Status];
 
@@ -138,20 +166,8 @@ function OrderDetail({
       if (!payRes.ok) throw new Error(payData.message ?? "Failed to create payment");
       const pid = payData.data?.PaymentId ?? payData.paymentId;
 
-      const vnpRes = await apiFetch("/payments/create-vnpay-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          paymentId: pid,
-          returnUrl: process.env.NEXT_PUBLIC_VNP_RETURN_URL,
-        }),
-      });
-      const vnpData = await vnpRes.json();
-      if (vnpRes.ok && vnpData.paymentUrl) {
-        window.location.href = vnpData.paymentUrl;
-      } else {
-        throw new Error(vnpData.message ?? "Failed to create VNPay URL");
-      }
+      setPaymentId(pid);
+      setShowQR(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Payment initiation failed.");
     } finally {
@@ -203,11 +219,17 @@ function OrderDetail({
           {/* Pay Now for PENDING */}
           {order.Status === "PENDING" && (
             <Button
-              onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
+              onClick={handlePayNow}
+              disabled={paying}
               className="w-full text-white font-semibold py-6 rounded-xl shadow-lg"
               style={{ background: "linear-gradient(135deg,#eab308,#ea580c)", boxShadow: "0 4px 20px rgba(234,88,12,0.2)" }}
             >
-              <CreditCard className="w-4 h-4 mr-2" />Thanh toán ngay ({order.Price?.toLocaleString("vi-VN")} ₫)
+              {paying ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <CreditCard className="w-4 h-4 mr-2" />
+              )}
+              Thanh toán ngay ({order.Price?.toLocaleString("vi-VN")} ₫)
             </Button>
           )}
 
@@ -281,6 +303,125 @@ function OrderDetail({
         </div>
       </div>
       {ConfirmDialogComponent}
+
+      {/* VietQR / SePay Payment Dialog */}
+      {showQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-[#0f172a] border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5 text-white overflow-y-auto max-h-[90vh]"
+          >
+            <div className="text-center">
+              <h3 className="text-lg font-bold text-white">Quét QR thanh toán đơn hàng</h3>
+              <p className="text-slate-400 text-xs mt-1">
+                Quét mã bên dưới bằng ứng dụng ngân hàng của bạn
+              </p>
+            </div>
+
+            {/* QR Code */}
+            <div className="bg-white p-3 rounded-xl max-w-[240px] mx-auto shadow-inner">
+              <img
+                src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${order.Price}&des=SEVQR+TKPIMV+DH${order.MpOrderId}`}
+                alt="VietQR Payment Code"
+                className="w-full h-auto rounded-lg"
+              />
+            </div>
+
+            {/* Account Details */}
+            <div className="rounded-lg bg-slate-900/60 border border-white/5 p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Ngân hàng</span>
+                <span className="font-semibold text-slate-300">VietinBank</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Chủ tài khoản</span>
+                <span className="font-semibold text-slate-300">LE TUAN KHOA</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Số tài khoản</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-semibold text-slate-300">109879775018</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText("109879775018");
+                      toast.success("Đã sao chép số tài khoản");
+                    }}
+                    className="text-cyan-400 hover:text-cyan-300 p-0.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Số tiền</span>
+                <span className="font-bold text-cyan-400">
+                  {order.Price?.toLocaleString("vi-VN")} ₫
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Nội dung CK</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono font-bold text-yellow-400">SEVQR TKPIMV DH{order.MpOrderId}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`SEVQR TKPIMV DH${order.MpOrderId}`);
+                      toast.success("Đã sao chép nội dung");
+                    }}
+                    className="text-cyan-400 hover:text-cyan-300 p-0.5"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Check status loading indicator */}
+            <div className="flex items-center justify-center gap-2 text-slate-400 text-xs">
+              <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+              <span>Hệ thống đang kiểm tra tự động...</span>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={async () => {
+                  if (!paymentId) return;
+                  setPaying(true);
+                  try {
+                    const res = await apiFetch(`/payments/${paymentId}`);
+                    if (!res.ok) throw new Error("Không thể kiểm tra trạng thái thanh toán.");
+                    const data = await res.json();
+                    const payment = data.data ?? data;
+
+                    if (payment.PaymentStatus === "PAID") {
+                      setShowQR(false);
+                      toast.success("Thanh toán thành công!");
+                      onRefunded({ ...order, Status: "PAID" });
+                    } else {
+                      toast.error("Giao dịch chuyển khoản chưa được ghi nhận. Vui lòng đợi trong giây lát hoặc kiểm tra lại.");
+                    }
+                  } catch (err: any) {
+                    toast.error(err.message ?? "Không thể xác nhận giao dịch. Vui lòng thử lại.");
+                  } finally {
+                    setPaying(false);
+                  }
+                }}
+                disabled={paying}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white py-4 text-xs font-semibold rounded-xl"
+              >
+                Tôi đã chuyển khoản
+              </Button>
+              <Button
+                onClick={() => setShowQR(false)}
+                variant="outline"
+                className="border-slate-800 text-slate-400 hover:text-white py-4 text-xs"
+              >
+                Đóng
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

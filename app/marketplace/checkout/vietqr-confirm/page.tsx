@@ -6,7 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
-function VNPayReturnContent() {
+function VietQRConfirmContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -16,58 +16,53 @@ function VNPayReturnContent() {
     useEffect(() => {
         const verifyPayment = async () => {
             try {
-                const query = Object.fromEntries(searchParams.entries());
-                if (Object.keys(query).length === 0 || !searchParams.get("vnp_TxnRef")) {
+                const paymentIdStr = searchParams.get("paymentId");
+                if (!paymentIdStr) {
                     setStatus("error");
-                    setMessage("No valid payment details found in the response.");
+                    setMessage("No payment ID provided.");
                     return;
                 }
+                const paymentId = parseInt(paymentIdStr);
 
-                // 1. Verify hash with backend
-                const res = await apiFetch(`/payments/vnpay-return?${searchParams.toString()}`);
-                const data = await res.json();
-
-                if (!res.ok) {
-                    setStatus("error");
-                    setMessage(data.message ?? "Payment verification failed.");
-                    return;
-                }
-
-                const paymentId = data.data?.paymentId;
-
-                // 2. Manual confirmation fallback (essential for local dev because IPN can't reach localhost)
-                await apiFetch("/payments/confirm", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ paymentId }),
-                });
-
-                // 3. Get the AssetId from the payment
+                // 1. Get the Payment status
                 const payRes = await apiFetch(`/payments/${paymentId}`);
+                if (!payRes.ok) {
+                    setStatus("error");
+                    setMessage("Could not retrieve payment information.");
+                    return;
+                }
                 const payData = await payRes.json();
                 const payment = payData.data ?? payData;
+
+                if (payment.PaymentStatus === "PAID") {
+                    setStatus("success");
+                    setMessage("Payment was verified successfully!");
+                } else {
+                    setStatus("loading");
+                    setMessage("Payment is still pending. We are waiting for banking notification.");
+                    return;
+                }
+
                 const assetId = payment.AssetId;
-
-                // 4. Find the MarketplaceOrder associated with this AssetId
-                const orderRes = await apiFetch("/marketplace-orders/my");
-                const orderData = await orderRes.json();
-                const orders: any[] = orderData.data ?? orderData;
-
-                // Find the most recent PAID order for this asset
-                const matchingOrder = orders.find(
-                    (o: any) => o.AssetId === assetId && (o.Status === "PAID" || o.Status === "DELIVERED")
-                );
-
-                setStatus("success");
-                setMessage("Payment successful!");
-                if (matchingOrder) {
-                    setMpOrderId(matchingOrder.MpOrderId);
+                if (assetId) {
+                    // Find the MarketplaceOrder associated with this AssetId
+                    const orderRes = await apiFetch("/marketplace-orders/my");
+                    if (orderRes.ok) {
+                        const orderData = await orderRes.json();
+                        const orders: any[] = orderData.data ?? orderData;
+                        const matchingOrder = orders.find(
+                            (o: any) => o.AssetId === assetId && (o.Status === "PAID" || o.Status === "DELIVERED")
+                        );
+                        if (matchingOrder) {
+                            setMpOrderId(matchingOrder.MpOrderId);
+                        }
+                    }
                 }
 
             } catch (err: any) {
-                console.error("VNPay Return Processing Error:", err);
+                console.error("VietQR Confirm Processing Error:", err);
                 setStatus("error");
-                setMessage(err.message ?? "An error occurred while processing your payment.");
+                setMessage(err.message ?? "An error occurred while confirming your payment.");
             }
         };
 
@@ -79,7 +74,7 @@ function VNPayReturnContent() {
             <div className="min-h-screen bg-[#080d1a] flex flex-col items-center justify-center text-white p-6">
                 <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mb-4" />
                 <h1 className="text-xl font-bold mb-2">Verifying Transaction</h1>
-                <p className="text-slate-400 text-center max-w-xs">Please wait while we confirm your payment with VNPay.</p>
+                <p className="text-slate-400 text-center max-w-xs">Please wait while we confirm your payment status.</p>
             </div>
         );
     }
@@ -134,14 +129,14 @@ function VNPayReturnContent() {
     );
 }
 
-export default function VNPayReturnPage() {
+export default function VietQRConfirmPage() {
     return (
         <Suspense fallback={
             <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
                 <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
             </div>
         }>
-            <VNPayReturnContent />
+            <VietQRConfirmContent />
         </Suspense>
     );
 }
