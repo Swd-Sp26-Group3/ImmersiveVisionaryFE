@@ -383,8 +383,15 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                   {order.Status === "DELIVERED" && (
                     <Button
                       size="sm"
-                      className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold"
-                      onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
+                      className="bg-yellow-600 hover:bg-yellow-500 text-white text-xs font-bold animate-pulse"
+                      onClick={() => {
+                        toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
+                        if (onTabChange) {
+                          onTabChange("purchases");
+                        } else {
+                          window.location.href = "/customer-dashboard?tab=purchases";
+                        }
+                      }}
                     >
                       <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Thanh toán ngay
                     </Button>

@@ -414,11 +414,18 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                   )}
                   {order.Status === "DELIVERED" && (
                     <div className="flex flex-col items-end gap-2">
-                      <p className="text-[10px] text-yellow-400 font-medium font-mono">ĐÃ DUYỆT - ĐᨌI THANH TOÁN</p>
+                      <p className="text-[10px] text-yellow-400 font-medium font-mono">ĐÃ DUYỆT - ĐỢI THANH TOÁN</p>
                       <Button
                         size="sm"
-                        className="bg-yellow-600 hover:bg-yellow-500 text-white"
-                        onClick={() => toast.info("💳 Thanh toán hiện đang được triển khai để tích hợp (Coming Soon)", { duration: 4000 })}
+                        className="bg-yellow-600 hover:bg-yellow-500 text-white animate-pulse"
+                        onClick={() => {
+                          toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
+                          if (onTabChange) {
+                            onTabChange("purchases");
+                          } else {
+                            window.location.href = "/customer-dashboard?tab=purchases";
+                          }
+                        }}
                       >
                         <ShoppingBag className="w-4 h-4 mr-1.5" /> Thanh toán ngay
                       </Button>
