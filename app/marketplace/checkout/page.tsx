@@ -456,7 +456,7 @@ function CheckoutContent() {
                     </div>
                     <div className="flex justify-between items-center py-1.5 border-b border-white/5">
                       <span className="text-slate-400">Chủ tài khoản</span>
-                      <span className="text-white font-semibold">LE TUAN KHOA</span>
+                      <span className="text-white font-semibold">LE NGUYEN TUAN KHOA</span>
                     </div>
                     <div className="flex justify-between items-center py-1.5 border-b border-white/5">
                       <span className="text-slate-400">Số tài khoản</span>

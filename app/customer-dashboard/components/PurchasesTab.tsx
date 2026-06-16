@@ -336,7 +336,7 @@ function OrderDetail({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Chủ tài khoản</span>
-                <span className="font-semibold text-slate-300">LE TUAN KHOA</span>
+                <span className="font-semibold text-slate-300">LE NGUYEN TUAN KHOA</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Số tài khoản</span>
