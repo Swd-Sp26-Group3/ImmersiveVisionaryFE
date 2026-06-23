@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useCallback, useRef } from "react";
 import { Upload, Loader2, CheckCircle2, AlertCircle, FileBox, X } from "lucide-react";
-import { apiFetch, getApiBaseUrl, process3DModelFiles, blobToBase64, getFilesFromDroppedItems } from "@/lib/api";
+import { apiFetch, getApiBaseUrl, process3DModelFiles, blobToBase64, getFilesFromDroppedItems, uploadAssetInChunks } from "@/lib/api";
 import { Button } from "@/app/components/ui/button";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ interface UploadItem {
   id: string;
   fileName: string;
   status: "uploading" | "done" | "error";
+  progress?: number;
   error?: string;
   version?: UploadedVersion;
 }
@@ -76,16 +77,29 @@ export default function AssetVersionUploader({
       id: itemId,
       fileName: displayName,
       status: "uploading",
+      progress: 0,
     }]);
 
     try {
       // 1. Process → zip if multi-file, raw if single
       const processedModel = await process3DModelFiles(files);
-      // 2. Convert blob → base64 string
-      const b64 = await blobToBase64(processedModel.blob);
-      const base64Data = processedModel.prefix !== "raw"
-        ? `${processedModel.prefix}:${b64}`
-        : b64;
+      
+      let fileName = files[0].name;
+      if (processedModel.prefix === "zip") {
+        fileName = fileName.toLowerCase().endsWith(".zip") ? fileName : `${fileName}.zip`;
+      }
+
+      // 2. Upload the model file in chunks
+      const { uploadId } = await uploadAssetInChunks(
+        fileName,
+        processedModel,
+        (progress) => {
+          setItems(prev => prev.map(it => 
+            it.id === itemId ? { ...it, progress } : it
+          ));
+        }
+      );
+
       // 3. Detect FileFormat
       const fileFormat = detectFileFormat(files, processedModel.prefix);
 
@@ -95,7 +109,7 @@ export default function AssetVersionUploader({
         body: JSON.stringify({
           FileFormat: fileFormat,
           FileUrl: displayName,
-          Base64Data: base64Data,
+          UploadId: uploadId,
           PolyCount: 0,
           TextureSize: "Unknown",
         }),
@@ -234,7 +248,9 @@ export default function AssetVersionUploader({
                   {item.fileName}
                 </p>
                 {item.status === "uploading" && (
-                  <p className="text-slate-500 mt-0.5">Processing &amp; uploading...</p>
+                  <p className="text-slate-500 mt-0.5">
+                    Processing &amp; uploading... {item.progress !== undefined ? `${item.progress}%` : ""}
+                  </p>
                 )}
                 {item.status === "done" && item.version && (
                   <p className="text-slate-500 mt-0.5">

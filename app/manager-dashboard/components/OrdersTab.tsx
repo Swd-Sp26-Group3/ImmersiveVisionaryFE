@@ -17,6 +17,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Modal } from "@/app/components/ui/modal";
 import OBJModelViewer from "@/app/components/3d/OBJModelViewer";
 import type { Attachment } from "@/lib/types";
+import AssetVersionUploader from "@/app/components/asset/AssetVersionUploader";
+import { toast } from "sonner";
 
 interface MarketplaceOrder {
   MpOrderId: number;
@@ -686,52 +688,11 @@ function CreativeOrderDetail({
 
 // ===================== Edit Asset Modal =====================
 function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onClose: () => void; onUpdated: () => void }) {
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length === 0) return;
-
-    setUploading(true); setError("");
-    try {
-      const processedModel = await process3DModelFiles(files);
-      const b64 = await blobToBase64(processedModel.blob);
-      const base64Data = processedModel.prefix !== "raw" ? `${processedModel.prefix}:${b64}` : b64;
-      const mainFile = files.find(f => 
-        f.name.toLowerCase().endsWith(".obj") || 
-        f.name.toLowerCase().endsWith(".blend") ||
-        f.name.toLowerCase().endsWith(".glb") ||
-        f.name.toLowerCase().endsWith(".gltf")
-      ) || files[0];
-      const displayName = files.length > 1 ? `${mainFile.name} (+${files.length - 1} files)` : mainFile.name;
-
-      // Route directly to VPS backend to bypass Vercel's 4.5 MB function payload limit.
-      const res = await apiFetch(`${getApiBaseUrl()}/api/asset-versions/${assetId}`, {
-        method: "POST",
-        body: JSON.stringify({
-          FileFormat: "OBJ",
-          FileUrl: displayName,
-          Base64Data: base64Data,
-          PolyCount: 0,
-          TextureSize: "Unknown"
-        }),
-      });
-      if (!res.ok) throw new Error("Upload failed");
-
-      onUpdated();
-      onClose();
-    } catch (err: any) {
-      setError(err.message ?? "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   if (!mounted) return null;
 
@@ -748,22 +709,16 @@ function EditAssetModal({ assetId, onClose, onUpdated }: { assetId: number; onCl
           <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer"><X /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-slate-400 text-xs leading-relaxed">Upload a replacement OBJ model, MTL, textures, or a ZIP archive to deploy a new asset version.</p>
-          <div className="border-2 border-dashed border-white/[0.06] rounded-xl p-8 text-center hover:border-purple-500/40 transition-colors relative bg-white/[0.01]">
-            <input
-              type="file"
-              accept=".obj,.mtl,.zip,.png,.jpg,.jpeg"
-              multiple
-              onChange={handleUpload}
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              disabled={uploading}
-            />
-            <div className="flex flex-col items-center">
-              {uploading ? <Loader2 className="w-8 h-8 text-purple-400 animate-spin" /> : <Upload className="w-8 h-8 text-slate-500 mb-2" />}
-              <p className="text-white text-xs font-medium">{uploading ? "Parsing 3D files..." : "Click to select replacement files"}</p>
-            </div>
-          </div>
-          {error && <p className="text-rose-400 text-xs bg-rose-500/10 p-2.5 border border-rose-500/20 rounded-xl">{error}</p>}
+          <p className="text-slate-400 text-xs leading-relaxed">Upload a replacement OBJ, GLB, FBX, USDZ model, MTL, textures, or a ZIP archive to deploy a new asset version.</p>
+          <AssetVersionUploader
+            assetId={assetId}
+            compact={true}
+            onUploaded={(version) => {
+              toast.success(`Model uploaded successfully! Version #${version.VersionId}`);
+              onUpdated();
+              onClose();
+            }}
+          />
         </div>
         <div className="p-4 bg-white/[0.01] border-t border-white/[0.06] text-right">
           <Button onClick={onClose} variant="ghost" className="text-slate-400 hover:bg-white/[0.02] hover:text-white text-xs font-semibold">Cancel</Button>
