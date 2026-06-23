@@ -123,11 +123,39 @@ function OrderDetail({
   const handleDownload = async (versionId: number) => {
     try {
       const res = await apiFetch(`/asset-versions/${versionId}/download`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      const url = data.data?.downloadUrl ?? data.downloadUrl;
-      if (url) window.open(url, "_blank");
-      else toast.warning("Download URL not available.");
+      const resJson = await res.json();
+      if (!res.ok) throw new Error(resJson.message);
+      
+      const downloadData = resJson.data ?? resJson;
+      const base64Data = downloadData.Base64Data;
+      const fileName = downloadData.downloadUrl || `version_${versionId}.zip`;
+
+      if (base64Data) {
+        // Decode base64 and trigger local download
+        const rawBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+        const byteCharacters = atob(rawBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/octet-stream" });
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } else if (downloadData.downloadUrl) {
+        // Fallback to absolute/relative URL
+        window.open(downloadData.downloadUrl, "_blank");
+      } else {
+        toast.warning("Download data not available.");
+      }
     } catch (err: unknown) {
       setError(`Download failed: ${err instanceof Error ? err.message : String(err)}`);
     }
