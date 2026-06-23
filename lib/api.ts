@@ -1,4 +1,5 @@
 import { buildApiUrl, getApiBaseUrl } from "./apiBase";
+import { emitForceLogout } from "./authEvents";
 export { getApiBaseUrl };
 
 function getAccessToken(): string | null {
@@ -69,7 +70,9 @@ async function refreshAccessToken(): Promise<string | null> {
 
 function redirectToLogin() {
     if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-        window.location.href = "/login";
+        // Emit event so AuthContext can use router.push() (soft navigation).
+        // This avoids a full-page reload that would wipe React state (e.g. Cart).
+        emitForceLogout();
     }
 }
 export async function apiFetch(

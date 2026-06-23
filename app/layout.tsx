@@ -7,6 +7,7 @@ import { MainWrapper } from "./components/MainWrapper";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { CartDrawer } from "./components/CartDrawer";
+import { QueryProvider } from "./components/QueryProvider";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -31,21 +32,23 @@ export default function RootLayout({
         className={`${inter.variable} antialiased`}
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <CartProvider>
-            <Header />
-            <CartDrawer />
-            <MainWrapper>
-              {children}
-            </MainWrapper>
-            <Footer />
-            <Toaster
-              position="top-center"
-              richColors
-              toastOptions={{ duration: 4000 }}
-            />
-          </CartProvider>
-        </AuthProvider>
+        <QueryProvider>
+          <AuthProvider>
+            <CartProvider>
+              <Header />
+              <CartDrawer />
+              <MainWrapper>
+                {children}
+              </MainWrapper>
+              <Footer />
+              <Toaster
+                position="top-center"
+                richColors
+                toastOptions={{ duration: 4000 }}
+              />
+            </CartProvider>
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

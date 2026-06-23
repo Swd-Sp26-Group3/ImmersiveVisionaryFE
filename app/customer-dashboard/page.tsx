@@ -5,6 +5,8 @@ import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import { Package, FileText, Download, Plus, MessageSquare, Loader2, User, ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { apiFetch } from "@/lib/api";
 import { UserProfile, ApiOrder } from "./components/types";
 import { OrdersTab } from "./components/OrderTab";
@@ -26,7 +28,9 @@ interface MarketplaceOrder {
   Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
 }
 
-export default function CustomerDashboard() {
+function CustomerDashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<TabId>("orders");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -37,16 +41,14 @@ export default function CustomerDashboard() {
   const [purchases, setPurchases] = useState<MarketplaceOrder[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(true);
 
-  // Read tab from query parameters on mount
+  // Synchronize active tab with URL query parameter
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab") as TabId;
-      if (tabParam && TABS.some(t => t.id === tabParam)) {
-        setActiveTab(tabParam);
-      }
+    const tabParam = searchParams.get("tab") as TabId;
+    if (tabParam && TABS.some(t => t.id === tabParam)) {
+      setActiveTab(tabParam);
     }
-  }, []);
+  }, [searchParams]);
+
 
   useEffect(() => {
     apiFetch("/users/profile")
@@ -234,3 +236,15 @@ export default function CustomerDashboard() {
     </div>
   );
 }
+
+export default function CustomerDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#080d1a] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+      </div>
+    }>
+      <CustomerDashboardContent />
+    </Suspense>
+  );
+}

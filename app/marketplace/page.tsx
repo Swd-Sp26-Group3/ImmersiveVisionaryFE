@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/app/components/ui/card";
 import { Input } from "@/app/components/ui/input";
 import { Badge } from "@/app/components/ui/badge";
@@ -10,7 +10,7 @@ import { Search, Filter, Eye, Star, Play } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { apiFetch } from "@/lib/api";
+import { useMarketplaceAssets } from "@/hooks/queries/useAssets";
 import type { Asset } from "@/lib/types";
 
 const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1670236246338-c619dec5203c?w=400";
@@ -18,50 +18,30 @@ const DEFAULT_ASSET_IMAGE = "https://images.unsplash.com/photo-1670236246338-c61
 const getAssetImage = (asset: Asset) => asset.PreviewImage || DEFAULT_ASSET_IMAGE;
 
 export default function MarketPlacePage() {
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { data: assets = [], isLoading, isError, error, refetch } = useMarketplaceAssets();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Tất cả");
   const { isAuthenticated } = useAuth();
   const router = useRouter();
 
-  const fetchAssets = () => {
-    setLoading(true);
-    setError("");
-    apiFetch("/assets/marketplace")
-      .then((res) => { if (!res.ok) throw new Error(`${res.status}`); return res.json(); })
-      .then((data) => {
-        const rawAssets: Asset[] = data.data ?? data;
-        const validAssets = rawAssets
-          .filter(
-            (a) =>
-              a.Category &&
-              typeof a.Category === "string" &&
-              a.Category.trim() !== "" &&
-              !a.Category.includes("CATEGORY_IMAGES")
-          )
-          .map((a) => ({ ...a, Category: a.Category!.trim() })); // normalize whitespace
-        setAssets(validAssets);
-      })
-      .catch((e) => setError(`Không thể tải danh sách sản phẩm. (${e.message})`))
-      .finally(() => setLoading(false));
-  };
+  // Derived list of unique categories — memoised so it doesn't recompute on every keystroke
+  const categories = useMemo(
+    () => ["Tất cả", ...Array.from(new Set(assets.map((a) => a.Category).filter(Boolean) as string[]))],
+    [assets]
+  );
 
-  useEffect(() => { fetchAssets(); }, []);
-
-  const categories = [
-    "Tất cả",
-    ...Array.from(new Set(assets.map((a) => a.Category).filter(Boolean) as string[])),
-  ];
-
-  const filteredItems = assets.filter((item) => {
-    const matchCategory = selectedCategory === "Tất cả" || item.Category === selectedCategory;
-    const matchSearch =
-      item.AssetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.Description ?? "").toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCategory && matchSearch;
-  });
+  // Filtered asset list — memoised to avoid scanning the full array on every render
+  const filteredItems = useMemo(
+    () =>
+      assets.filter((item) => {
+        const matchCategory = selectedCategory === "Tất cả" || item.Category === selectedCategory;
+        const matchSearch =
+          item.AssetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (item.Description ?? "").toLowerCase().includes(searchQuery.toLowerCase());
+        return matchCategory && matchSearch;
+      }),
+    [assets, searchQuery, selectedCategory]
+  );
 
   const handleViewDetail = (assetId: number) => router.push(`/marketplace/${assetId}`);
 
@@ -75,12 +55,12 @@ export default function MarketPlacePage() {
     try {
       sessionStorage.setItem("checkoutProduct", JSON.stringify(checkoutPayload));
     } catch {
-      sessionStorage.removeItem("checkoutProduct"); // full → checkout will fetch from API
+      sessionStorage.removeItem("checkoutProduct"); // quota full → checkout will refetch from API
     }
     router.push(`/marketplace/checkout?productId=${asset.AssetId}`);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen -mt-25 pt-25 flex items-center justify-center" style={{ background: "var(--gradient-page)" }}>
         <LoadingSpinner size="lg" color="cyan" label="Đang tải marketplace..." />
@@ -88,10 +68,10 @@ export default function MarketPlacePage() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <div className="min-h-screen -mt-25 pt-25 flex items-center justify-center" style={{ background: "var(--gradient-page)" }}>
-        <ErrorState message={error} onRetry={fetchAssets} />
+        <ErrorState message={error?.message || "Không thể tải danh sách sản phẩm."} onRetry={refetch} />
       </div>
     );
   }
@@ -237,7 +217,7 @@ export default function MarketPlacePage() {
           ))}
         </div>
 
-        {filteredItems.length === 0 && !loading && (
+        {filteredItems.length === 0 && (
           <div className="text-center py-16">
             <p className="text-gray-400 text-lg">Không tìm thấy sản phẩm phù hợp.</p>
             <Button

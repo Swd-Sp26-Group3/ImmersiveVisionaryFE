@@ -405,14 +405,6 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="border-purple-500/30 text-purple-400 hover:bg-purple-500/10"
-                        onClick={() => onTabChange ? onTabChange("purchases") : (window.location.href = "/customer-dashboard?tab=purchases")}
-                      >
-                        <ShoppingBag className="w-4 h-4 mr-1.5" /> Hoàn tiền
-                      </Button>
-                      <Button
-                        size="sm"
                         variant="ghost"
                         className="text-slate-400 hover:text-white"
                         onClick={() => { toast.info("Order closed and moved to history."); handleUpdated({ ...order }); }}
@@ -430,12 +422,7 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
                         onClick={() => {
                           toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
                           const targetUrl = `/customer-dashboard?tab=purchases&orderId=${order.OrderId}`;
-                          window.history.pushState({}, "", targetUrl);
-                          if (onTabChange) {
-                            onTabChange("purchases");
-                          } else {
-                            window.location.href = targetUrl;
-                          }
+                          router.push(targetUrl);
                         }}
                       >
                         <ShoppingBag className="w-4 h-4 mr-1.5" /> Thanh toán ngay

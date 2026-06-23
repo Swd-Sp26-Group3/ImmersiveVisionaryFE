@@ -72,10 +72,9 @@ function OrderDetail({
 }) {
   const [versions, setVersions] = useState<AssetVersion[]>([]);
   const [vLoading, setVLoading] = useState(false);
-  const [refunding, setRefunding] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState("");
-  const { confirm, ConfirmDialogComponent } = useConfirm();
+  const { confirm: _confirm, ConfirmDialogComponent } = useConfirm();
   const [showQR, setShowQR] = useState(false);
   const [paymentId, setPaymentId] = useState<number | null>(null);
 
@@ -130,41 +129,26 @@ function OrderDetail({
     }
   };
 
-  const handleRefund = async () => {
-    const ok = await confirm({
-      title: "Yêu cầu hoàn tiền",
-      message: "Bạn có chắc muốn yêu cầu hoàn tiền cho đơn hàng này không?",
-      confirmLabel: "Yêu cầu hoàn tiền",
-      variant: "warning",
-    });
-    if (!ok) return;
-    setRefunding(true);
-    setError("");
-    try {
-      const res = await apiFetch(`/marketplace-orders/${order.MpOrderId}/refund`, { method: "PUT" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? "Refund failed");
-      onRefunded(data.data ?? data);
-      toast.success("Đã gửi yêu cầu hoàn tiền.");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Hoàn tiền thất bại.");
-    } finally {
-      setRefunding(false);
-    }
-  };
-
   const handlePayNow = async () => {
     setPaying(true);
     setError("");
     try {
+      // BUG FIX: Must include MpOrderId in the payment so the SePay webhook
+      // can parse "DH{MpOrderId}" from the transfer content and match it.
       const payRes = await apiFetch("/payments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ AssetId: order.AssetId, OrderId: null, Amount: order.Price, PaymentType: "ASSET" }),
+        body: JSON.stringify({
+          AssetId: order.AssetId,
+          MpOrderId: order.MpOrderId,   // ← critical fix
+          OrderId: null,
+          Amount: order.Price,
+          PaymentType: "ASSET",
+        }),
       });
       const payData = await payRes.json();
       if (!payRes.ok) throw new Error(payData.message ?? "Failed to create payment");
-      const pid = payData.data?.PaymentId ?? payData.paymentId;
+      const pid = payData.data?.PaymentId ?? payData.PaymentId;
 
       setPaymentId(pid);
       setShowQR(true);
@@ -287,19 +271,8 @@ function OrderDetail({
             </div>
           )}
 
-          {/* Refund */}
-          {(order.Status === "PAID" || order.Status === "DELIVERED") && (
-            <Button
-              onClick={handleRefund}
-              disabled={refunding}
-              variant="outline"
-              className="w-full border-red-500/40 text-red-400 hover:text-red-300 hover:border-red-400 hover:bg-red-500/5"
-            >
-              {refunding
-                ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />Đang xử lý...</>
-                : <><RotateCcw className="w-4 h-4 mr-2" />Yêu cầu hoàn tiền</>}
-            </Button>
-          )}
+
+
         </div>
       </div>
       {ConfirmDialogComponent}
@@ -319,10 +292,10 @@ function OrderDetail({
               </p>
             </div>
 
-            {/* QR Code */}
+             {/* QR Code */}
             <div className="bg-white p-3 rounded-xl max-w-[240px] mx-auto shadow-inner">
               <img
-                src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${order.Price}&des=SEVQR+TKPIMV+DH${order.MpOrderId}`}
+                src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${order.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
                 alt="VietQR Payment Code"
                 className="w-full h-auto rounded-lg"
               />
@@ -362,10 +335,10 @@ function OrderDetail({
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Nội dung CK</span>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-mono font-bold text-yellow-400">SEVQR TKPIMV DH{order.MpOrderId}</span>
+                  <span className="font-mono font-bold text-yellow-400">SEVQR TKPIMV DH{paymentId}</span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`SEVQR TKPIMV DH${order.MpOrderId}`);
+                      navigator.clipboard.writeText(`SEVQR TKPIMV DH${paymentId}`);
                       toast.success("Đã sao chép nội dung");
                     }}
                     className="text-cyan-400 hover:text-cyan-300 p-0.5"
@@ -382,42 +355,47 @@ function OrderDetail({
               <span>Hệ thống đang kiểm tra tự động...</span>
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <Button
-                onClick={async () => {
-                  if (!paymentId) return;
-                  setPaying(true);
-                  try {
-                    const res = await apiFetch(`/payments/${paymentId}`);
-                    if (!res.ok) throw new Error("Không thể kiểm tra trạng thái thanh toán.");
-                    const data = await res.json();
-                    const payment = data.data ?? data;
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    if (!paymentId) return;
+                    setPaying(true);
+                    try {
+                      // Fetch status to verify webhook processed it
+                      const res = await apiFetch(`/payments/${paymentId}`);
+                      if (!res.ok) throw new Error("Không thể kiểm tra trạng thái thanh toán.");
+                      const data = await res.json();
+                      const payment = data.data ?? data;
 
-                    if (payment.PaymentStatus === "PAID") {
-                      setShowQR(false);
-                      toast.success("Thanh toán thành công!");
-                      onRefunded({ ...order, Status: "PAID" });
-                    } else {
-                      toast.error("Giao dịch chuyển khoản chưa được ghi nhận. Vui lòng đợi trong giây lát hoặc kiểm tra lại.");
+                      if (payment.PaymentStatus === "PAID") {
+                        setShowQR(false);
+                        toast.success("Thanh toán thành công!");
+                        onRefunded({ ...order, Status: "PAID" });
+                      } else {
+                        toast.error("Giao dịch chuyển khoản chưa được ghi nhận. Vui lòng đợi trong giây lát hoặc kiểm tra lại.");
+                      }
+                    } catch (err: any) {
+                      toast.error(err.message ?? "Không thể xác nhận giao dịch. Vui lòng thử lại.");
+                    } finally {
+                      setPaying(false);
                     }
-                  } catch (err: any) {
-                    toast.error(err.message ?? "Không thể xác nhận giao dịch. Vui lòng thử lại.");
-                  } finally {
-                    setPaying(false);
-                  }
-                }}
-                disabled={paying}
-                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white py-4 text-xs font-semibold rounded-xl"
-              >
-                Tôi đã chuyển khoản
-              </Button>
-              <Button
-                onClick={() => setShowQR(false)}
-                variant="outline"
-                className="border-slate-800 text-slate-400 hover:text-white py-4 text-xs"
-              >
-                Đóng
-              </Button>
+                  }}
+                  disabled={paying}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white py-4 text-xs font-semibold rounded-xl"
+                >
+                  Tôi đã chuyển khoản
+                </Button>
+                <Button
+                  onClick={() => setShowQR(false)}
+                  variant="outline"
+                  className="border-slate-800 text-slate-400 hover:text-white py-4 text-xs px-4"
+                >
+                  Đóng
+                </Button>
+              </div>
+
+
             </div>
           </motion.div>
         </div>
@@ -455,22 +433,38 @@ export function PurchasesTab() {
 
   useEffect(() => { fetchOrders(); }, []);
 
+  const [retryCount, setRetryCount] = useState(0);
+
   // Auto-select order based on orderId URL query parameter (for custom order payments)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const orderIdParam = params.get("orderId");
       if (orderIdParam && orders.length > 0) {
-        const matching = orders.find(o => (o as any).OrderId === Number(orderIdParam));
+        const numericId = Number(orderIdParam);
+        // Try matching by CreativeOrder.OrderId (stored in Asset3D.OrderId → joined as OrderId)
+        // Fall back to MpOrderId for direct marketplace order links
+        const matching = orders.find(
+          (o) => Number(o.OrderId) === numericId || Number(o.MpOrderId) === numericId
+        );
         if (matching) {
           setSelected(matching);
           // Clean up the URL parameter without page reload
           const newUrl = window.location.pathname + "?tab=purchases";
           window.history.pushState({}, "", newUrl);
+        } else if (retryCount < 2) {
+          // If not found yet, backend might still be reconciling the DELIVERED order.
+          // Retry fetching orders after 1.5 seconds.
+          const timer = setTimeout(() => {
+            setRetryCount((prev) => prev + 1);
+            fetchOrders();
+          }, 1500);
+          return () => clearTimeout(timer);
         }
       }
     }
-  }, [orders]);
+  }, [orders, retryCount]);
+
 
   const handleRefunded = (updated: MarketplaceOrder) => {
     setOrders((prev) => prev.map((o) => (o.MpOrderId === updated.MpOrderId ? updated : o)));

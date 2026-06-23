@@ -438,7 +438,7 @@ function CheckoutContent() {
                   {/* QR Code Frame */}
                   <div className="flex flex-col items-center justify-center bg-white p-4 rounded-2xl max-w-[280px] mx-auto shadow-xl ring-4 ring-cyan-500/10">
                     <img
-                      src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${asset.Price}&des=SEVQR+TKPIMV+DH${mpOrderId}`}
+                      src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${asset.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
                       alt="VietQR Payment Code"
                       className="w-full h-auto rounded-lg"
                     />
@@ -483,11 +483,11 @@ function CheckoutContent() {
                       <span className="text-slate-400">Nội dung chuyển khoản</span>
                       <div className="flex items-center gap-2">
                         <span className="text-yellow-400 font-bold font-mono">
-                          SEVQR TKPIMV DH{mpOrderId}
+                          SEVQR TKPIMV DH{paymentId}
                         </span>
                         <button
                           onClick={() => {
-                            navigator.clipboard.writeText(`SEVQR TKPIMV DH${mpOrderId}`);
+                            navigator.clipboard.writeText(`SEVQR TKPIMV DH${paymentId}`);
                             toast.success("Đã sao chép nội dung chuyển khoản");
                           }}
                           className="text-cyan-400 hover:text-cyan-300 p-0.5"
@@ -501,7 +501,7 @@ function CheckoutContent() {
                   {/* Warning / Notes */}
                   <div className="rounded-xl bg-yellow-500/5 border border-yellow-500/20 p-3 text-[11px] text-slate-400 space-y-1">
                     <p className="text-yellow-400 font-semibold mb-1">⚠️ Lưu ý quan trọng:</p>
-                    <p>• Nhập chính xác nội dung chuyển khoản <strong className="text-white">SEVQR TKPIMV DH{mpOrderId}</strong> để được duyệt tự động.</p>
+                    <p>• Nhập chính xác nội dung chuyển khoản <strong className="text-white">SEVQR TKPIMV DH{paymentId}</strong> để được duyệt tự động.</p>
                     <p>• Không tự ý chỉnh sửa số tiền chuyển khoản.</p>
                   </div>
 
@@ -511,52 +511,56 @@ function CheckoutContent() {
                     <span>Hệ thống đang kiểm tra giao dịch tự động...</span>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                    <Button
-                      onClick={async () => {
-                        if (!paymentId) return;
-                        setStep("confirming_payment");
-                        try {
-                          const res = await apiFetch(`/payments/${paymentId}`);
-                          if (!res.ok) throw new Error("Không thể kiểm tra trạng thái thanh toán.");
-                          const data = await res.json();
-                          const payment = data.data ?? data;
+                  <div className="flex flex-col gap-2.5 pt-2">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        onClick={async () => {
+                          if (!paymentId) return;
+                          setStep("confirming_payment");
+                          try {
+                            const res = await apiFetch(`/payments/${paymentId}`);
+                            if (!res.ok) throw new Error("Không thể kiểm tra trạng thái thanh toán.");
+                            const data = await res.json();
+                            const payment = data.data ?? data;
 
-                          if (payment.PaymentStatus === "PAID") {
-                            setStep("done");
-                            sessionStorage.removeItem("checkoutProduct");
-                            toast.success("Thanh toán thành công!");
-                            setTimeout(() => {
-                              router.push(
-                                `/marketplace/order-success?orderId=${mpOrderId}` +
-                                `&productId=${assetId}` +
-                                `&name=${encodeURIComponent(asset?.AssetName ?? "Asset")}`
-                              );
-                            }, 1200);
-                          } else {
+                            if (payment.PaymentStatus === "PAID") {
+                              setStep("done");
+                              sessionStorage.removeItem("checkoutProduct");
+                              toast.success("Thanh toán thành công!");
+                              setTimeout(() => {
+                                router.push(
+                                  `/marketplace/order-success?orderId=${mpOrderId}` +
+                                  `&productId=${assetId}` +
+                                  `&name=${encodeURIComponent(asset?.AssetName ?? "Asset")}`
+                                );
+                              }, 1200);
+                            } else {
+                              setStep("show_qr");
+                              toast.error("Giao dịch chuyển khoản chưa được ghi nhận. Vui lòng đợi trong giây lát hoặc kiểm tra lại.");
+                            }
+                          } catch (err: any) {
                             setStep("show_qr");
-                            toast.error("Giao dịch chuyển khoản chưa được ghi nhận. Vui lòng đợi trong giây lát hoặc kiểm tra lại.");
+                            toast.error(err.message ?? "Không thể xác nhận giao dịch. Vui lòng thử lại.");
                           }
-                        } catch (err: any) {
-                          setStep("show_qr");
-                          toast.error(err.message ?? "Không thể xác nhận giao dịch. Vui lòng thử lại.");
-                        }
-                      }}
-                      className="flex-1 py-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold rounded-xl"
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" /> Tôi đã chuyển khoản
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setStep("review");
-                        setMpOrderId(null);
-                        setPaymentId(null);
-                      }}
-                      variant="outline"
-                      className="border-slate-700 text-slate-400 hover:text-white py-5"
-                    >
-                      Hủy giao dịch
-                    </Button>
+                        }}
+                        className="flex-1 py-5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold rounded-xl"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" /> Tôi đã chuyển khoản
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setStep("review");
+                          setMpOrderId(null);
+                          setPaymentId(null);
+                        }}
+                        variant="outline"
+                        className="border-slate-700 text-slate-400 hover:text-white py-5"
+                      >
+                        Hủy giao dịch
+                      </Button>
+                    </div>
+
+
                   </div>
                 </div>
               </motion.div>

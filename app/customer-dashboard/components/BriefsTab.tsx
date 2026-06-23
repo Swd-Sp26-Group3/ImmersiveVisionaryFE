@@ -396,12 +396,7 @@ export function BriefsTab({ onTabChange }: { onTabChange?: (tab: string) => void
                       onClick={() => {
                         toast.success("Đang chuyển hướng sang mục Mua hàng để thanh toán...");
                         const targetUrl = `/customer-dashboard?tab=purchases&orderId=${order.OrderId}`;
-                        window.history.pushState({}, "", targetUrl);
-                        if (onTabChange) {
-                          onTabChange("purchases");
-                        } else {
-                          window.location.href = targetUrl;
-                        }
+                        router.push(targetUrl);
                       }}
                     >
                       <ShoppingBag className="w-3.5 h-3.5 mr-1" /> Thanh toán ngay

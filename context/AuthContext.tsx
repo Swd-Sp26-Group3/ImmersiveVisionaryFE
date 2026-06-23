@@ -1,12 +1,13 @@
 "use client";
 import {
     createContext,
-
     useContext,
     useEffect,
     useState,
+    useCallback,
     ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import {
     User,
@@ -15,6 +16,8 @@ import {
     getUserFromStorage,
 } from "@/lib/authService";
 import { getHomeByRole } from "@/lib/roleRoutes";
+import { clearTokens } from "@/lib/api";
+import { onForceLogout } from "@/lib/authEvents";
 
 interface AuthContextType {
     user: User | null;
@@ -25,14 +28,11 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-const clearTokens = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("user");
-    // xóa thêm cookie nếu cần
-};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const router = useRouter();
 
     // Rehydrate from localStorage on mount
     useEffect(() => {
@@ -43,16 +43,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         setIsLoading(false);
 
+        // Periodic check: if both cookie and localStorage token disappear,
+        // another tab likely triggered a logout — sync UI state.
         const interval = setInterval(() => {
             const cookieToken = document.cookie
                 .split("; ")
-                .find(r => r.startsWith("accessToken="))
+                .find((r) => r.startsWith("accessToken="))
                 ?.split("=")[1];
-
             const localToken = localStorage.getItem("accessToken");
 
-            // Nếu local có mà cookie mất (hết hạn), để apiFetch tự refresh.
-            // Chỉ clear nếu chắc chắn user đã logout từ tab khác (cả 2 đều mất)
             if (!cookieToken && !localToken && user) {
                 setUser(null);
             }
@@ -61,12 +60,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => clearInterval(interval);
     }, []);
 
+    /**
+     * Listen for force-logout events emitted by api.ts when a token refresh fails.
+     * Using router.push() here preserves all React state (Cart, etc.) — no full reload.
+     */
+    const handleForceLogout = useCallback(() => {
+        setUser(null);
+        clearTokens();
+        router.push("/login");
+    }, [router]);
+
+    useEffect(() => {
+        const unsubscribe = onForceLogout(handleForceLogout);
+        return unsubscribe;
+    }, [handleForceLogout]);
+
     const login = async (email: string, password: string) => {
         const loggedInUser = await apiLogin(email, password);
         setUser(loggedInUser);
         const destination = getHomeByRole(loggedInUser.role ?? "CUSTOMER");
-        // Hard navigation: buộc browser reload hoàn toàn để middleware đọc cookie mới
-        // Dùng replace để không để lại /login trong history
+        // Hard navigation on login: forces middleware to re-read the new cookie.
+        // This is intentional — we need the server to acknowledge the fresh token.
         window.location.replace(destination);
     };
 
@@ -74,11 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             await apiLogout();
         } catch {
-            // ignore API error, vẫn logout local
+            // ignore API error, still clear local session
         } finally {
             setUser(null);
-            // Hard navigation: buộc browser reload hoàn toàn để cookie cũ
-            // không còn được cache trong request headers của middleware
+            clearTokens();
+            // Hard navigation on logout: ensures cookie is fully purged from
+            // middleware before the next request goes out.
             window.location.replace("/login");
         }
     };

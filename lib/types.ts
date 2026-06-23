@@ -21,6 +21,8 @@ export interface MarketplaceOrder {
   Status: "PENDING" | "PAID" | "DELIVERED" | "REFUNDED";
   CreatedAt: string;
   AssetName?: string | null;
+  /** CreativeOrder.OrderId — populated when this MarketplaceOrder was created from a custom order */
+  OrderId?: number | null;
   Category?: string | null;
   Industry?: string | null;
   SellerCompanyName?: string | null;
