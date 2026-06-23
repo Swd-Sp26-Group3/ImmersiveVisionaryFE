@@ -14,6 +14,9 @@ function VietQRConfirmContent() {
     const [mpOrderId, setMpOrderId] = useState<number | null>(null);
 
     useEffect(() => {
+        let isCancelled = false;
+        let intervalId: NodeJS.Timeout;
+
         const verifyPayment = async () => {
             try {
                 const paymentIdStr = searchParams.get("paymentId");
@@ -35,38 +38,52 @@ function VietQRConfirmContent() {
                 const payment = payData.data ?? payData;
 
                 if (payment.PaymentStatus === "PAID") {
+                    if (isCancelled) return;
                     setStatus("success");
                     setMessage("Payment was verified successfully!");
-                } else {
-                    setStatus("loading");
-                    setMessage("Payment is still pending. We are waiting for banking notification.");
-                    return;
-                }
+                    if (intervalId) clearInterval(intervalId);
 
-                const assetId = payment.AssetId;
-                if (assetId) {
-                    // Find the MarketplaceOrder associated with this AssetId
-                    const orderRes = await apiFetch("/marketplace-orders/my");
-                    if (orderRes.ok) {
-                        const orderData = await orderRes.json();
-                        const orders: any[] = orderData.data ?? orderData;
-                        const matchingOrder = orders.find(
-                            (o: any) => o.AssetId === assetId && (o.Status === "PAID" || o.Status === "DELIVERED")
-                        );
-                        if (matchingOrder) {
-                            setMpOrderId(matchingOrder.MpOrderId);
+                    const assetId = payment.AssetId;
+                    if (assetId) {
+                        // Find the MarketplaceOrder associated with this AssetId
+                        const orderRes = await apiFetch("/marketplace-orders/my");
+                        if (orderRes.ok) {
+                            const orderData = await orderRes.json();
+                            const orders: any[] = orderData.data ?? orderData;
+                            const matchingOrder = orders.find(
+                                (o: any) => o.AssetId === assetId && (o.Status === "PAID" || o.Status === "DELIVERED")
+                            );
+                            if (matchingOrder && !isCancelled) {
+                                setMpOrderId(matchingOrder.MpOrderId);
+                            }
                         }
                     }
+                } else {
+                    if (isCancelled) return;
+                    setStatus("loading");
+                    setMessage("Payment is still pending. We are waiting for banking notification.");
                 }
 
             } catch (err: any) {
                 console.error("VietQR Confirm Processing Error:", err);
-                setStatus("error");
-                setMessage(err.message ?? "An error occurred while confirming your payment.");
+                if (!isCancelled) {
+                    setStatus("error");
+                    setMessage(err.message ?? "An error occurred while confirming your payment.");
+                    if (intervalId) clearInterval(intervalId);
+                }
             }
         };
 
+        // Initial run
         verifyPayment();
+
+        // Start polling
+        intervalId = setInterval(verifyPayment, 4000);
+
+        return () => {
+            isCancelled = true;
+            clearInterval(intervalId);
+        };
     }, [searchParams]);
 
     if (status === "loading") {

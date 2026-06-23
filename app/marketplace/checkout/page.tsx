@@ -53,6 +53,7 @@ function CheckoutContent() {
   const [errorMsg, setErrorMsg] = useState("");
   const [mpOrderId, setMpOrderId] = useState<number | null>(null);
   const [paymentId, setPaymentId] = useState<number | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [hasCompany, setHasCompany] = useState<boolean | null>(null);
 
@@ -66,6 +67,9 @@ function CheckoutContent() {
         if (res.ok) {
           const data = await res.json();
           const p = data.data ?? data;
+          if (p.qrUrl) {
+            setQrUrl(p.qrUrl);
+          }
           if (p.PaymentStatus === "PAID") {
             clearInterval(intervalId);
             setStep("done");
@@ -186,6 +190,9 @@ function CheckoutContent() {
     }
     if (!res.ok) throw new Error(data.message ?? "Failed to create payment");
     const payment = data.data ?? data;
+    if (payment.qrUrl) {
+      setQrUrl(payment.qrUrl);
+    }
     return payment.PaymentId ?? payment.paymentId ?? null;
   };
 
@@ -438,7 +445,7 @@ function CheckoutContent() {
                   {/* QR Code Frame */}
                   <div className="flex flex-col items-center justify-center bg-white p-4 rounded-2xl max-w-[280px] mx-auto shadow-xl ring-4 ring-cyan-500/10">
                     <img
-                      src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${asset.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
+                      src={qrUrl || `https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${asset.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
                       alt="VietQR Payment Code"
                       className="w-full h-auto rounded-lg"
                     />

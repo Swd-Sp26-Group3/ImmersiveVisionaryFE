@@ -77,6 +77,7 @@ function OrderDetail({
   const { confirm: _confirm, ConfirmDialogComponent } = useConfirm();
   const [showQR, setShowQR] = useState(false);
   const [paymentId, setPaymentId] = useState<number | null>(null);
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   // Poll payment status when QR code is shown
   useEffect(() => {
@@ -88,6 +89,9 @@ function OrderDetail({
         if (res.ok) {
           const data = await res.json();
           const p = data.data ?? data;
+          if (p.qrUrl) {
+            setQrUrl(p.qrUrl);
+          }
           if (p.PaymentStatus === "PAID") {
             clearInterval(intervalId);
             setShowQR(false);
@@ -148,7 +152,11 @@ function OrderDetail({
       });
       const payData = await payRes.json();
       if (!payRes.ok) throw new Error(payData.message ?? "Failed to create payment");
-      const pid = payData.data?.PaymentId ?? payData.PaymentId;
+      const p = payData.data ?? payData;
+      const pid = p.PaymentId ?? p.paymentId ?? null;
+      if (p.qrUrl) {
+        setQrUrl(p.qrUrl);
+      }
 
       setPaymentId(pid);
       setShowQR(true);
@@ -295,7 +303,7 @@ function OrderDetail({
              {/* QR Code */}
             <div className="bg-white p-3 rounded-xl max-w-[240px] mx-auto shadow-inner">
               <img
-                src={`https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${order.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
+                src={qrUrl || `https://qr.sepay.vn/img?acc=109879775018&bank=VietinBank&amount=${order.Price}&des=SEVQR+TKPIMV+DH${paymentId}`}
                 alt="VietQR Payment Code"
                 className="w-full h-auto rounded-lg"
               />
