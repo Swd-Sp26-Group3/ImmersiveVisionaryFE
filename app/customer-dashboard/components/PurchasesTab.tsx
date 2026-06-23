@@ -132,7 +132,12 @@ function OrderDetail({
 
       if (base64Data) {
         // Decode base64 and trigger local download
-        const rawBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+        let rawBase64 = base64Data;
+        if (rawBase64.includes(',')) {
+          rawBase64 = rawBase64.split(',')[1];
+        } else if (rawBase64.includes(':')) {
+          rawBase64 = rawBase64.split(':')[1];
+        }
         const byteCharacters = atob(rawBase64);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {

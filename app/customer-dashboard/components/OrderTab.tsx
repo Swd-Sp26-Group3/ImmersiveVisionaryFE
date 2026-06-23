@@ -260,8 +260,13 @@ export function OrdersTab({ onTabChange }: { onTabChange?: (tab: string) => void
         
         if (fullAtt.Base64Data) {
           try {
-            // Remove data:mime/type;base64, if present
-            const base64Data = fullAtt.Base64Data.includes(',') ? fullAtt.Base64Data.split(',')[1] : fullAtt.Base64Data;
+            // Remove data:mime/type;base64, or zip:, gzip: prefixes if present
+            let base64Data = fullAtt.Base64Data;
+            if (base64Data.includes(',')) {
+              base64Data = base64Data.split(',')[1];
+            } else if (base64Data.includes(':')) {
+              base64Data = base64Data.split(':')[1];
+            }
             const byteCharacters = atob(base64Data);
             const byteNumbers = new Array(byteCharacters.length);
             for (let i = 0; i < byteCharacters.length; i++) {
