@@ -168,7 +168,7 @@ function CheckoutContent() {
   };
 
   // Step 2 — POST /payments
-  const createPayment = async (): Promise<number | null> => {
+  const createPayment = async (orderId: number): Promise<number | null> => {
     if (!asset?.Price || asset.Price <= 0) return null;
     setStep("creating_payment");
     const res = await apiFetch("/payments", {
@@ -176,7 +176,7 @@ function CheckoutContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         AssetId: Number(assetId),
-        MpOrderId: mpOrderId,
+        MpOrderId: orderId,  // ← dùng trực tiếp, không qua state (tránh stale closure)
         Amount: asset.Price,
         PaymentType: "ASSET",
       }),
@@ -196,29 +196,11 @@ function CheckoutContent() {
     return payment.PaymentId ?? payment.paymentId ?? null;
   };
 
-  // Step 3 — POST /payments/confirm  (BR-16: customer confirms immediately)
-  const confirmPayment = async (pid: number): Promise<void> => {
-    setStep("confirming_payment");
-    const res = await apiFetch("/payments/confirm", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paymentId: pid }),
-    });
-    const text = await res.text();
-    let data: any = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
-      if (!res.ok) throw new Error(text || `Failed to confirm payment (Status ${res.status})`);
-    }
-    if (!res.ok) throw new Error(data.message ?? "Failed to confirm payment");
-  };
-
   const handleSubmit = async () => {
     setErrorMsg("");
     try {
       const oid = await createOrder();
-      const pid = await createPayment();
+      const pid = await createPayment(oid); // ← truyền oid trực tiếp, không chờ state
 
       if (pid) {
         setPaymentId(pid);
