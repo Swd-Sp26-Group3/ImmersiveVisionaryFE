@@ -46,6 +46,17 @@ export function Footer() {
               >
                 <Facebook className="w-4 h-4" />
               </a>
+              <a
+                href="https://www.tiktok.com/@immersivevisionary"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="TikTok"
+                className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.02 1.59 4.23.95.89 2.22 1.45 3.52 1.62V9.7c-1.78-.17-3.4-.95-4.58-2.27V15c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c.35 0 .69.02 1.03.07V9.7c-1-.28-2.07-.15-2.99.39-.92.54-1.57 1.45-1.8 2.5-.23 1.05-.03 2.16.56 3.07.59.91 1.55 1.51 2.63 1.67.14.02.29.03.44.03 2.45 0 4.45-2 4.45-4.45V0h.24z" />
+                </svg>
+              </a>
             </div>
           </div>
 
@@ -64,6 +75,13 @@ export function Footer() {
                 <li>
                   <Link href="/marketplace" className="text-gray-400 hover:text-indigo-400 transition-colors">
                     Marketplace
+                  </Link>
+                </li>
+              )}
+              {!isRestricted && (
+                <li>
+                  <Link href="/my-team-adventure" className="text-gray-400 hover:text-indigo-400 transition-colors">
+                    My Team Adventure
                   </Link>
                 </li>
               )}

@@ -45,6 +45,7 @@ export function Header() {
   const navLinks = [
     { name: "Giới thiệu",  path: "/",             requiresAuth: false },
     { name: "Marketplace", path: "/marketplace",  requiresAuth: false },
+    { name: "My Team Adventure", path: "/my-team-adventure", requiresAuth: false },
     { name: "Đặt hàng",   path: "/order",         requiresAuth: true  },
     { name: "Hỗ trợ",     path: "/support",       requiresAuth: true  },
   ].filter((link) => {
